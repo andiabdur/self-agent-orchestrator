@@ -20,6 +20,23 @@ echo ""
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$INSTALL_DIR"
 
+# Check if we are in the correct project directory, otherwise clone or download it
+if [ ! -f "package.json" ] || [ ! -f "server.js" ]; then
+    echo -e "${YELLOW}📂 Current directory does not contain project files. Setting up in ./self-agent-orchestrator...${NC}"
+    if command -v git &> /dev/null; then
+        git clone https://github.com/andiabdur/self-agent-orchestrator.git
+        cd self-agent-orchestrator
+        INSTALL_DIR="$(pwd)"
+    else
+        echo -e "${CYAN}-> git not found. Downloading project ZIP from GitHub...${NC}"
+        curl -L https://github.com/andiabdur/self-agent-orchestrator/archive/refs/heads/main.zip -o temp-orchestrator.zip
+        unzip temp-orchestrator.zip
+        rm temp-orchestrator.zip
+        cd self-agent-orchestrator-main
+        INSTALL_DIR="$(pwd)"
+    fi
+fi
+
 # 1. Dependency checks: Node.js & NPM
 echo -e "🔍 Checking Node.js and NPM..."
 if ! command -v node &> /dev/null; then

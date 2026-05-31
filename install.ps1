@@ -16,6 +16,32 @@ Write-Host ""
 $INSTALL_DIR = Get-Location
 $INSTALL_DIR_PATH = $INSTALL_DIR.Path
 
+# Check if we are in the correct project directory, otherwise clone or download it
+if (-not (Test-Path "$INSTALL_DIR_PATH\package.json") -or -not (Test-Path "$INSTALL_DIR_PATH\server.js")) {
+    Write-Host "📂 Current directory does not contain project files. Setting up in ./self-agent-orchestrator..." -ForegroundColor Yellow
+    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+    if ($gitCmd) {
+        git clone https://github.com/andiabdur/self-agent-orchestrator.git
+        cd self-agent-orchestrator
+        $INSTALL_DIR = Get-Location
+        $INSTALL_DIR_PATH = $INSTALL_DIR.Path
+    } else {
+        Write-Host "-> git not found. Downloading project ZIP from GitHub..." -ForegroundColor Cyan
+        $zipUrl = "https://github.com/andiabdur/self-agent-orchestrator/archive/refs/heads/main.zip"
+        $zipPath = "$env:TEMP\self-agent-orchestrator.zip"
+        
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
+        
+        Write-Host "-> Extracting ZIP..." -ForegroundColor Cyan
+        Expand-Archive -Path $zipPath -DestinationPath "$INSTALL_DIR_PATH" -Force
+        
+        cd "self-agent-orchestrator-main"
+        $INSTALL_DIR = Get-Location
+        $INSTALL_DIR_PATH = $INSTALL_DIR.Path
+    }
+}
+
 # 1. Dependency checks: Node.js & NPM
 Write-Host "🔍 Checking Node.js and NPM..."
 $nodeFound = $false
