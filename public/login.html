@@ -352,12 +352,13 @@
 
   // ─── Obfuscated Copyright Footer & Anti-Tamper ────────────
   function protectLicense() {
-    const b = "Q29weXJpZ2h0IMKpIDIwMjYgYW5kaWFiZHVyLiBBbGwgcmlnaHRzIHJlc2VydmVkLg==";
-    const txt = atob(b);
+    const b = "YnkgYW5kaWFiZHVyLg==";
+    const currentYear = new Date().getFullYear();
+    const txt = "Copyright © " + currentYear + " " + atob(b);
     
     const footer = document.createElement('div');
     footer.id = 'app-license-footer';
-    footer.style.cssText = 'position:fixed;bottom:10px;left:0;right:0;text-align:center;font-size:10.5px;color:rgba(150,150,150,0.3);font-family:monospace;pointer-events:none;z-index:9999;user-select:none;-webkit-user-select:none;';
+    footer.style.cssText = 'position:fixed;bottom:10px;left:0;right:0;text-align:center;font-size:11px;color:var(--toggle-color);opacity:0.75;font-family:monospace;pointer-events:none;z-index:9999;user-select:none;-webkit-user-select:none;font-weight:500;';
     footer.textContent = txt;
     document.body.appendChild(footer);
 
