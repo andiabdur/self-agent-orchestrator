@@ -797,6 +797,18 @@
         renderSessions();
         updateHeaderTitle();
         break;
+      case 'session_cleared':
+        clearMessages();
+        state.sessionId = null;
+        try { localStorage.removeItem('sessionId'); } catch {}
+        state.inTurn = false;
+        state.aborting = false;
+        state.lastAssistantBubble = null;
+        updateSendButton();
+        updateHeaderTitle();
+        renderSessions();
+        renderInfoBubble(m.message);
+        break;
       case 'cwd_set':
         state.cwd = m.cwd; els.cwdInput.value = m.cwd;
         els.headerCwd.textContent = shortCwd(m.cwd);
@@ -1046,6 +1058,20 @@
     const dur = m.duration_ms ? `${(m.duration_ms/1000).toFixed(1)}s` : '';
     el.textContent = [dur, cost].filter(Boolean).join(' · ');
     els.messages.appendChild(el);
+  }
+
+  function renderInfoBubble(message) {
+    removeEmptyState();
+    const el = document.createElement('div');
+    el.className = 'msg-text';
+    el.style.borderColor = 'var(--accent)';
+    el.style.borderStyle = 'dashed';
+    el.style.background = 'var(--bg-3)';
+    el.style.color = 'var(--text-em)';
+    el.style.fontSize = '12px';
+    el.textContent = 'ℹ ' + message;
+    els.messages.appendChild(el);
+    scrollToBottom();
   }
 
   function renderError(message) {

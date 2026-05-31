@@ -368,7 +368,10 @@ wss.on('connection', (ws) => {
 
     if (m.type === 'set_cwd') {
       currentCwd = m.cwd || DEFAULT_CWD;
-      if (currentSessionId) upsertSessionMeta(currentSessionId, { cwd: currentCwd });
+      if (currentSessionId) {
+        currentSessionId = null;
+        send({ kind: 'session_cleared', message: 'Direktori berubah — session sebelumnya dilepas. Chat baru akan dibuat di direktori baru.' });
+      }
       send({ kind: 'cwd_set', cwd: currentCwd });
       return;
     }
@@ -406,6 +409,16 @@ wss.on('connection', (ws) => {
       if (existing && existing.status === 'running') {
         send({ kind: 'error', message: 'A turn is already running for this session' });
         return;
+      }
+
+      // Guard: if the session's stored CWD doesn't match current CWD, clear session
+      // to avoid claude failing with "No conversation found".
+      if (currentSessionId) {
+        const meta = loadIndex().find(s => s.id === currentSessionId);
+        if (meta && meta.cwd !== currentCwd) {
+          currentSessionId = null;
+          send({ kind: 'session_cleared', message: 'Session sebelumnya dibuat di direktori berbeda. Membuat chat baru.' });
+        }
       }
 
       const text = String(m.text || '');
