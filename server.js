@@ -482,6 +482,7 @@ wss.on('connection', (ws) => {
           // First time we see session_id: re-key the activeRuns map
           if (evt.session_id && !run.sessionId) {
             run.sessionId = evt.session_id;
+            currentSessionId = evt.session_id;
             activeRuns.delete(initialKey);
             activeRuns.set(run.sessionId, run);
             // Move any subscribers' attachedKey reference would be stale, but
