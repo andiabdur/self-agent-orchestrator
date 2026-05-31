@@ -3,6 +3,11 @@
 
 $ErrorActionPreference = "Stop"
 
+# Bypass execution policy for the current process session (fixes npm.ps1 blocked errors)
+try {
+    Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+} catch {}
+
 Write-Host "==============================================" -ForegroundColor Blue
 Write-Host "    Self Agent Orchestrator Windows Installer" -ForegroundColor Blue
 Write-Host "==============================================" -ForegroundColor Blue
@@ -125,11 +130,12 @@ if (Test-Node) {
 Write-Host "`n🔍 Checking Claude CLI..."
 $claudePath = ""
 
-# Try standard PATH search
-$claudeExe = Get-Command claude -ErrorAction SilentlyContinue
-if ($claudeExe) {
-    $claudePath = $claudeExe.Source
-} else {
+function Find-Claude {
+    $claudeExe = Get-Command claude -ErrorAction SilentlyContinue
+    if ($claudeExe) {
+        return $claudeExe.Source
+    }
+    
     # Check default locations
     $userProfile = $env:USERPROFILE
     $possiblePaths = @(
@@ -138,17 +144,40 @@ if ($claudeExe) {
     )
     foreach ($path in $possiblePaths) {
         if (Test-Path $path) {
-            $claudePath = $path
-            break
+            return $path
         }
+    }
+    return $null
+}
+
+$claudePath = Find-Claude
+
+if (-not $claudePath) {
+    Write-Host "⚠ Claude CLI not found. Attempting to install @anthropic-ai/claude-code globally..." -ForegroundColor Yellow
+    try {
+        # Run npm.cmd directly to avoid PowerShell script execution policy issues with npm.ps1
+        $proc = Start-Process -FilePath "npm.cmd" -ArgumentList "install -g @anthropic-ai/claude-code" -Wait -PassThru -NoNewWindow
+        if ($proc.ExitCode -eq 0) {
+            Write-Host "✓ Claude CLI installed successfully!" -ForegroundColor Green
+            # Refresh PATH
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+            if (Test-Path "$env:APPDATA\npm") {
+                $env:Path += ";$env:APPDATA\npm"
+            }
+            $claudePath = Find-Claude
+        } else {
+            Write-Host "✗ Global installation returned exit code: $($proc.ExitCode)" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "✗ Failed to run npm install globally: $_" -ForegroundColor Red
     }
 }
 
 if ($claudePath) {
     Write-Host "✓ Claude CLI found at: $claudePath" -ForegroundColor Green
 } else {
-    Write-Host "⚠ Claude CLI not detected in standard locations." -ForegroundColor Yellow
-    Write-Host "Make sure it is installed via 'npm install -g @anthropic-ai/claude-code' and you have logged in." -ForegroundColor Yellow
+    Write-Host "⚠ Claude CLI not detected." -ForegroundColor Yellow
+    Write-Host "Please install it manually using: npm install -g @anthropic-ai/claude-code" -ForegroundColor Yellow
     $claudePath = "$env:USERPROFILE\AppData\Roaming\npm\claude.cmd" # fallback default
 }
 
