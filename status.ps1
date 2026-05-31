@@ -61,7 +61,7 @@ if ($isRunning) {
         Write-Host "  Tailscale:  http://$($tailscaleIp.Trim()):$port" -ForegroundColor Cyan
     }
     if ($localIp) {
-        Write-Host "  Local LAN:  http://$localIp:$port" -ForegroundColor Cyan
+        Write-Host "  Local LAN:  http://$($localIp):$port" -ForegroundColor Cyan
     }
     Write-Host "  Localhost:  http://127.0.0.1:$port" -ForegroundColor Cyan
     Write-Host "  Logs:       Get-Content `"$logFile`" -Wait" -ForegroundColor Cyan
