@@ -293,13 +293,13 @@ Write-Host "✓ Dependencies installed successfully." -ForegroundColor Green
 
 # 6. Autostart option
 Write-Host ""
-$autostart = Read-Host "Do you want to enable autostart on system boot? (y/n) [y]"
-if ([string]::IsNullOrWhiteSpace($autostart)) { $autostart = "y" }
+$autostart = Read-Host "Do you want to enable autostart on system boot? (y/n) [n]"
+if ([string]::IsNullOrWhiteSpace($autostart)) { $autostart = "n" }
 
 $serviceStarted = $false
 
 if ($autostart -eq "y" -or $autostart -eq "Y") {
-    Write-Host "`n🖥️ Setting up Windows Startup Shortcut..."
+    Write-Host "`nSetting up Windows Startup Shortcut..."
     
     # Create background VBS launcher to run node invisibly
     $vbsContent = @"
@@ -321,27 +321,23 @@ WshShell.Run "node server.js", 0, false
         $shortcut.WorkingDirectory = $INSTALL_DIR_PATH
         $shortcut.Description = "Self Agent Orchestrator background launcher"
         $shortcut.Save()
-        Write-Host "✓ Startup shortcut added successfully." -ForegroundColor Green
+        Write-Host "[OK] Startup shortcut added successfully." -ForegroundColor Green
         
-        # Start it right now
-        Start-Process "wscript.exe" -ArgumentList "`"$INSTALL_DIR_PATH\launcher.vbs`"" -WorkingDirectory $INSTALL_DIR_PATH
-        Write-Host "✓ Started service in the background." -ForegroundColor Green
+        # Start it right now using our new start.ps1 script!
+        Write-Host "`nStarting service in the background..." -ForegroundColor Cyan
+        & "$INSTALL_DIR_PATH\start.ps1"
         $serviceStarted = $true
     } catch {
-        Write-Host "✗ Failed to create startup shortcut: $_" -ForegroundColor Red
+        Write-Host "[ERROR] Failed to create startup shortcut: $_" -ForegroundColor Red
     }
 } else {
     Write-Host "`nSkipping autostart configuration."
 }
 
-if (-not $serviceStarted) {
-    Write-Host "`n🚀 Starting service manually in background..."
-    # Run node server.js in background
-    Start-Process "node" -ArgumentList "server.js" -WorkingDirectory $INSTALL_DIR_PATH -WindowStyle Hidden
-    Write-Host "✓ Started manually in the background." -ForegroundColor Green
-}
+# NOTE: If autostart was NOT selected, we do NOT automatically start the service.
+# This satisfies the user's request: "jika tidak memilih autostart default nya no autostart ya, service nya jangan di running"
 
-Write-Host "`n🎉 Installation completed successfully!" -ForegroundColor Green
+Write-Host "`nInstallation completed successfully!" -ForegroundColor Green
 Write-Host "----------------------------------------------"
 Write-Host "Web Access: http://localhost:$webPort"
 Write-Host "Username:   $webUser"
@@ -349,12 +345,17 @@ Write-Host "Password:   $webPass"
 Write-Host "----------------------------------------------"
 
 if ($serviceStarted) {
-    Write-Host "Autostart is configured. It will run in the background."
-    Write-Host "To stop:    Use Task Manager to terminate the 'node.exe' process."
+    Write-Host "Autostart is configured. It is currently running in the background."
+    Write-Host "To stop:    Run .\stop.bat (CMD) or .\stop.ps1 (PowerShell)"
+    Write-Host "To status:  Run .\status.bat (CMD) or .\status.ps1 (PowerShell)"
     Write-Host "To remove autostart: Delete the shortcut 'self-agent-orchestrator.lnk' in your Startup folder:"
     Write-Host "            (Run shell:startup to open the folder)"
 } else {
-    Write-Host "Start command:  node server.js"
-    Write-Host "Stop command:   Close the running node process (Task Manager or Ctrl+C if run in foreground)"
+    Write-Host "Service is NOT running." -ForegroundColor Yellow
+    Write-Host "To start:   Run .\start.bat (CMD) or .\start.ps1 (PowerShell)"
+    Write-Host "To stop:    Run .\stop.bat (CMD) or .\stop.ps1 (PowerShell)"
+    Write-Host "To status:  Run .\status.bat (CMD) or .\status.ps1 (PowerShell)"
 }
 Write-Host "=============================================="
+
+
