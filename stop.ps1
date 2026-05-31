@@ -20,17 +20,17 @@ if (-not (Test-Path $pidFile)) {
     exit 0
 }
 
-$pid = Get-Content $pidFile -ErrorAction SilentlyContinue
-if ($pid) {
-    $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+$targetPid = Get-Content $pidFile -ErrorAction SilentlyContinue
+if ($targetPid) {
+    $proc = Get-Process -Id $targetPid -ErrorAction SilentlyContinue
     if ($proc) {
         # Check if it has child processes (e.g. node.exe started by cmd.exe)
-        $childProcs = Get-CimInstance Win32_Process -Filter "ParentProcessId = $pid" -ErrorAction SilentlyContinue
+        $childProcs = Get-CimInstance Win32_Process -Filter "ParentProcessId = $targetPid" -ErrorAction SilentlyContinue
         foreach ($cp in $childProcs) {
             Stop-Process -Id $cp.ProcessId -Force -ErrorAction SilentlyContinue
         }
-        Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-        Write-Host "[OK] Stopped (pid $pid)" -ForegroundColor Green
+        Stop-Process -Id $targetPid -Force -ErrorAction SilentlyContinue
+        Write-Host "[OK] Stopped (pid $targetPid)" -ForegroundColor Green
     } else {
         # Fallback: check if node server.js is running anyway
         $nodeProcs = Get-CimInstance Win32_Process -Filter "CommandLine like '%node server.js%'" -ErrorAction SilentlyContinue

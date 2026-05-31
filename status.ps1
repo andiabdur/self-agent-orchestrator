@@ -21,12 +21,12 @@ $pidFile = "$stateDir\server.pid"
 $logFile = "$stateDir\logs\server.log"
 
 $isRunning = $false
-$pid = $null
+$targetPid = $null
 
 if (Test-Path $pidFile) {
-    $pid = Get-Content $pidFile -ErrorAction SilentlyContinue
-    if ($pid) {
-        $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+    $targetPid = Get-Content $pidFile -ErrorAction SilentlyContinue
+    if ($targetPid) {
+        $proc = Get-Process -Id $targetPid -ErrorAction SilentlyContinue
         if ($proc) {
             $isRunning = $true
         }
@@ -38,8 +38,8 @@ if (-not $isRunning) {
     $proc = Get-CimInstance Win32_Process -Filter "CommandLine like '%node server.js%'" -ErrorAction SilentlyContinue
     if ($proc) {
         $isRunning = $true
-        $pid = $proc[0].ProcessId
-        Write-Host "[WARNING] Running but no pidfile or stale pidfile (pid $pid)" -ForegroundColor Yellow
+        $targetPid = $proc[0].ProcessId
+        Write-Host "[WARNING] Running but no pidfile or stale pidfile (pid $targetPid)" -ForegroundColor Yellow
     }
 }
 
@@ -56,7 +56,7 @@ if ($isRunning) {
         $tailscaleIp = (tailscale ip -4 2>$null | Select-Object -First 1)
     }
     
-    Write-Host "[OK] Running (pid $pid)" -ForegroundColor Green
+    Write-Host "[OK] Running (pid $targetPid)" -ForegroundColor Green
     if ($tailscaleIp) {
         Write-Host "  Tailscale:  http://$($tailscaleIp.Trim()):$port" -ForegroundColor Cyan
     }
