@@ -655,7 +655,7 @@
     <button id="btn-new" type="button">+ New Chat</button>
   </div>
   <div class="session-list" id="session-list"></div>
-  <div class="cwd-row" style="border-top:1px solid var(--border); padding-top:12px; margin-top:auto; flex-shrink:0;">
+  <div class="cwd-row" id="sidebar-footer-row" style="border-top:1px solid var(--border); padding-top:12px; margin-top:auto; flex-shrink:0; display:flex; flex-direction:column; gap:12px;">
     <button id="btn-logout" type="button" onmouseover="this.style.background='rgba(255,131,137,0.08)'" onmouseout="this.style.background='var(--bg-2)'" style="width:100%; background:var(--bg-2); color:var(--error); border:1px solid var(--border); border-radius:2px; padding:8px 12px; font-size:13px; font-weight:500; cursor:pointer; text-align:center; transition:background .12s, color .12s;">Logout</button>
   </div>
 </aside>
@@ -1445,9 +1445,11 @@
     
     const footer = document.createElement('div');
     footer.id = 'app-license-footer';
-    footer.style.cssText = 'position:fixed;bottom:8px;left:0;right:0;text-align:center;font-size:10.5px;color:var(--muted);opacity:0.75;font-family:monospace;pointer-events:none;z-index:9999;user-select:none;-webkit-user-select:none;font-weight:500;';
+    footer.style.cssText = 'text-align:center;font-size:10px;color:var(--muted);opacity:0.75;font-family:monospace;pointer-events:none;user-select:none;-webkit-user-select:none;font-weight:500;margin-top:4px;';
     footer.textContent = txt;
-    document.body.appendChild(footer);
+    
+    const container = document.getElementById('sidebar-footer-row') || document.body;
+    container.appendChild(footer);
 
     const lock = () => {
       document.documentElement.innerHTML = '<div style="background:#0a0a0a;color:#ff8389;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;text-align:center;padding:20px;z-index:100000;position:fixed;inset:0;"><h1 style="font-size:20px;letter-spacing:0.05em;margin:0;">LICENSE VIOLATION</h1><p style="font-size:12px;color:#a8a8a8;margin:0;">Copyright notice has been altered or deleted. Application locked.</p></div>';
@@ -1456,7 +1458,7 @@
 
     const checker = () => {
       const el = document.getElementById('app-license-footer');
-      if (!el || el.textContent !== txt || !document.body.contains(el)) {
+      if (!el || el.textContent !== txt || !container.contains(el)) {
         lock();
         return;
       }
@@ -1475,7 +1477,7 @@
     });
 
     obs.observe(footer, { attributes: true, childList: true, characterData: true, subtree: true });
-    obs.observe(document.body, { childList: true });
+    obs.observe(container, { childList: true });
 
     setInterval(checker, 1000);
   }
