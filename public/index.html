@@ -1,0 +1,1417 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#111111" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Orchestrator" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" type="image/svg+xml" href="/icon.svg" />
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+<link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<title>Self Agent Orchestrator</title>
+<style>
+  /* ─── Tokens ──────────────────────────────────────────── */
+  :root {
+    --bg:          #111111;
+    --bg-2:        #1a1a1a;
+    --bg-3:        #242424;
+    --border:      #2e2e2e;
+    --text:        #d4d4d4;
+    --text-strong: #ededed;
+    --text-em:     #b8b8b8;
+    --muted:       #5e5e5e;
+    --accent:      #0f62fe;
+    --accent-2:    #0353e9;
+    --tool:        #e88c2f;
+    --tool-bg:     rgba(232,140,47,.06);
+    --tool-border: rgba(232,140,47,.22);
+    --code-bg:     #161616;
+    --code-fg:     #ffb784;
+    --success:     #42be65;
+    --error:       #ff8389;
+    --diff-add:    #42be65;
+    --diff-del:    #ff8389;
+    --link:        #78a9ff;
+    --user-bubble-text: #ffffff;
+  }
+  :root[data-theme="light"] {
+    --bg:          #f8f8f8;
+    --bg-2:        #eeeeee;
+    --bg-3:        #e2e2e2;
+    --border:      #c6c6c6;
+    --text:        #1a1a1a;
+    --text-strong: #000000;
+    --text-em:     #404040;
+    --muted:       #767676;
+    --accent:      #0f62fe;
+    --accent-2:    #0353e9;
+    --tool:        #a84400;
+    --tool-bg:     rgba(168,68,0,.05);
+    --tool-border: rgba(168,68,0,.18);
+    --code-bg:     #e8e8e8;
+    --code-fg:     #7c3900;
+    --success:     #198038;
+    --error:       #da1e28;
+    --diff-add:    #198038;
+    --diff-del:    #da1e28;
+    --link:        #0043ce;
+    --user-bubble-text: #ffffff;
+  }
+
+  /* ─── Reset & base ────────────────────────────────────── */
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: var(--bg); color: var(--text);
+    font: 13px/1.5 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  #app {
+    display: flex; flex-direction: column;
+    position: fixed; inset: 0;
+    height: 100vh; height: 100dvh;
+  }
+
+  /* ─── Header ──────────────────────────────────────────── */
+  #header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    padding-top: env(safe-area-inset-top);
+    height: calc(48px + env(safe-area-inset-top));
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #btn-menu {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; padding: 6px; border-radius: 3px;
+    display: flex; align-items: center; flex: 0 0 auto;
+    font-family: inherit; transition: background .12s, color .12s;
+  }
+  #btn-menu:hover { background: var(--bg-3); color: var(--text); }
+  #btn-menu:active { background: var(--border); }
+  #header-title {
+    flex: 1; min-width: 0;
+    font-weight: 500; font-size: 13px; color: var(--text-strong);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #header-cwd {
+    font-size: 11px; color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 38%;
+  }
+  #theme-toggle {
+    background: none; border: none; color: var(--muted);
+    width: 32px; height: 32px; cursor: pointer; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; border-radius: 3px;
+    transition: background .12s, color .12s;
+  }
+  #theme-toggle:hover { background: var(--bg-3); color: var(--text); }
+  #conn-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted); flex: 0 0 auto;
+    transition: background .3s;
+  }
+  #conn-dot.connected { background: var(--success); }
+  #conn-dot.disconnected { background: var(--error); }
+
+  /* ─── Messages ────────────────────────────────────────── */
+  #messages {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .msg-user {
+    align-self: flex-end; max-width: 80%;
+    background: var(--accent); color: var(--user-bubble-text);
+    padding: 9px 14px; border-radius: 3px;
+    font-size: 14px; line-height: 1.5;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+  .msg-assistant {
+    align-self: flex-start; max-width: 96%;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .msg-text {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 16px;
+    word-wrap: break-word;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .msg-text > *:first-child { margin-top: 0; }
+  .msg-text > *:last-child { margin-bottom: 0; }
+  .msg-text p { margin: 0 0 10px 0; }
+  .msg-text h1, .msg-text h2, .msg-text h3, .msg-text h4 {
+    margin: 16px 0 6px 0; line-height: 1.2;
+    font-weight: 600; color: var(--text-strong);
+  }
+  .msg-text h1 { font-size: 18px; }
+  .msg-text h2 { font-size: 16px; }
+  .msg-text h3 {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: .08em; font-weight: 500;
+  }
+  .msg-text h4 { font-size: 13px; }
+  .msg-text strong { color: var(--text-strong); font-weight: 600; }
+  .msg-text em { color: var(--text-em); font-style: italic; }
+  .msg-text ul, .msg-text ol { margin: 6px 0 10px 0; padding-left: 20px; }
+  .msg-text li { margin: 3px 0; }
+  .msg-text li > p { margin: 0; }
+  .msg-text code {
+    background: var(--code-bg);
+    padding: 1px 5px; border-radius: 2px;
+    font-size: 12.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--code-fg);
+  }
+  .msg-text pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 11px 13px; border-radius: 3px;
+    margin: 10px 0; overflow-x: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px; line-height: 1.55;
+    -webkit-overflow-scrolling: touch;
+  }
+  .msg-text pre code { background: none; padding: 0; color: var(--text); font-size: inherit; }
+  .msg-text hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+  .msg-text blockquote {
+    margin: 10px 0; padding: 4px 14px;
+    border-left: 2px solid var(--border); color: var(--muted);
+  }
+  .msg-text a { color: var(--link); text-decoration: none; }
+  .msg-text a:hover { text-decoration: underline; }
+  .msg-text table { border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  .msg-text th, .msg-text td { border: 1px solid var(--border); padding: 6px 10px; }
+  .msg-text th { background: var(--bg-3); font-weight: 500; text-align: left; }
+
+  /* ─── Tool cards ──────────────────────────────────────── */
+  .tool {
+    background: var(--tool-bg);
+    border: 1px solid var(--tool-border);
+    border-left: 2px solid var(--tool);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .tool-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px; cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+  }
+  .tool.expanded .tool-header { border-bottom: 1px solid var(--tool-border); }
+  .tool-icon {
+    flex: 0 0 auto; display: inline-flex; align-items: center;
+    color: var(--tool);
+  }
+  .tool-icon svg { display: block; }
+  .msg-thinking {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px 14px; font-size: 13px;
+    color: var(--muted); font-style: italic;
+    border-left: 2px solid var(--border);
+  }
+  .msg-thinking .thinking-icon {
+    flex: 0 0 auto; color: var(--accent);
+    margin-top: 3px;
+  }
+  .msg-thinking .thinking-icon svg { display: block; }
+  .msg-thinking .thinking-text { flex: 1; min-width: 0; }
+  .tool-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: var(--tool); flex: 0 0 auto;
+  }
+  .tool-summary {
+    color: var(--muted); flex: 1; min-width: 0;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tool-status {
+    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted); flex: 0 0 auto; letter-spacing: .03em;
+    display: inline-flex; align-items: center;
+  }
+  .tool-status svg { display: block; }
+  .tool-status.running { color: var(--tool); }
+  .tool-status.done { color: var(--success); }
+  .tool-status.error { color: var(--error); }
+  .tool-chevron { transition: transform .15s; color: var(--muted); font-size: 10px; }
+  .tool.expanded .tool-chevron { transform: rotate(90deg); }
+  .tool-body { display: none; padding: 10px 12px; }
+  .tool.expanded .tool-body { display: block; }
+  .tool-section { margin-bottom: 10px; }
+  .tool-section:last-child { margin-bottom: 0; }
+  .tool-section-label {
+    font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted); text-transform: uppercase;
+    letter-spacing: .08em; margin-bottom: 5px; font-weight: 500;
+  }
+  .tool pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 8px 10px; border-radius: 2px;
+    margin: 0; overflow-x: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; line-height: 1.5;
+    white-space: pre; max-height: 360px; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tool pre.wrap { white-space: pre-wrap; word-wrap: break-word; }
+  .diff-add { color: var(--diff-add); }
+  .diff-del { color: var(--diff-del); }
+
+  /* ─── Spinner ─────────────────────────────────────────── */
+  .spinner {
+    display: inline-block;
+    width: 11px; height: 11px;
+    border: 2px solid var(--border); border-top-color: var(--tool);
+    border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── Turn summary ────────────────────────────────────── */
+  .turn-summary {
+    align-self: center; color: var(--muted);
+    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+    padding: 3px 10px;
+    border: 1px solid var(--border); border-radius: 2px;
+    letter-spacing: .04em;
+  }
+
+  /* ─── Empty state ─────────────────────────────────────── */
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 24px; text-align: center; gap: 6px;
+  }
+  .empty-state-label {
+    font-size: 11px; font-weight: 500; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .empty-state-hint {
+    font-size: 13px; color: var(--muted);
+  }
+
+  /* ─── Composer ────────────────────────────────────────── */
+  #composer {
+    display: flex; align-items: flex-end; gap: 8px;
+    padding: 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #input {
+    flex: 1; resize: none;
+    background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 3px;
+    padding: 9px 12px; font-size: 14px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 40px; max-height: 160px;
+    line-height: 1.4; outline: none;
+    transition: border-color .15s;
+  }
+  #input:focus { border-color: var(--accent); }
+  #input::placeholder { color: var(--muted); }
+  #btn-send {
+    background: var(--accent); color: #fff; border: none;
+    width: 40px; height: 40px; border-radius: 3px;
+    font-size: 15px; cursor: pointer; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    font-family: inherit;
+    transition: background .12s;
+  }
+  #btn-send:hover:not(:disabled) { background: var(--accent-2); }
+  #btn-send:disabled { background: var(--bg-3); color: var(--muted); cursor: not-allowed; }
+  #btn-send.cancel { background: var(--error); }
+
+  /* ─── Sidebar ─────────────────────────────────────────── */
+  #sidebar-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 50; display: none;
+  }
+  #sidebar-bg.open { display: block; }
+  #sidebar {
+    position: fixed; top: 0; left: -300px; bottom: 0;
+    width: 272px; max-width: 84vw;
+    background: var(--bg); border-right: 1px solid var(--border);
+    z-index: 51;
+    transition: left .22s cubic-bezier(.4,0,.2,1);
+    display: flex; flex-direction: column;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #sidebar.open { left: 0; }
+  .sidebar-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 12px;
+    height: 48px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-title {
+    font-size: 10px; font-weight: 500; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  #btn-close-sidebar {
+    background: none; border: none; color: var(--muted);
+    font-size: 20px; cursor: pointer; line-height: 1;
+    padding: 4px 6px; border-radius: 2px;
+    transition: background .12s, color .12s;
+  }
+  #btn-close-sidebar:hover { background: var(--bg-3); color: var(--text); }
+  .cwd-row {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .cwd-label {
+    font-size: 10px; color: var(--muted);
+    margin-bottom: 6px; text-transform: uppercase;
+    letter-spacing: .07em; font-weight: 500;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .cwd-input-row { display: flex; gap: 6px; }
+  #cwd-input {
+    flex: 1; min-width: 0;
+    background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 2px;
+    padding: 6px 8px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px; outline: none;
+    transition: border-color .15s;
+  }
+  #cwd-input:focus { border-color: var(--accent); }
+  #btn-browse {
+    background: var(--bg-2); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 2px;
+    padding: 0 10px; cursor: pointer;
+    display: flex; align-items: center;
+    transition: background .12s, color .12s;
+  }
+  #btn-browse:hover { background: var(--bg-3); color: var(--text); }
+  #model-select, #perm-select {
+    width: 100%;
+    background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 2px;
+    padding: 7px 8px; font-size: 12.5px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    outline: none; cursor: pointer;
+    transition: border-color .15s;
+  }
+  #model-select:focus, #perm-select:focus { border-color: var(--accent); }
+  #perm-warn {
+    font-size: 11px; color: var(--muted); margin-top: 6px;
+    line-height: 1.45; font-family: 'IBM Plex Mono', monospace;
+  }
+  #btn-new {
+    width: 100%;
+    background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 2px;
+    padding: 8px 12px; font-size: 13px; cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+    text-align: center;
+    transition: background .12s;
+  }
+  #btn-new:hover { background: var(--bg-3); }
+  #btn-new:active { background: var(--border); }
+
+  /* ─── Folder picker ───────────────────────────────────── */
+  #picker-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    z-index: 100; display: none;
+    align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  #picker-bg.open { display: flex; }
+  #picker {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; width: 100%; max-width: 480px;
+    max-height: 80vh; display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .picker-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; height: 44px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .picker-title { font-weight: 500; font-size: 13px; }
+  #picker-close {
+    background: none; border: none; color: var(--muted);
+    font-size: 20px; cursor: pointer; line-height: 1;
+    padding: 4px 6px; border-radius: 2px;
+    transition: background .12s, color .12s;
+    opacity: 1;
+  }
+  #picker-close:hover { background: var(--bg-3); color: var(--text); }
+  .picker-path {
+    padding: 8px 14px; background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px; color: var(--muted);
+    word-break: break-all; flex-shrink: 0;
+  }
+  .picker-list {
+    flex: 1; overflow-y: auto; padding: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .picker-item {
+    padding: 10px 12px; border-radius: 2px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;
+    transition: background .1s, color .1s;
+    color: var(--text);
+  }
+  .picker-item:hover { background: var(--bg-2); }
+  .picker-item:active { background: var(--bg-3); }
+  .picker-item .picker-icon {
+    color: var(--tool); flex: 0 0 auto; display: block;
+  }
+  .picker-item .picker-label {
+    flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .picker-item .picker-chevron {
+    color: var(--muted); flex: 0 0 auto; opacity: 0.5;
+    transition: opacity .1s, transform .1s;
+  }
+  .picker-item:hover .picker-chevron { opacity: 1; transform: translateX(2px); }
+  .picker-item.up { color: var(--muted); }
+  .picker-item.up .picker-icon { color: var(--muted); }
+  .picker-item.up:hover { color: var(--text); }
+  .picker-item.up:hover .picker-icon { color: var(--text); }
+  .picker-empty {
+    padding: 20px; text-align: center;
+    color: var(--muted); font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .picker-footer {
+    padding: 10px 14px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; justify-content: flex-end;
+    flex-shrink: 0;
+  }
+  .picker-footer button {
+    background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 2px;
+    padding: 7px 14px; font-size: 13px; cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+    transition: background .12s;
+  }
+  .picker-footer button:hover { background: var(--bg-3); }
+  .picker-footer button.primary {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .picker-footer button.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+
+  /* ─── Session list ────────────────────────────────────── */
+  .session-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .session-item {
+    padding: 8px 10px; border-radius: 2px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 2px;
+    transition: background .1s;
+  }
+  .session-item:hover { background: var(--bg-2); }
+  .session-item.active { background: var(--bg-3); }
+  .session-text { flex: 1; min-width: 0; }
+  .session-title-row {
+    font-size: 13px; font-weight: 400; color: var(--text-strong);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .session-meta {
+    font-size: 11px; color: var(--muted); margin-top: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .session-action {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; padding: 6px; font-size: 0;
+    opacity: 0.7; border-radius: 3px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: opacity .12s, background .12s, color .12s;
+    flex: 0 0 auto;
+  }
+  .session-action svg { display: block; }
+  .session-item:hover .session-action,
+  .session-item.active .session-action { opacity: 1; }
+  .session-action:hover { background: var(--bg-3); opacity: 1; }
+  .session-action.delete:hover { color: var(--error); }
+  .session-action.rename:hover { color: var(--accent); }
+  /* On touch devices (no hover), keep them clearly visible */
+  @media (pointer: coarse) {
+    .session-action { opacity: 0.85; }
+  }
+
+  /* ─── Reduced motion ──────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <button id="btn-menu" type="button" aria-label="Open menu">
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor">
+        <rect y="0" width="16" height="1.5" rx="0.75"/>
+        <rect y="5.25" width="16" height="1.5" rx="0.75"/>
+        <rect y="10.5" width="16" height="1.5" rx="0.75"/>
+      </svg>
+    </button>
+    <div id="header-title">New chat</div>
+    <div id="header-cwd"></div>
+    <button id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+      <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+    </button>
+    <div id="conn-dot" title="Connection status"></div>
+  </div>
+
+  <div id="messages">
+    <div class="empty-state">
+      <div class="empty-state-label">New conversation</div>
+      <div class="empty-state-hint">Type a message below to begin.</div>
+    </div>
+  </div>
+
+  <div id="composer">
+    <textarea id="input" rows="1" placeholder="Type a message…"></textarea>
+    <button id="btn-send" type="button" disabled>➤</button>
+  </div>
+</div>
+
+<div id="picker-bg">
+  <div id="picker">
+    <div class="picker-header">
+      <div class="picker-title">Choose folder</div>
+      <button id="picker-close" type="button">×</button>
+    </div>
+    <div class="picker-path" id="picker-path"></div>
+    <div class="picker-list" id="picker-list"></div>
+    <div class="picker-footer">
+      <button id="picker-cancel" type="button">Cancel</button>
+      <button id="picker-select" type="button" class="primary">Select this folder</button>
+    </div>
+  </div>
+</div>
+<div id="sidebar-bg"></div>
+<aside id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-title">Sessions</div>
+    <button id="btn-close-sidebar" type="button">×</button>
+  </div>
+  <div class="cwd-row">
+    <div class="cwd-label">Working directory</div>
+    <div class="cwd-input-row">
+      <input id="cwd-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <button id="btn-browse" type="button" title="Browse folders">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="cwd-row">
+    <div class="cwd-label">Model</div>
+    <select id="model-select">
+      <option value="sonnet">Sonnet — balanced (default)</option>
+      <option value="opus">Opus — most capable</option>
+      <option value="haiku">Haiku — fast &amp; cheap</option>
+    </select>
+  </div>
+  <div class="cwd-row">
+    <div class="cwd-label">Permission mode</div>
+    <select id="perm-select">
+      <option value="bypassPermissions">Bypass — auto-approve all</option>
+      <option value="acceptEdits">Accept edits</option>
+      <option value="plan">Plan — read-only</option>
+    </select>
+    <div id="perm-warn"></div>
+  </div>
+  <div class="cwd-row">
+    <button id="btn-new" type="button">+ New Chat</button>
+  </div>
+  <div class="session-list" id="session-list"></div>
+</aside>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@13.0.3/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script>
+(() => {
+  if (window.marked) {
+    marked.setOptions({ breaks: true, gfm: true });
+  }
+  function renderMarkdown(text) {
+    if (!window.marked) return escapeHtml(text);
+    const html = marked.parse(text || '');
+    if (window.DOMPurify) return DOMPurify.sanitize(html);
+    return html;
+  }
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => document.querySelectorAll(s);
+
+  const els = {
+    messages: $('#messages'),
+    input: $('#input'),
+    btnSend: $('#btn-send'),
+    btnMenu: $('#btn-menu'),
+    btnNew: $('#btn-new'),
+    btnCloseSidebar: $('#btn-close-sidebar'),
+    sidebar: $('#sidebar'),
+    sidebarBg: $('#sidebar-bg'),
+    sessionList: $('#session-list'),
+    cwdInput: $('#cwd-input'),
+    modelSelect: $('#model-select'),
+    themeToggle: $('#theme-toggle'),
+    themeIcon: $('#theme-icon'),
+    permSelect: $('#perm-select'),
+    permWarn: $('#perm-warn'),
+    headerTitle: $('#header-title'),
+    headerCwd: $('#header-cwd'),
+    connDot: $('#conn-dot'),
+  };
+
+  const state = {
+    sessionId: null,
+    sessions: [],
+    cwd: '',
+    permissionMode: 'bypassPermissions',
+    model: 'sonnet',
+    inTurn: false,
+    aborting: false,
+    toolsById: new Map(),
+    lastAssistantBubble: null,
+    ws: null,
+  };
+
+  const PERM_WARNINGS = {
+    bypassPermissions: '⚠ Auto-jalanin SEMUA tool tanpa approval. Hanya pakai di project trusted.',
+    acceptEdits: 'Edit/Write auto-approved. Bash perlu approval — bakal error di mode ini headless.',
+    plan: 'Read-only mode. Agen bisa explore tapi gak bisa modif file / jalanin command.',
+  };
+  function updatePermWarn() {
+    els.permWarn.textContent = PERM_WARNINGS[state.permissionMode] || '';
+  }
+
+  // ---------- WS ----------
+  let reconnectTimer = null;
+  function scheduleReconnect(ms) {
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, ms);
+  }
+  function connect() {
+    if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) return;
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(proto + '//' + location.host + '/ws');
+    state.ws = ws;
+    ws.onopen = () => {
+      els.connDot.className = 'connected';
+      updateSendButton();
+      // Auto-attach to last session if we have one saved
+      let saved = null;
+      try { saved = localStorage.getItem('sessionId'); } catch {}
+      if (saved) send({ type: 'load_session', sessionId: saved });
+    };
+    ws.onclose = () => {
+      els.connDot.className = 'disconnected';
+      els.btnSend.disabled = true;
+      scheduleReconnect(1500);
+    };
+    ws.onerror = () => { els.connDot.className = 'disconnected'; };
+    ws.onmessage = (e) => {
+      let m; try { m = JSON.parse(e.data); } catch { return; }
+      handle(m);
+    };
+  }
+
+  // Page Visibility — re-check WS when tab becomes visible (after phone unlock)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (!state.ws || state.ws.readyState === WebSocket.CLOSED || state.ws.readyState === WebSocket.CLOSING) {
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        connect();
+      }
+    }
+  });
+
+  function send(obj) {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+      state.ws.send(JSON.stringify(obj));
+    }
+  }
+
+  // ---------- Event handler ----------
+  function handle(m) {
+    switch (m.kind) {
+      case 'hello':
+        state.cwd = m.defaultCwd;
+        state.permissionMode = m.defaultPerm || 'bypassPermissions';
+        state.model = m.defaultModel || 'sonnet';
+        state.sessions = m.sessions || [];
+        els.cwdInput.value = state.cwd;
+        els.permSelect.value = state.permissionMode;
+        els.modelSelect.value = state.model;
+        els.headerCwd.textContent = shortCwd(state.cwd);
+        updatePermWarn();
+        renderSessions();
+        break;
+      case 'session_loaded':
+        loadSession(m.sessionId, m.cwd, m.events, m.permissionMode, m.model, m.active);
+        break;
+      case 'session_persisted':
+        state.sessionId = m.sessionId;
+        try { if (m.sessionId) localStorage.setItem('sessionId', m.sessionId); } catch {}
+        state.sessions = m.sessions || state.sessions;
+        renderSessions();
+        updateHeaderTitle();
+        break;
+      case 'cwd_set':
+        state.cwd = m.cwd; els.cwdInput.value = m.cwd;
+        els.headerCwd.textContent = shortCwd(m.cwd);
+        break;
+      case 'permission_set':
+        state.permissionMode = m.permissionMode;
+        els.permSelect.value = m.permissionMode;
+        updatePermWarn();
+        break;
+      case 'model_set':
+        state.model = m.model;
+        els.modelSelect.value = m.model;
+        break;
+      case 'user_message':
+        renderUserMessage(m.text);
+        break;
+      case 'turn_start':
+        state.inTurn = true; updateSendButton();
+        ensureAssistantBubble();
+        break;
+      case 'assistant_text':
+        renderAssistantText(m.text);
+        break;
+      case 'tool_start':
+        renderToolStart(m);
+        break;
+      case 'tool_result':
+        renderToolResult(m);
+        break;
+      case 'thinking':
+        renderThinking(m.text);
+        break;
+      case 'turn_complete':
+        renderTurnSummary(m);
+        break;
+      case 'aborting':
+        state.aborting = true;
+        updateSendButton();
+        break;
+      case 'turn_end':
+        state.inTurn = false;
+        state.aborting = false;
+        state.lastAssistantBubble = null;
+        updateSendButton();
+        break;
+      case 'error':
+        renderError(m.message);
+        break;
+    }
+    scrollToBottom();
+  }
+
+  // ---------- Renderers ----------
+  function clearMessages() {
+    els.messages.innerHTML = '';
+    state.toolsById.clear();
+    state.lastAssistantBubble = null;
+  }
+
+  function renderUserMessage(text) {
+    removeEmptyState();
+    const el = document.createElement('div');
+    el.className = 'msg-user';
+    el.textContent = text;
+    els.messages.appendChild(el);
+    state.lastAssistantBubble = null;
+  }
+
+  function ensureAssistantBubble() {
+    if (state.lastAssistantBubble) return state.lastAssistantBubble;
+    const el = document.createElement('div');
+    el.className = 'msg-assistant';
+    els.messages.appendChild(el);
+    state.lastAssistantBubble = el;
+    return el;
+  }
+
+  function renderAssistantText(text) {
+    if (!text || !text.trim()) return;
+    const bubble = ensureAssistantBubble();
+    const el = document.createElement('div');
+    el.className = 'msg-text';
+    el.innerHTML = renderMarkdown(text);
+    bubble.appendChild(el);
+  }
+
+  // ── Tool icons (Lucide-style SVG, stroke 1.5) ─────────────
+  const SVG = (paths, w=15, h=15) =>
+    '<svg width="'+w+'" height="'+h+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'+paths+'</svg>';
+  const TOOL_ICONS = {
+    Bash:        SVG('<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>'),
+    Read:        SVG('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>'),
+    Edit:        SVG('<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"/>'),
+    Write:       SVG('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>'),
+    Glob:        SVG('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+    Grep:        SVG('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M8 11h6"/>'),
+    WebFetch:    SVG('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'),
+    WebSearch:   SVG('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'),
+    TodoWrite:   SVG('<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'),
+    Task:        SVG('<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="10"/>'),
+    NotebookEdit:SVG('<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>'),
+  };
+  const ICON_TOOL_DEFAULT = SVG('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>');
+  const ICON_SPARKLE = SVG('<path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 14l.5 1.5L21 16l-1.5.5L19 18l-.5-1.5L17 16l1.5-.5L19 14z"/>', 13, 13);
+
+  function renderThinking(text) {
+    if (!text || !text.trim()) return;
+    const bubble = ensureAssistantBubble();
+    const el = document.createElement('div');
+    el.className = 'msg-thinking';
+    el.innerHTML = '<span class="thinking-icon">' + ICON_SPARKLE + '</span><span class="thinking-text"></span>';
+    el.querySelector('.thinking-text').textContent = text;
+    bubble.appendChild(el);
+  }
+
+  function toolIcon(name) {
+    return TOOL_ICONS[name] || ICON_TOOL_DEFAULT;
+  }
+
+  function toolSummary(name, input) {
+    if (!input) return '';
+    if (name === 'Bash') return input.command || '';
+    if (name === 'Read') return input.file_path || '';
+    if (name === 'Edit') return input.file_path || '';
+    if (name === 'Write') return input.file_path || '';
+    if (name === 'Glob') return input.pattern || '';
+    if (name === 'Grep') return input.pattern || '';
+    if (name === 'WebFetch') return input.url || '';
+    if (name === 'WebSearch') return input.query || '';
+    if (typeof input === 'object') {
+      const k = Object.keys(input)[0];
+      const v = input[k];
+      return typeof v === 'string' ? v.slice(0, 100) : JSON.stringify(input).slice(0, 100);
+    }
+    return String(input).slice(0, 100);
+  }
+
+  function renderToolStart(m) {
+    const bubble = ensureAssistantBubble();
+    const el = document.createElement('div');
+    el.className = 'tool';
+    el.dataset.toolId = m.id;
+    const summary = toolSummary(m.name, m.input);
+    el.innerHTML = `
+      <div class="tool-header">
+        <span class="tool-chevron">▶</span>
+        <span class="tool-icon">${toolIcon(m.name)}</span>
+        <span class="tool-name">${escapeHtml(m.name)}</span>
+        <span class="tool-summary"></span>
+        <span class="tool-status running"><span class="spinner"></span></span>
+      </div>
+      <div class="tool-body"></div>
+    `;
+    el.querySelector('.tool-summary').textContent = summary;
+    el.querySelector('.tool-header').addEventListener('click', () => el.classList.toggle('expanded'));
+
+    const body = el.querySelector('.tool-body');
+    body.appendChild(renderToolInput(m.name, m.input));
+
+    bubble.appendChild(el);
+    state.toolsById.set(m.id, el);
+  }
+
+  function renderToolInput(name, input) {
+    const wrap = document.createElement('div');
+    wrap.className = 'tool-section';
+
+    if (name === 'Edit' && input && input.old_string != null && input.new_string != null) {
+      const label = document.createElement('div');
+      label.className = 'tool-section-label';
+      label.textContent = 'Edit · ' + (input.file_path || '');
+      wrap.appendChild(label);
+      const pre = document.createElement('pre');
+      pre.className = 'wrap';
+      const oldLines = String(input.old_string).split('\n').map(l => `<span class="diff-del">- ${escapeHtml(l)}</span>`).join('\n');
+      const newLines = String(input.new_string).split('\n').map(l => `<span class="diff-add">+ ${escapeHtml(l)}</span>`).join('\n');
+      pre.innerHTML = oldLines + '\n' + newLines;
+      wrap.appendChild(pre);
+      return wrap;
+    }
+
+    if (name === 'Write' && input && input.content != null) {
+      const label = document.createElement('div');
+      label.className = 'tool-section-label';
+      label.textContent = 'Write · ' + (input.file_path || '');
+      wrap.appendChild(label);
+      const pre = document.createElement('pre');
+      pre.textContent = input.content;
+      wrap.appendChild(pre);
+      return wrap;
+    }
+
+    if (name === 'Bash' && input && input.command) {
+      const label = document.createElement('div');
+      label.className = 'tool-section-label';
+      label.textContent = input.description ? ('Bash · ' + input.description) : 'Bash';
+      wrap.appendChild(label);
+      const pre = document.createElement('pre');
+      pre.className = 'wrap';
+      pre.textContent = '$ ' + input.command;
+      wrap.appendChild(pre);
+      return wrap;
+    }
+
+    const label = document.createElement('div');
+    label.className = 'tool-section-label';
+    label.textContent = 'Input';
+    wrap.appendChild(label);
+    const pre = document.createElement('pre');
+    pre.className = 'wrap';
+    pre.textContent = typeof input === 'string' ? input : JSON.stringify(input, null, 2);
+    wrap.appendChild(pre);
+    return wrap;
+  }
+
+  function renderToolResult(m) {
+    const el = state.toolsById.get(m.tool_use_id);
+    if (!el) return;
+    const statusEl = el.querySelector('.tool-status');
+    statusEl.innerHTML = '';
+    statusEl.classList.remove('running');
+    if (m.is_error) {
+      statusEl.classList.add('error');
+      statusEl.innerHTML = SVG('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>', 13, 13);
+    } else {
+      statusEl.classList.add('done');
+      statusEl.innerHTML = SVG('<polyline points="20 6 9 17 4 12"/>', 13, 13);
+    }
+    const body = el.querySelector('.tool-body');
+    const wrap = document.createElement('div');
+    wrap.className = 'tool-section';
+    const label = document.createElement('div');
+    label.className = 'tool-section-label';
+    label.textContent = m.is_error ? 'Error' : 'Output';
+    wrap.appendChild(label);
+    const pre = document.createElement('pre');
+    pre.className = 'wrap';
+    pre.textContent = m.content || '(no output)';
+    wrap.appendChild(pre);
+    body.appendChild(wrap);
+  }
+
+  function renderTurnSummary(m) {
+    const el = document.createElement('div');
+    el.className = 'turn-summary';
+    const cost = m.cost_usd ? `$${m.cost_usd.toFixed(4)}` : '';
+    const dur = m.duration_ms ? `${(m.duration_ms/1000).toFixed(1)}s` : '';
+    el.textContent = [dur, cost].filter(Boolean).join(' · ');
+    els.messages.appendChild(el);
+  }
+
+  function renderError(message) {
+    const bubble = ensureAssistantBubble();
+    const el = document.createElement('div');
+    el.className = 'msg-text';
+    el.style.borderColor = 'var(--error)';
+    el.style.color = '#fca5a5';
+    el.textContent = '⚠ ' + message;
+    bubble.appendChild(el);
+  }
+
+  function removeEmptyState() {
+    const e = els.messages.querySelector('.empty-state');
+    if (e) e.remove();
+  }
+
+  function scrollToBottom() {
+    requestAnimationFrame(() => {
+      els.messages.scrollTop = els.messages.scrollHeight;
+    });
+  }
+
+  // ---------- Sessions ----------
+  function loadSession(id, cwd, events, permissionMode, model, active) {
+    state.sessionId = id;
+    try {
+      if (id) localStorage.setItem('sessionId', id);
+      else localStorage.removeItem('sessionId');
+    } catch {}
+    state.cwd = cwd || state.cwd;
+    if (permissionMode) state.permissionMode = permissionMode;
+    if (model) state.model = model;
+    els.cwdInput.value = state.cwd;
+    els.permSelect.value = state.permissionMode;
+    els.modelSelect.value = state.model;
+    updatePermWarn();
+    els.headerCwd.textContent = shortCwd(state.cwd);
+    clearMessages();
+    if (!events || !events.length) {
+      const e = document.createElement('div');
+      e.className = 'empty-state';
+      e.textContent = id ? 'Belum ada pesan di session ini.' : 'Mulai chat baru — ketik pesan di bawah.';
+      els.messages.appendChild(e);
+    } else {
+      // replay normalized events
+      for (const evt of events) handle(evt);
+    }
+    // Historical events have turn_start without matching turn_end (server-only).
+    // Default: assume idle. But if server says the session has an active run,
+    // keep inTurn=true so the composer shows the Stop button + live events update the bubble.
+    state.aborting = false;
+    state.lastAssistantBubble = null;
+    state.inTurn = !!active;
+    updateSendButton();
+    updateHeaderTitle();
+    renderSessions();
+    closeSidebar();
+  }
+
+  function renderSessions() {
+    els.sessionList.innerHTML = '';
+    if (!state.sessions.length) {
+      const e = document.createElement('div');
+      e.style.cssText = 'padding:20px;color:var(--muted);font-size:12px;text-align:center;';
+      e.textContent = 'No sessions yet';
+      els.sessionList.appendChild(e);
+      return;
+    }
+    for (const s of state.sessions) {
+      const item = document.createElement('div');
+      item.className = 'session-item' + (s.id === state.sessionId ? ' active' : '');
+      const text = document.createElement('div');
+      text.className = 'session-text';
+      text.innerHTML = `
+        <div class="session-title-row">${escapeHtml(s.title || 'Untitled')}</div>
+        <div class="session-meta">${timeAgo(s.last_used_at)} · ${shortCwd(s.cwd)}</div>
+      `;
+      text.addEventListener('click', () => {
+        send({ type: 'load_session', sessionId: s.id });
+      });
+      const rename = document.createElement('button');
+      rename.className = 'session-action rename';
+      rename.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
+      rename.setAttribute('aria-label', 'Rename');
+      rename.title = 'Rename';
+      rename.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const newTitle = prompt('New title:', s.title || '');
+        if (!newTitle || newTitle.trim() === s.title) return;
+        const res = await fetch('/api/sessions/' + s.id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle.trim() }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          state.sessions = data.sessions || state.sessions;
+          renderSessions();
+          updateHeaderTitle();
+        }
+      });
+      const del = document.createElement('button');
+      del.className = 'session-action delete';
+      del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+      del.setAttribute('aria-label', 'Delete');
+      del.title = 'Delete';
+      del.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm('Delete this session?')) return;
+        await fetch('/api/sessions/' + s.id, { method: 'DELETE' });
+        state.sessions = state.sessions.filter(x => x.id !== s.id);
+        if (state.sessionId === s.id) {
+          state.sessionId = null;
+          clearMessages();
+          updateHeaderTitle();
+        }
+        renderSessions();
+      });
+      item.appendChild(text);
+      item.appendChild(rename);
+      item.appendChild(del);
+      els.sessionList.appendChild(item);
+    }
+  }
+
+  function updateHeaderTitle() {
+    if (!state.sessionId) { els.headerTitle.textContent = 'New chat'; return; }
+    const s = state.sessions.find(x => x.id === state.sessionId);
+    els.headerTitle.textContent = s ? s.title : 'Chat';
+  }
+
+  function shortCwd(p) {
+    if (!p) return '';
+    const home = '/Users/andi';
+    return p.startsWith(home) ? '~' + p.slice(home.length) : p;
+  }
+
+  function timeAgo(ts) {
+    if (!ts) return '';
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    if (s < 86400) return Math.floor(s/3600) + 'h ago';
+    return Math.floor(s/86400) + 'd ago';
+  }
+
+  // ---------- Composer ----------
+  function autoGrow() {
+    els.input.style.height = 'auto';
+    els.input.style.height = Math.min(els.input.scrollHeight, 160) + 'px';
+  }
+  els.input.addEventListener('input', () => {
+    autoGrow();
+    updateSendButton();
+  });
+
+  function updateSendButton() {
+    if (state.aborting) {
+      els.btnSend.disabled = true;
+      els.btnSend.classList.add('cancel');
+      els.btnSend.innerHTML = '<span class="spinner" style="border-top-color:#fff;"></span>';
+    } else if (state.inTurn) {
+      els.btnSend.disabled = false;
+      els.btnSend.classList.add('cancel');
+      els.btnSend.textContent = '■';
+    } else {
+      els.btnSend.disabled = !els.input.value.trim() || !state.ws || state.ws.readyState !== WebSocket.OPEN;
+      els.btnSend.classList.remove('cancel');
+      els.btnSend.textContent = '➤';
+    }
+  }
+
+  function doSend() {
+    if (state.inTurn) {
+      if (state.aborting) return;
+      state.aborting = true;
+      updateSendButton();
+      send({ type: 'abort' });
+      setTimeout(() => {
+        if (state.aborting) {
+          state.aborting = false;
+          state.inTurn = false;
+          updateSendButton();
+        }
+      }, 5000);
+      return;
+    }
+    const text = els.input.value;
+    if (!text.trim()) return;
+    send({ type: 'prompt', text });
+    els.input.value = '';
+    autoGrow();
+    updateSendButton();
+  }
+
+  els.btnSend.addEventListener('mousedown', (e) => e.preventDefault());
+  els.btnSend.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (els.btnSend.disabled) return;
+    doSend();
+  });
+
+  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+  els.input.placeholder = isTouchDevice
+    ? 'Ketik pesan untuk Agen…'
+    : 'Ketik pesan… (Enter = kirim, Shift+Enter = baris baru)';
+
+  els.input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      doSend();
+      return;
+    }
+    if (!isTouchDevice && e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      doSend();
+    }
+  });
+
+  // ---------- Sidebar ----------
+  function openSidebar() {
+    els.sidebar.classList.add('open');
+    els.sidebarBg.classList.add('open');
+  }
+  function closeSidebar() {
+    els.sidebar.classList.remove('open');
+    els.sidebarBg.classList.remove('open');
+  }
+  els.btnMenu.addEventListener('click', openSidebar);
+  els.btnCloseSidebar.addEventListener('click', closeSidebar);
+  els.sidebarBg.addEventListener('click', closeSidebar);
+
+  els.btnNew.addEventListener('click', () => {
+    send({
+      type: 'new_session',
+      cwd: els.cwdInput.value || state.cwd,
+      permissionMode: els.permSelect.value,
+      model: els.modelSelect.value,
+    });
+    closeSidebar();
+  });
+
+  els.cwdInput.addEventListener('change', () => {
+    send({ type: 'set_cwd', cwd: els.cwdInput.value });
+  });
+
+  // ---------- Folder Picker ----------
+  const picker = {
+    bg: $('#picker-bg'), path: $('#picker-path'), list: $('#picker-list'),
+    close: $('#picker-close'), cancel: $('#picker-cancel'), select: $('#picker-select'),
+    btn: $('#btn-browse'),
+    currentPath: '',
+  };
+
+  const ICON_FOLDER = '<svg class="picker-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>';
+  const ICON_UP = '<svg class="picker-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
+  const ICON_CHEVRON = '<svg class="picker-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+  async function pickerLoad(p) {
+    picker.list.innerHTML = '<div class="picker-empty">Loading…</div>';
+    try {
+      const res = await fetch('/api/dirs?path=' + encodeURIComponent(p || ''));
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'failed');
+      picker.currentPath = data.path;
+      picker.path.textContent = data.path;
+      picker.list.innerHTML = '';
+      if (data.parent) {
+        const up = document.createElement('div');
+        up.className = 'picker-item up';
+        up.innerHTML = ICON_UP + '<span class="picker-label">Parent directory</span>';
+        up.addEventListener('click', () => pickerLoad(data.parent));
+        picker.list.appendChild(up);
+      }
+      if (!data.entries.length) {
+        const e = document.createElement('div');
+        e.className = 'picker-empty';
+        e.textContent = '(no subfolders)';
+        picker.list.appendChild(e);
+      }
+      for (const name of data.entries) {
+        const it = document.createElement('div');
+        it.className = 'picker-item';
+        const label = document.createElement('span');
+        label.className = 'picker-label';
+        label.textContent = name;
+        it.innerHTML = ICON_FOLDER;
+        it.appendChild(label);
+        it.insertAdjacentHTML('beforeend', ICON_CHEVRON);
+        it.addEventListener('click', () => {
+          const next = data.path.endsWith('/') ? data.path + name : data.path + '/' + name;
+          pickerLoad(next);
+        });
+        picker.list.appendChild(it);
+      }
+    } catch (err) {
+      picker.list.innerHTML = '<div class="picker-empty" style="color:var(--error);">' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  function openPicker() {
+    picker.bg.classList.add('open');
+    pickerLoad(els.cwdInput.value || state.cwd);
+  }
+  function closePicker() { picker.bg.classList.remove('open'); }
+
+  picker.btn.addEventListener('click', openPicker);
+  picker.close.addEventListener('click', closePicker);
+  picker.cancel.addEventListener('click', closePicker);
+  picker.bg.addEventListener('click', (e) => { if (e.target === picker.bg) closePicker(); });
+  picker.select.addEventListener('click', () => {
+    if (picker.currentPath) {
+      els.cwdInput.value = picker.currentPath;
+      send({ type: 'set_cwd', cwd: picker.currentPath });
+    }
+    closePicker();
+  });
+
+  els.permSelect.addEventListener('change', () => {
+    state.permissionMode = els.permSelect.value;
+    updatePermWarn();
+    send({ type: 'set_permission', permissionMode: els.permSelect.value });
+  });
+
+  els.modelSelect.addEventListener('change', () => {
+    state.model = els.modelSelect.value;
+    send({ type: 'set_model', model: els.modelSelect.value });
+  });
+
+  // ---------- Visual viewport (mobile keyboard) ----------
+  if (window.visualViewport) {
+    const apply = () => {
+      const vv = window.visualViewport;
+      $('#app').style.height = vv.height + 'px';
+    };
+    window.visualViewport.addEventListener('resize', apply);
+    window.visualViewport.addEventListener('scroll', apply);
+    apply();
+  }
+
+  // ---------- Utils ----------
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  // ---------- Theme ----------
+  const ICON_SUN = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+  const ICON_MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  function setTheme(theme) {
+    const t = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('theme', t); } catch {}
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', t === 'light' ? '#f8f8f8' : '#111111');
+    els.themeIcon.innerHTML = t === 'light' ? ICON_MOON : ICON_SUN;
+  }
+  let savedTheme = 'dark';
+  try { savedTheme = localStorage.getItem('theme') || 'dark'; } catch {}
+  setTheme(savedTheme);
+  els.themeToggle.addEventListener('click', () => {
+    const cur = document.documentElement.dataset.theme || 'dark';
+    setTheme(cur === 'dark' ? 'light' : 'dark');
+  });
+
+  // ---------- Service Worker (PWA) ----------
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
+    });
+  }
+
+  // ---------- Start ----------
+  connect();
+})();
+</script>
+</body>
+</html>

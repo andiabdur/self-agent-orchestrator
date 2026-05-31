@@ -1,0 +1,8 @@
+node_modules/
+.env
+.DS_Store
+.agent-web-terminal/
+.self-agent-orchestrator/
+launchd.*.log
+server.pid
+.claude/
