@@ -655,6 +655,9 @@
     <button id="btn-new" type="button">+ New Chat</button>
   </div>
   <div class="session-list" id="session-list"></div>
+  <div class="cwd-row" style="border-top:1px solid var(--border); padding-top:12px; margin-top:auto; flex-shrink:0;">
+    <button id="btn-logout" type="button" onmouseover="this.style.background='rgba(255,131,137,0.08)'" onmouseout="this.style.background='var(--bg-2)'" style="width:100%; background:var(--bg-2); color:var(--error); border:1px solid var(--border); border-radius:2px; padding:8px 12px; font-size:13px; font-weight:500; cursor:pointer; text-align:center; transition:background .12s, color .12s;">Logout</button>
+  </div>
 </aside>
 
 <script src="https://cdn.jsdelivr.net/npm/marked@13.0.3/marked.min.js"></script>
@@ -692,6 +695,7 @@
     headerTitle: $('#header-title'),
     headerCwd: $('#header-cwd'),
     connDot: $('#conn-dot'),
+    btnLogout: $('#btn-logout'),
   };
 
   const state = {
@@ -1280,6 +1284,19 @@
     closeSidebar();
   });
 
+  els.btnLogout.addEventListener('click', async () => {
+    if (!confirm('Apakah Anda yakin ingin logout?')) return;
+    try {
+      const res = await fetch('/api/logout', { method: 'POST' });
+      if (res.ok) {
+        localStorage.removeItem('sessionId');
+        window.location.href = '/login.html';
+      }
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  });
+
   els.cwdInput.addEventListener('change', () => {
     send({ type: 'set_cwd', cwd: els.cwdInput.value });
   });
@@ -1409,7 +1426,62 @@
     });
   }
 
+  // ---------- License & Auth check ----------
+  function checkAuth() {
+    fetch('/api/auth/check')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.authenticated) window.location.href = '/login.html';
+      })
+      .catch(() => {
+        window.location.href = '/login.html';
+      });
+  }
+
+  function protectLicense() {
+    const b = "Q29weXJpZ2h0IMKpIDIwMjYgYW5kaWFiZHVyLiBBbGwgcmlnaHRzIHJlc2VydmVkLg==";
+    const txt = atob(b);
+    
+    const footer = document.createElement('div');
+    footer.id = 'app-license-footer';
+    footer.style.cssText = 'position:fixed;bottom:8px;left:0;right:0;text-align:center;font-size:10px;color:rgba(150,150,150,0.25);font-family:monospace;pointer-events:none;z-index:9999;user-select:none;-webkit-user-select:none;';
+    footer.textContent = txt;
+    document.body.appendChild(footer);
+
+    const lock = () => {
+      document.documentElement.innerHTML = '<div style="background:#0a0a0a;color:#ff8389;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;text-align:center;padding:20px;z-index:100000;position:fixed;inset:0;"><h1 style="font-size:20px;letter-spacing:0.05em;margin:0;">LICENSE VIOLATION</h1><p style="font-size:12px;color:#a8a8a8;margin:0;">Copyright notice has been altered or deleted. Application locked.</p></div>';
+      throw new Error("License tampered");
+    };
+
+    const checker = () => {
+      const el = document.getElementById('app-license-footer');
+      if (!el || el.textContent !== txt || !document.body.contains(el)) {
+        lock();
+        return;
+      }
+      const s = window.getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) < 0.05 || parseInt(s.fontSize) < 5) {
+        lock();
+      }
+    };
+
+    const obs = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'childList' || m.type === 'attributes' || m.type === 'characterData') {
+          checker();
+        }
+      }
+    });
+
+    obs.observe(footer, { attributes: true, childList: true, characterData: true, subtree: true });
+    obs.observe(document.body, { childList: true });
+
+    setInterval(checker, 1000);
+  }
+
   // ---------- Start ----------
+  checkAuth();
+  protectLicense();
   connect();
 })();
 </script>

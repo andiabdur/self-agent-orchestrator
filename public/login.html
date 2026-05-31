@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#111111" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" type="image/svg+xml" href="/icon.svg" />
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<title>Login - Self Agent Orchestrator</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --card-bg: rgba(26, 26, 26, 0.45);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-focus: #0f62fe;
+    --text: #d4d4d4;
+    --text-strong: #ffffff;
+    --accent: #0f62fe;
+    --accent-hover: #0353e9;
+    --error: #ff8389;
+    --error-bg: rgba(255, 131, 137, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Animated background radial gradients */
+  .bg-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(15, 98, 254, 0.08) 0%, rgba(0,0,0,0) 70%);
+    top: -100px; left: -100px;
+    z-index: 1;
+    pointer-events: none;
+    animation: pulse 12s infinite alternate;
+  }
+  .bg-glow-2 {
+    position: absolute;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(168, 68, 0, 0.05) 0%, rgba(0,0,0,0) 70%);
+    bottom: -100px; right: -100px;
+    z-index: 1;
+    pointer-events: none;
+    animation: pulse 10s infinite alternate-reverse;
+  }
+
+  @keyframes pulse {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(50px, 30px) scale(1.15); }
+  }
+
+  /* Card Glassmorphism */
+  .login-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 36px 32px;
+    width: 100%; max-width: 360px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+    z-index: 2;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .logo-area {
+    text-align: center; margin-bottom: 24px;
+  }
+  .logo-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-strong); margin: 0;
+    background: linear-gradient(135deg, #fff 0%, #a8a8a8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .logo-subtitle {
+    font-size: 11px; color: #6f6f6f; margin-top: 4px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  /* Form controls */
+  .form-group {
+    margin-bottom: 18px; position: relative;
+  }
+  .form-label {
+    display: block; font-size: 11px; font-weight: 500;
+    color: #a8a8a8; margin-bottom: 6px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .input-wrapper {
+    position: relative; width: 100%;
+  }
+  .form-input {
+    width: 100%;
+    background: rgba(10, 10, 10, 0.6);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    color: var(--text-strong);
+    font-family: inherit; font-size: 13.5px;
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .form-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(15, 98, 254, 0.15);
+  }
+  .password-toggle {
+    position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none; color: #6f6f6f;
+    cursor: pointer; padding: 4px; display: flex; align-items: center;
+    border-radius: 2px; transition: color 0.12s;
+  }
+  .password-toggle:hover { color: var(--text-strong); }
+
+  /* Error box */
+  .error-box {
+    background: var(--error-bg);
+    border: 1px solid rgba(255, 131, 137, 0.2);
+    border-left: 3px solid var(--error);
+    border-radius: 3px;
+    padding: 8px 12px; margin-bottom: 18px;
+    color: var(--error); font-size: 12px;
+    display: none; align-items: center; gap: 8px;
+    animation: fadeIn 0.2s ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Sign in Button */
+  .btn-submit {
+    width: 100%;
+    background: var(--accent); color: #ffffff;
+    border: none; border-radius: 3px;
+    padding: 11px; font-size: 13.5px; font-weight: 500;
+    font-family: inherit; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background 0.12s, transform 0.1s;
+  }
+  .btn-submit:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-submit:active:not(:disabled) { transform: scale(0.985); }
+  .btn-submit:disabled {
+    background: rgba(255, 255, 255, 0.08); color: #525252;
+    cursor: not-allowed;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-top-color: #ffffff;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="bg-glow-2"></div>
+
+<div class="login-card">
+  <div class="logo-area">
+    <h1 class="logo-title">Self Agent Orchestrator</h1>
+    <div class="logo-subtitle">Access Panel</div>
+  </div>
+
+  <div class="error-box" id="error-box">
+    <span>⚠</span> <span id="error-msg"></span>
+  </div>
+
+  <form id="login-form">
+    <div class="form-group">
+      <label class="form-label" for="username">Username</label>
+      <input class="form-input" type="text" id="username" name="username" autocomplete="username" required placeholder="Masukkan username" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="current-password">Password</label>
+      <div class="input-wrapper">
+        <input class="form-input" type="password" id="current-password" name="password" autocomplete="current-password" required placeholder="Masukkan password" style="padding-right: 36px;" />
+        <button class="password-toggle" type="button" id="btn-toggle-pass" title="Tampilkan Password">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="eye-icon">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <button class="btn-submit" type="submit" id="btn-submit">
+      <span id="btn-text">Sign In</span>
+    </button>
+  </form>
+</div>
+
+<script>
+(() => {
+  const form = document.getElementById('login-form');
+  const userEl = document.getElementById('username');
+  const passEl = document.getElementById('current-password');
+  const btnTogglePass = document.getElementById('btn-toggle-pass');
+  const eyeIcon = document.getElementById('eye-icon');
+  const errBox = document.getElementById('error-box');
+  const errMsg = document.getElementById('error-msg');
+  const btnSubmit = document.getElementById('btn-submit');
+  const btnText = document.getElementById('btn-text');
+
+  // Toggle password visibility
+  btnTogglePass.addEventListener('click', () => {
+    const isPass = passEl.type === 'password';
+    passEl.type = isPass ? 'text' : 'password';
+    eyeIcon.innerHTML = isPass 
+      ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+      : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    btnTogglePass.title = isPass ? 'Sembunyikan Password' : 'Tampilkan Password';
+  });
+
+  // Handle Form Submission
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errBox.style.display = 'none';
+    btnSubmit.disabled = true;
+    btnText.innerHTML = '<span class="spinner"></span> Connecting...';
+
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: userEl.value.trim(),
+          password: passEl.value
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error');
+
+      // Success -> redirect to panel
+      window.location.href = '/';
+    } catch (err) {
+      errMsg.textContent = err.message;
+      errBox.style.display = 'flex';
+      btnSubmit.disabled = false;
+      btnText.textContent = 'Sign In';
+    }
+  });
+
+  // Check auth state on page load
+  fetch('/api/auth/check')
+    .then(r => r.json())
+    .then(d => {
+      if (d.authenticated) window.location.href = '/';
+    })
+    .catch(() => {});
+
+  // ─── Obfuscated Copyright Footer & Anti-Tamper ────────────
+  function protectLicense() {
+    const b = "Q29weXJpZ2h0IMKpIDIwMjYgYW5kaWFiZHVyLiBBbGwgcmlnaHRzIHJlc2VydmVkLg==";
+    const txt = atob(b);
+    
+    const footer = document.createElement('div');
+    footer.id = 'app-license-footer';
+    footer.style.cssText = 'position:fixed;bottom:10px;left:0;right:0;text-align:center;font-size:10.5px;color:rgba(150,150,150,0.3);font-family:monospace;pointer-events:none;z-index:9999;user-select:none;-webkit-user-select:none;';
+    footer.textContent = txt;
+    document.body.appendChild(footer);
+
+    const lock = () => {
+      document.documentElement.innerHTML = '<div style="background:#0a0a0a;color:#ff8389;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;text-align:center;padding:20px;z-index:100000;position:fixed;inset:0;"><h1 style="font-size:20px;letter-spacing:0.05em;margin:0;">LICENSE VIOLATION</h1><p style="font-size:12px;color:#a8a8a8;margin:0;">Copyright notice has been altered or deleted. Application locked.</p></div>';
+      throw new Error("License tampered");
+    };
+
+    const checker = () => {
+      const el = document.getElementById('app-license-footer');
+      if (!el || el.textContent !== txt || !document.body.contains(el)) {
+        lock();
+        return;
+      }
+      const s = window.getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) < 0.05 || parseInt(s.fontSize) < 5) {
+        lock();
+      }
+    };
+
+    const obs = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'childList' || m.type === 'attributes' || m.type === 'characterData') {
+          checker();
+        }
+      }
+    });
+
+    obs.observe(footer, { attributes: true, childList: true, characterData: true, subtree: true });
+    obs.observe(document.body, { childList: true });
+
+    setInterval(checker, 1000);
+  }
+
+  // Load footer protection after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', protectLicense);
+  } else {
+    protectLicense();
+  }
+})();
+</script>
+</body>
+</html>

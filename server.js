@@ -56,23 +56,80 @@ function upsertSessionMeta(id, patch) {
 const app = express();
 app.use(express.json());
 
-function checkBasicAuth(req) {
-  const auth = req.headers['authorization'];
-  if (!auth || !auth.startsWith('Basic ')) return false;
-  try {
-    const decoded = Buffer.from(auth.slice(6), 'base64').toString('utf8');
-    const idx = decoded.indexOf(':');
-    if (idx < 0) return false;
-    const user = decoded.slice(0, idx);
-    const pass = decoded.slice(idx + 1);
-    return user === USERNAME && pass === PASSWORD;
-  } catch { return false; }
+const activeSessions = new Set();
+
+function getSessionToken(req) {
+  const cookieHeader = req.headers.cookie || '';
+  const match = cookieHeader.match(/session_token=([^;]+)/);
+  if (match) return match[1];
+  
+  if (req.url) {
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      const token = url.searchParams.get('token');
+      if (token) return token;
+    } catch {}
+  }
+  return null;
+}
+
+function isAuthenticated(req) {
+  const token = getSessionToken(req);
+  return token && activeSessions.has(token);
 }
 
 app.use((req, res, next) => {
-  if (checkBasicAuth(req)) return next();
-  res.set('WWW-Authenticate', 'Basic realm="agent-chat"');
-  res.status(401).send('Authentication required');
+  const publicPaths = new Set([
+    '/login.html',
+    '/api/login',
+    '/api/auth/check',
+    '/manifest.webmanifest',
+    '/icon-192.png',
+    '/icon-512.png',
+    '/icon.svg',
+    '/sw.js'
+  ]);
+
+  if (publicPaths.has(req.path)) {
+    return next();
+  }
+
+  if (isAuthenticated(req)) {
+    return next();
+  }
+
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  res.redirect('/login.html');
+});
+
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username dan password wajib diisi' });
+  }
+  if (username === USERNAME && password === PASSWORD) {
+    const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    activeSessions.add(token);
+    res.setHeader('Set-Cookie', `session_token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000`);
+    return res.json({ ok: true });
+  }
+  return res.status(401).json({ error: 'Username atau password salah' });
+});
+
+app.post('/api/logout', (req, res) => {
+  const token = getSessionToken(req);
+  if (token) {
+    activeSessions.delete(token);
+  }
+  res.setHeader('Set-Cookie', 'session_token=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0');
+  res.json({ ok: true });
+});
+
+app.get('/api/auth/check', (req, res) => {
+  res.json({ authenticated: isAuthenticated(req) });
 });
 
 app.get('/api/sessions', (req, res) => res.json(loadIndex()));
@@ -120,8 +177,9 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
-  if (req.url !== '/ws' || !checkBasicAuth(req)) {
-    socket.write('HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm="agent-chat"\r\n\r\n');
+  const pathname = req.url ? req.url.split('?')[0] : '';
+  if (pathname !== '/ws' || !isAuthenticated(req)) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
     return;
   }
