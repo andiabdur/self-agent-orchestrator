@@ -14,25 +14,111 @@ $INSTALL_DIR_PATH = $INSTALL_DIR.Path
 # 1. Dependency checks: Node.js & NPM
 Write-Host "🔍 Checking Node.js and NPM..."
 $nodeFound = $false
-try {
-    $nodeVersion = node -v
-    Write-Host "✓ Node.js found: $nodeVersion" -ForegroundColor Green
+
+function Test-Node {
+    try {
+        $nodeVersion = node -v
+        Write-Host "✓ Node.js found: $nodeVersion" -ForegroundColor Green
+        return $true
+    } catch {
+        # Check standard installation path as fallback
+        if (Test-Path "C:\Program Files\nodejs\node.exe") {
+            $env:Path += ";C:\Program Files\nodejs"
+            try {
+                $nodeVersion = node -v
+                Write-Host "✓ Node.js found at C:\Program Files\nodejs: $nodeVersion" -ForegroundColor Green
+                return $true
+            } catch {}
+        }
+        return $false
+    }
+}
+
+if (Test-Node) {
     $nodeFound = $true
-} catch {
-    Write-Host "⚠ Node.js not found in PATH." -ForegroundColor Yellow
-    Write-Host "Attempting to detect Node via winget..." -ForegroundColor Yellow
+} else {
+    Write-Host "⚠ Node.js not found. Attempting automatic installation..." -ForegroundColor Yellow
     
-    # Try winget detection
+    $installed = $false
+    
+    # Try 1: winget
     try {
         winget --version > $null
-        Write-Host "winget found. You can install Node.js by running:" -ForegroundColor Green
-        Write-Host "winget install OpenJS.NodeJS" -ForegroundColor Cyan
+        Write-Host "-> Trying to install Node.js via winget..." -ForegroundColor Cyan
+        Start-Process winget -ArgumentList "install --id OpenJS.NodeJS --silent --accept-source-agreements --accept-package-agreements" -Wait -NoNewWindow
+        $installed = $true
     } catch {
-        Write-Host "Please download and install Node.js manually from: https://nodejs.org/" -ForegroundColor Red
+        Write-Host "-> winget is not available or failed." -ForegroundColor Yellow
     }
     
-    Write-Host "Exiting installer. Please install Node.js and restart this installer." -ForegroundColor Red
-    Exit
+    # Try 2: choco
+    if (-not $installed) {
+        $chocoPath = Get-Command choco -ErrorAction SilentlyContinue
+        if ($chocoPath) {
+            try {
+                Write-Host "-> Trying to install Node.js via Chocolatey..." -ForegroundColor Cyan
+                Start-Process choco -ArgumentList "install nodejs -y" -Wait -NoNewWindow
+                $installed = $true
+            } catch {}
+        }
+    }
+    
+    # Try 3: scoop
+    if (-not $installed) {
+        $scoopPath = Get-Command scoop -ErrorAction SilentlyContinue
+        if ($scoopPath) {
+            try {
+                Write-Host "-> Trying to install Node.js via Scoop..." -ForegroundColor Cyan
+                Start-Process scoop -ArgumentList "install nodejs" -Wait -NoNewWindow
+                $installed = $true
+            } catch {}
+        }
+    }
+    
+    # Try 4: Download official MSI and run installer wizard
+    if (-not $installed) {
+        try {
+            Write-Host "-> All command line package managers failed." -ForegroundColor Yellow
+            Write-Host "-> Downloading official Node.js installer (MSI) from nodejs.org..." -ForegroundColor Cyan
+            
+            $msiUrl = "https://nodejs.org/dist/v20.12.2/node-v20.12.2-x64.msi"
+            $msiPath = "$env:TEMP\node-v20.12.2-x64.msi"
+            
+            # Set TLS 1.2 for download
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Invoke-WebRequest -Uri $msiUrl -OutFile $msiPath
+            
+            Write-Host "✓ Installer downloaded. Opening installation wizard..." -ForegroundColor Green
+            Write-Host "Please follow the instructions in the setup window to install Node.js." -ForegroundColor Green
+            
+            # Start installer wizard and wait for completion
+            $proc = Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`"" -Wait -PassThru
+            if ($proc.ExitCode -eq 0) {
+                $installed = $true
+            } else {
+                Write-Host "⚠ Installation wizard returned code: $($proc.ExitCode)" -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "✗ Failed to download official Node.js MSI: $_" -ForegroundColor Red
+        }
+    }
+    
+    # Refresh PATH environment variables
+    Write-Host "Refreshing PATH environment variables..." -ForegroundColor Cyan
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+    if (Test-Path "C:\Program Files\nodejs") {
+        $env:Path += ";C:\Program Files\nodejs"
+    }
+
+    # Recheck Node
+    if (Test-Node) {
+        $nodeFound = $true
+    } else {
+        Write-Host "✗ Node.js is still not detected after installation." -ForegroundColor Red
+        Write-Host "Please download and install Node.js manually from: https://nodejs.org/" -ForegroundColor Red
+        Write-Host "Once installed, restart this script." -ForegroundColor Red
+        Exit
+    }
 }
 
 # 2. Claude CLI detection
