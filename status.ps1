@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 cd $PSScriptRoot
 
 if (-not (Test-Path ".env")) {
-    Write-Host "✗ Not running (.env not found)" -ForegroundColor Red
+    Write-Host "[ERROR] Not running (.env not found)" -ForegroundColor Red
     Exit 0
 }
 
@@ -39,7 +39,7 @@ if (-not $isRunning) {
     if ($proc) {
         $isRunning = $true
         $pid = $proc[0].ProcessId
-        Write-Host "⚠ Running but no pidfile or stale pidfile (pid $pid)" -ForegroundColor Yellow
+        Write-Host "[WARNING] Running but no pidfile or stale pidfile (pid $pid)" -ForegroundColor Yellow
     }
 }
 
@@ -56,7 +56,7 @@ if ($isRunning) {
         $tailscaleIp = (tailscale ip -4 2>$null | Select-Object -First 1)
     }
     
-    Write-Host "✓ Running (pid $pid)" -ForegroundColor Green
+    Write-Host "[OK] Running (pid $pid)" -ForegroundColor Green
     if ($tailscaleIp) {
         Write-Host "  Tailscale:  http://$($tailscaleIp.Trim()):$port" -ForegroundColor Cyan
     }
@@ -66,5 +66,5 @@ if ($isRunning) {
     Write-Host "  Localhost:  http://127.0.0.1:$port" -ForegroundColor Cyan
     Write-Host "  Logs:       Get-Content `"$logFile`" -Wait" -ForegroundColor Cyan
 } else {
-    Write-Host "✗ Not running." -ForegroundColor Red
+    Write-Host "[ERROR] Not running." -ForegroundColor Red
 }

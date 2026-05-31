@@ -12,7 +12,7 @@ if (-not (Test-Path $pidFile)) {
     if ($proc) {
         foreach ($p in $proc) {
             Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
-            Write-Host "✓ Stopped process by name (pid $($p.ProcessId))" -ForegroundColor Green
+            Write-Host "[OK] Stopped process by name (pid $($p.ProcessId))" -ForegroundColor Green
         }
     } else {
         Write-Host "Not running." -ForegroundColor Yellow
@@ -30,7 +30,7 @@ if ($pid) {
             Stop-Process -Id $cp.ProcessId -Force -ErrorAction SilentlyContinue
         }
         Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-        Write-Host "✓ Stopped (pid $pid)" -ForegroundColor Green
+        Write-Host "[OK] Stopped (pid $pid)" -ForegroundColor Green
     } else {
         # Fallback: check if node server.js is running anyway
         $nodeProcs = Get-CimInstance Win32_Process -Filter "CommandLine like '%node server.js%'" -ErrorAction SilentlyContinue
@@ -38,7 +38,7 @@ if ($pid) {
             foreach ($np in $nodeProcs) {
                 Stop-Process -Id $np.ProcessId -Force -ErrorAction SilentlyContinue
             }
-            Write-Host "✓ Stopped node server processes by name" -ForegroundColor Green
+            Write-Host "[OK] Stopped node server processes by name" -ForegroundColor Green
         } else {
             Write-Host "Not running (stale pidfile)" -ForegroundColor Yellow
         }

@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 cd $PSScriptRoot
 
 if (-not (Test-Path ".env")) {
-    Write-Host "✗ .env not found. Please run installation first." -ForegroundColor Red
+    Write-Host "[ERROR] .env not found. Please run installation first." -ForegroundColor Red
     Exit 1
 }
 
@@ -44,9 +44,9 @@ $proc.Id | Out-File -FilePath $pidFile -Encoding ascii -Force
 Start-Sleep -Seconds 1
 $runningProc = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
 if ($runningProc) {
-    Write-Host "✓ Started (pid $($proc.Id))" -ForegroundColor Green
+    Write-Host "[OK] Started (pid $($proc.Id))" -ForegroundColor Green
     Write-Host "  HTTP:  http://localhost:$port" -ForegroundColor Cyan
     Write-Host "  Logs:  Get-Content `"$logFile`" -Wait" -ForegroundColor Cyan
 } else {
-    Write-Host "✗ Failed to start. Check logs at: $logFile" -ForegroundColor Red
+    Write-Host "[ERROR] Failed to start. Check logs at: $logFile" -ForegroundColor Red
 }
