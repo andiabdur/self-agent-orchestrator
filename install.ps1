@@ -130,6 +130,21 @@ STATE_DIR=$env:USERPROFILE/.self-agent-orchestrator
 Set-Content -Path "$INSTALL_DIR_PATH\.env" -Value $envContent -Encoding utf8
 Write-Host "✓ .env file created successfully." -ForegroundColor Green
 
+# 4b. Migrate old data if exists
+$oldStateDir = "$env:USERPROFILE\.agent-web-terminal"
+$newStateDir = "$env:USERPROFILE\.self-agent-orchestrator"
+if ((Test-Path $oldStateDir) -and -not (Test-Path "$newStateDir\sessions.json")) {
+    Write-Host "`n🔄 Migrating chat history from old agent-web-terminal directory..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Force -Path $newStateDir | Out-Null
+    if (Test-Path "$oldStateDir\sessions.json") {
+        Copy-Item -Path "$oldStateDir\sessions.json" -Destination $newStateDir -Force
+    }
+    if (Test-Path "$oldStateDir\sessions") {
+        Copy-Item -Path "$oldStateDir\sessions" -Destination $newStateDir -Recurse -Force
+    }
+    Write-Host "✓ Chat history migrated successfully." -ForegroundColor Green
+}
+
 # 5. NPM Install
 Write-Host "`n📦 Installing Node.js dependencies..."
 npm install --no-audit --no-fund

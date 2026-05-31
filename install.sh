@@ -128,6 +128,17 @@ STATE_DIR=$HOME/.self-agent-orchestrator
 EOF
 echo -e "${GREEN}✓ .env file created successfully.${NC}"
 
+# 4b. Migrate old data if exists
+OLD_STATE_DIR="$HOME/.agent-web-terminal"
+NEW_STATE_DIR="$HOME/.self-agent-orchestrator"
+if [ -d "$OLD_STATE_DIR" ] && [ ! -f "$NEW_STATE_DIR/sessions.json" ]; then
+    echo -e "\n🔄 Migrating chat history from old agent-web-terminal directory..."
+    mkdir -p "$NEW_STATE_DIR"
+    cp -r "$OLD_STATE_DIR/sessions.json" "$NEW_STATE_DIR/" 2>/dev/null || true
+    cp -r "$OLD_STATE_DIR/sessions" "$NEW_STATE_DIR/" 2>/dev/null || true
+    echo -e "${GREEN}✓ Chat history migrated successfully.${NC}"
+fi
+
 # 5. NPM Install
 echo -e "\n📦 Installing Node.js dependencies..."
 npm install --no-audit --no-fund
