@@ -36,7 +36,34 @@ const PORT = parseInt(process.env.PORT || '7000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const USERNAME = process.env.WEB_USERNAME || 'admin';
 const PASSWORD = process.env.WEB_PASSWORD || 'changeme';
-const CLAUDE_BIN = process.env.CLAUDE_BIN || '/Users/andi/.local/bin/claude';
+const isWin = process.platform === 'win32';
+
+// Resolve CLAUDE_BIN dynamically
+const rawClaudeBin = process.env.CLAUDE_BIN || '/Users/andi/.local/bin/claude';
+function resolveClaudeBin() {
+  if (rawClaudeBin && fs.existsSync(rawClaudeBin)) {
+    return rawClaudeBin;
+  }
+  if (isWin) {
+    if (process.env.APPDATA) {
+      const globalNpmPath = path.join(process.env.APPDATA, 'npm', 'claude.cmd');
+      if (fs.existsSync(globalNpmPath)) {
+        return globalNpmPath;
+      }
+    }
+    return 'claude';
+  } else {
+    const userLocalBin = path.join(os.homedir(), '.local', 'bin', 'claude');
+    if (fs.existsSync(userLocalBin)) {
+      return userLocalBin;
+    }
+    if (fs.existsSync('/usr/local/bin/claude')) {
+      return '/usr/local/bin/claude';
+    }
+    return 'claude';
+  }
+}
+const CLAUDE_BIN = resolveClaudeBin();
 const DEFAULT_CWD = process.env.AGENT_CWD || os.homedir();
 const DEFAULT_PERM = process.env.PERMISSION_MODE || 'bypassPermissions';
 const VALID_PERMS = new Set(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'dontAsk', 'plan']);
@@ -402,6 +429,7 @@ wss.on('connection', (ws) => {
           env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
           stdio: ['pipe', 'pipe', 'pipe'],
           detached: true,
+          shell: isWin,
         });
       } catch (err) {
         send({ kind: 'error', message: `Failed to spawn claude: ${err.message}` });
