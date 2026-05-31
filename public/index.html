@@ -1411,11 +1411,11 @@
     if (meta) meta.setAttribute('content', t === 'light' ? '#f8f8f8' : '#111111');
     els.themeIcon.innerHTML = t === 'light' ? ICON_MOON : ICON_SUN;
   }
-  let savedTheme = 'dark';
-  try { savedTheme = localStorage.getItem('theme') || 'dark'; } catch {}
+  let savedTheme = 'light';
+  try { savedTheme = localStorage.getItem('theme') || 'light'; } catch {}
   setTheme(savedTheme);
   els.themeToggle.addEventListener('click', () => {
-    const cur = document.documentElement.dataset.theme || 'dark';
+    const cur = document.documentElement.dataset.theme || 'light';
     setTheme(cur === 'dark' ? 'light' : 'dark');
   });
 

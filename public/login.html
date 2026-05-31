@@ -15,6 +15,27 @@
 <title>Login - Self Agent Orchestrator</title>
 <style>
   :root {
+    /* Light Theme (Default) */
+    --bg: #f8f8f8;
+    --card-bg: rgba(255, 255, 255, 0.65);
+    --border: rgba(0, 0, 0, 0.08);
+    --border-focus: #0f62fe;
+    --text: #1a1a1a;
+    --text-strong: #000000;
+    --accent: #0f62fe;
+    --accent-hover: #0353e9;
+    --error: #da1e28;
+    --error-bg: rgba(218, 30, 40, 0.05);
+    --input-bg: rgba(255, 255, 255, 0.85);
+    --glow-1: rgba(15, 98, 254, 0.05);
+    --glow-2: rgba(168, 68, 0, 0.03);
+    --card-shadow: 0 16px 36px rgba(0, 0, 0, 0.06);
+    --logo-gradient: linear-gradient(135deg, #000 0%, #6f6f6f 100%);
+    --toggle-color: #767676;
+    --toggle-hover: #1a1a1a;
+  }
+  :root[data-theme="dark"] {
+    /* Dark Theme */
     --bg: #0a0a0a;
     --card-bg: rgba(26, 26, 26, 0.45);
     --border: rgba(255, 255, 255, 0.08);
@@ -25,6 +46,13 @@
     --accent-hover: #0353e9;
     --error: #ff8389;
     --error-bg: rgba(255, 131, 137, 0.08);
+    --input-bg: rgba(10, 10, 10, 0.6);
+    --glow-1: rgba(15, 98, 254, 0.08);
+    --glow-2: rgba(168, 68, 0, 0.05);
+    --card-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+    --logo-gradient: linear-gradient(135deg, #fff 0%, #a8a8a8 100%);
+    --toggle-color: #6f6f6f;
+    --toggle-hover: #ffffff;
   }
 
   * { box-sizing: border-box; }
@@ -34,13 +62,14 @@
     font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     display: flex; align-items: center; justify-content: center;
     overflow: hidden;
+    transition: background 0.15s, color 0.15s;
   }
 
   /* Animated background radial gradients */
   .bg-glow {
     position: absolute;
     width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(15, 98, 254, 0.08) 0%, rgba(0,0,0,0) 70%);
+    background: radial-gradient(circle, var(--glow-1) 0%, rgba(0,0,0,0) 70%);
     top: -100px; left: -100px;
     z-index: 1;
     pointer-events: none;
@@ -49,7 +78,7 @@
   .bg-glow-2 {
     position: absolute;
     width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(168, 68, 0, 0.05) 0%, rgba(0,0,0,0) 70%);
+    background: radial-gradient(circle, var(--glow-2) 0%, rgba(0,0,0,0) 70%);
     bottom: -100px; right: -100px;
     z-index: 1;
     pointer-events: none;
@@ -70,9 +99,9 @@
     border-radius: 6px;
     padding: 36px 32px;
     width: 100%; max-width: 360px;
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--card-shadow);
     z-index: 2;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.15s, border-color 0.15s;
   }
 
   .logo-area {
@@ -83,12 +112,12 @@
     font-size: 14px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.12em;
     color: var(--text-strong); margin: 0;
-    background: linear-gradient(135deg, #fff 0%, #a8a8a8 100%);
+    background: var(--logo-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
   .logo-subtitle {
-    font-size: 11px; color: #6f6f6f; margin-top: 4px;
+    font-size: 11px; color: var(--toggle-color); margin-top: 4px;
     text-transform: uppercase; letter-spacing: 0.06em;
   }
 
@@ -98,7 +127,7 @@
   }
   .form-label {
     display: block; font-size: 11px; font-weight: 500;
-    color: #a8a8a8; margin-bottom: 6px;
+    color: var(--toggle-color); margin-bottom: 6px;
     text-transform: uppercase; letter-spacing: 0.06em;
   }
   .input-wrapper {
@@ -106,13 +135,13 @@
   }
   .form-input {
     width: 100%;
-    background: rgba(10, 10, 10, 0.6);
+    background: var(--input-bg);
     border: 1px solid var(--border);
     border-radius: 3px;
     padding: 10px 12px;
     color: var(--text-strong);
     font-family: inherit; font-size: 13.5px;
-    outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s, background 0.15s, color 0.15s;
   }
   .form-input:focus {
     border-color: var(--border-focus);
@@ -121,7 +150,7 @@
   .password-toggle {
     position: absolute; right: 10px; top: 50%;
     transform: translateY(-50%);
-    background: none; border: none; color: #6f6f6f;
+    background: none; border: none; color: var(--toggle-color);
     cursor: pointer; padding: 4px; display: flex; align-items: center;
     border-radius: 2px; transition: color 0.12s;
   }
@@ -153,21 +182,45 @@
   .btn-submit:hover:not(:disabled) { background: var(--accent-hover); }
   .btn-submit:active:not(:disabled) { transform: scale(0.985); }
   .btn-submit:disabled {
-    background: rgba(255, 255, 255, 0.08); color: #525252;
+    background: var(--border); color: var(--toggle-color);
     cursor: not-allowed;
   }
 
   .spinner {
     display: inline-block;
     width: 14px; height: 14px;
-    border: 2px solid rgba(255, 255, 255, 0.15);
+    border: 2px solid var(--border);
     border-top-color: #ffffff;
     border-radius: 50%; animation: spin 0.6s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Theme toggle button in top right */
+  .theme-toggle {
+    position: fixed; top: 16px; right: 16px;
+    background: var(--card-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    width: 36px; height: 36px;
+    cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    color: var(--text);
+    transition: background 0.12s, color 0.12s;
+    z-index: 10;
+  }
+  .theme-toggle:hover {
+    background: var(--border);
+    color: var(--text-strong);
+  }
+  .theme-toggle svg { display: block; }
 </style>
 </head>
 <body>
+<button class="theme-toggle" type="button" id="theme-toggle-btn" title="Ganti Tema">
+  <span id="theme-toggle-icon"></span>
+</button>
 <div class="bg-glow"></div>
 <div class="bg-glow-2"></div>
 
@@ -265,6 +318,37 @@
       if (d.authenticated) window.location.href = '/';
     })
     .catch(() => {});
+
+  // ---------- Theme Controller ----------
+  const toggleBtn = document.getElementById('theme-toggle-btn');
+  const toggleIcon = document.getElementById('theme-toggle-icon');
+  
+  const SUN_SVG = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+  const MOON_SVG = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  
+  function setTheme(theme) {
+    const t = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('theme', t); } catch {}
+    
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', t === 'light' ? '#f8f8f8' : '#0a0a0a');
+
+    if (toggleIcon) {
+      toggleIcon.innerHTML = t === 'light' 
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + MOON_SVG + '</svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + SUN_SVG + '</svg>';
+    }
+  }
+  
+  let savedTheme = 'light';
+  try { savedTheme = localStorage.getItem('theme') || 'light'; } catch {}
+  setTheme(savedTheme);
+  
+  toggleBtn.addEventListener('click', () => {
+    const cur = document.documentElement.dataset.theme || 'light';
+    setTheme(cur === 'light' ? 'dark' : 'light');
+  });
 
   // ─── Obfuscated Copyright Footer & Anti-Tamper ────────────
   function protectLicense() {
