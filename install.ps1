@@ -159,7 +159,14 @@ $claudePath = ""
 function Find-Claude {
     $claudeExe = Get-Command claude -ErrorAction SilentlyContinue
     if ($claudeExe) {
-        return $claudeExe.Source
+        $source = $claudeExe.Source
+        if ($source -like "*.ps1") {
+            $cmdPath = $source -replace "\.ps1$", ".cmd"
+            if (Test-Path $cmdPath) {
+                return $cmdPath
+            }
+        }
+        return $source
     }
     
     # Check default locations
