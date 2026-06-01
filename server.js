@@ -1,5 +1,5 @@
 import express from 'express';
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { spawn } from 'child_process';
 import http from 'http';
 import os from 'os';
@@ -70,6 +70,43 @@ const VALID_PERMS = new Set(['default', 'acceptEdits', 'auto', 'bypassPermission
 const DEFAULT_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
 const VALID_MODELS = new Set(['sonnet', 'opus', 'haiku']);
 
+// ─── Multi-node ────────────────────────────────────────────────────────────────
+const NODE_NAME = process.env.NODE_NAME || os.hostname();
+const REMOTE_NODES = (() => {
+  try {
+    const raw = process.env.NODES;
+    if (!raw) return [];
+    const seen = new Set(['local']);
+    const out = [];
+    JSON.parse(raw).forEach((n, i) => {
+      let id = n.id || `node-${i + 1}`;
+      if (seen.has(id)) {
+        const original = id;
+        let suffix = 2;
+        while (seen.has(id)) { id = `${original}-${suffix++}`; }
+        console.warn(`[nodes] id "${original}" collides; renamed to "${id}"`);
+      }
+      seen.add(id);
+      if (!n.url) {
+        console.warn(`[nodes] node ${id} missing url — skipped`);
+        return;
+      }
+      out.push({
+        id,
+        name: n.name || `Node ${i + 1}`,
+        url: String(n.url),
+        username: String(n.username || USERNAME),
+        password: String(n.password || PASSWORD),
+      });
+    });
+    return out;
+  } catch (e) {
+    console.error('[nodes] Failed to parse NODES env:', e.message);
+    return [];
+  }
+})();
+const ALL_NODES = [{ id: 'local', name: NODE_NAME }, ...REMOTE_NODES];
+
 const STATE_DIR = process.env.STATE_DIR || path.join(os.homedir(), '.self-agent-orchestrator');
 const SESSIONS_DIR = path.join(STATE_DIR, 'sessions');
 const SESSIONS_INDEX = path.join(STATE_DIR, 'sessions.json');
@@ -125,7 +162,17 @@ function getSessionToken(req) {
 
 function isAuthenticated(req) {
   const token = getSessionToken(req);
-  return token && activeSessions.has(token);
+  if (token && activeSessions.has(token)) return true;
+  // Basic auth fallback for server-to-server (node proxy) connections
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Basic ')) {
+    try {
+      const decoded = Buffer.from(authHeader.slice(6), 'base64').toString('utf8');
+      const idx = decoded.indexOf(':');
+      if (idx >= 0 && decoded.slice(0, idx) === USERNAME && decoded.slice(idx + 1) === PASSWORD) return true;
+    } catch {}
+  }
+  return false;
 }
 
 app.use((req, res, next) => {
@@ -221,7 +268,21 @@ app.get('/api/dirs', (req, res) => {
   res.json({ path: target, parent: path.dirname(target) === target ? null : path.dirname(target), entries });
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.get('/api/nodes', (req, res) => {
+  res.json(ALL_NODES.map(({ id, name }) => ({ id, name })));
+});
+
+app.use(express.static(path.join(__dirname, 'public'), {
+  // For HTML and SW: always revalidate (no stale shell when we ship updates).
+  // Other assets (icons, manifest) can be cached normally.
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html') || filePath.endsWith('sw.js')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
+}));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
@@ -312,7 +373,87 @@ wss.on('connection', (ws) => {
   let currentModel = DEFAULT_MODEL;
   let attachedKey = null;
 
+  // Multi-node proxy state
+  let proxyWs = null;
+  let currentNodeId = 'local';
+
   const send = (obj) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); };
+
+  function buildHello() {
+    return {
+      kind: 'hello',
+      defaultCwd: DEFAULT_CWD,
+      defaultPerm: DEFAULT_PERM,
+      defaultModel: DEFAULT_MODEL,
+      sessions: loadIndex(),
+      nodes: ALL_NODES.map(({ id, name }) => ({ id, name })),
+      nodeId: 'local',
+      nodeName: NODE_NAME,
+    };
+  }
+
+  function closeProxy() {
+    if (proxyWs) {
+      proxyWs.removeAllListeners();
+      proxyWs.close();
+      proxyWs = null;
+    }
+  }
+
+  function connectToNode(nodeId) {
+    const nodeConfig = REMOTE_NODES.find(n => n.id === nodeId);
+    if (!nodeConfig) { send({ kind: 'error', message: `Unknown node: ${nodeId}` }); return; }
+
+    closeProxy();
+    send({ kind: 'node_connecting', nodeId, name: nodeConfig.name });
+
+    const wsUrl = nodeConfig.url.replace(/^http/, 'ws').replace(/\/+$/, '') + '/ws';
+    const auth = Buffer.from(`${nodeConfig.username}:${nodeConfig.password}`).toString('base64');
+
+    let pws;
+    try {
+      pws = new WebSocket(wsUrl, { headers: { Authorization: `Basic ${auth}` } });
+    } catch (err) {
+      send({ kind: 'error', message: `Cannot connect to ${nodeConfig.name}: ${err.message}` });
+      return;
+    }
+
+    pws.on('open', () => {
+      proxyWs = pws;
+      currentNodeId = nodeId;
+      send({ kind: 'node_set', nodeId, name: nodeConfig.name });
+    });
+
+    pws.on('message', (data) => {
+      if (ws.readyState !== ws.OPEN) return;
+      // Intercept hello from remote: inject full node list so client sidebar stays intact
+      try {
+        const parsed = JSON.parse(data.toString());
+        if (parsed.kind === 'hello') {
+          parsed.nodes = ALL_NODES.map(({ id, name }) => ({ id, name }));
+          parsed.nodeId = nodeId;
+          parsed.nodeName = nodeConfig.name;
+          ws.send(JSON.stringify(parsed));
+          return;
+        }
+      } catch {}
+      ws.send(data.toString());
+    });
+
+    pws.on('close', () => {
+      if (proxyWs !== pws) return;
+      proxyWs = null;
+      currentNodeId = 'local';
+      send({ kind: 'error', message: `Disconnected from ${nodeConfig.name}` });
+      send({ kind: 'node_set', nodeId: 'local', name: NODE_NAME });
+      send(buildHello());
+    });
+
+    pws.on('error', (err) => {
+      if (proxyWs === pws) { proxyWs = null; currentNodeId = 'local'; }
+      send({ kind: 'error', message: `${nodeConfig.name}: ${err.message}` });
+    });
+  }
 
   function attach(key) {
     if (attachedKey === key) return activeRuns.get(key);
@@ -326,11 +467,34 @@ wss.on('connection', (ws) => {
     return run;
   }
 
-  send({ kind: 'hello', defaultCwd: DEFAULT_CWD, defaultPerm: DEFAULT_PERM, defaultModel: DEFAULT_MODEL, sessions: loadIndex() });
+  send(buildHello());
 
   ws.on('message', (raw) => {
     let m;
     try { m = JSON.parse(raw.toString()); } catch { return; }
+
+    // Node switching — always handled locally
+    if (m.type === 'set_node') {
+      if (!m.nodeId || m.nodeId === 'local') {
+        closeProxy();
+        currentNodeId = 'local';
+        send({ kind: 'node_set', nodeId: 'local', name: NODE_NAME });
+        send(buildHello());
+      } else {
+        connectToNode(m.nodeId);
+      }
+      return;
+    }
+
+    // In proxy mode: forward everything else to the remote node
+    if (currentNodeId !== 'local' && proxyWs) {
+      if (proxyWs.readyState === WebSocket.OPEN) {
+        proxyWs.send(raw.toString());
+      } else {
+        send({ kind: 'error', message: 'Not connected to remote node' });
+      }
+      return;
+    }
 
     if (m.type === 'load_session') {
       currentSessionId = m.sessionId || null;
@@ -549,6 +713,7 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    closeProxy();
     // Don't kill running procs — just unsubscribe.
     if (attachedKey) {
       const run = activeRuns.get(attachedKey);
@@ -567,4 +732,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  state:     ${STATE_DIR}`);
   console.log(`  username:  ${USERNAME}`);
   console.log(`  password:  ${PASSWORD === 'changeme' ? '(default — change in .env!)' : '(set)'}`);
+  if (REMOTE_NODES.length > 0) {
+    console.log(`  nodes:     ${ALL_NODES.map(n => n.name).join(', ')}`);
+  }
 });

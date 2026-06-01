@@ -1,7 +1,7 @@
 // Minimal service worker for PWA install eligibility.
 // Strategy: network-first (always fresh), fallback to cache when offline.
 
-const CACHE = 'claude-chat-v1';
+const CACHE = 'sao-v2-multinode';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (e) => {

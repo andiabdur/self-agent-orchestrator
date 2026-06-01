@@ -563,6 +563,44 @@
   .session-action:hover { background: var(--bg-3); opacity: 1; }
   .session-action.delete:hover { color: var(--error); }
   .session-action.rename:hover { color: var(--accent); }
+
+  /* ─── Node chips ──────────────────────────────────────── */
+  #node-row { display: none; }
+  .node-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .node-chip {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 11px; border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-2); color: var(--muted);
+    font-size: 11.5px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    transition: background .12s, color .12s, border-color .12s;
+    white-space: nowrap; line-height: 1;
+  }
+  .node-chip:hover { background: var(--bg-3); color: var(--text); }
+  .node-chip.active {
+    background: var(--accent); color: #fff;
+    border-color: var(--accent);
+  }
+  .node-chip.active:hover { background: var(--accent-2); border-color: var(--accent-2); }
+  .node-chip.active { cursor: default; }
+  .node-chip.connecting { opacity: 0.65; pointer-events: none; }
+  .node-chip .ndot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted); flex: 0 0 auto;
+  }
+  .node-chip.active .ndot { background: rgba(255,255,255,.75); }
+  #node-badge {
+    display: none;
+    font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    color: var(--accent);
+    background: rgba(15,98,254,.1);
+    border: 1px solid rgba(15,98,254,.22);
+    padding: 2px 8px; border-radius: 10px;
+    white-space: nowrap; flex: 0 0 auto;
+    letter-spacing: .03em;
+  }
+
   /* On touch devices (no hover), keep them clearly visible */
   @media (pointer: coarse) {
     .session-action { opacity: 0.85; }
@@ -589,6 +627,7 @@
     </button>
     <div id="header-title">New chat</div>
     <div id="header-cwd"></div>
+    <div id="node-badge"></div>
     <button id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
       <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
     </button>
@@ -627,6 +666,10 @@
   <div class="sidebar-header">
     <div class="sidebar-title">Sessions</div>
     <button id="btn-close-sidebar" type="button">×</button>
+  </div>
+  <div id="node-row" class="cwd-row">
+    <div class="cwd-label">Machine</div>
+    <div id="node-list" class="node-chips"></div>
   </div>
   <div class="cwd-row">
     <div class="cwd-label">Working directory</div>
@@ -701,6 +744,9 @@
     headerCwd: $('#header-cwd'),
     connDot: $('#conn-dot'),
     btnLogout: $('#btn-logout'),
+    nodeBadge: $('#node-badge'),
+    nodeRow: $('#node-row'),
+    nodeList: $('#node-list'),
   };
 
   const state = {
@@ -714,6 +760,10 @@
     toolsById: new Map(),
     lastAssistantBubble: null,
     ws: null,
+    nodes: [],
+    currentNodeId: 'local',
+    currentNodeName: 'This machine',
+    nodeConnecting: false,
   };
 
   const PERM_WARNINGS = {
@@ -731,6 +781,32 @@
     if (reconnectTimer) return;
     reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, ms);
   }
+  // ── Per-node storage helpers ─────────────────────────────
+  // Each node has its own session list; sessionId is meaningless across nodes.
+  function storedSessionId(nodeId) {
+    try { return localStorage.getItem('sessionId:' + (nodeId || 'local')); } catch { return null; }
+  }
+  function setStoredSessionId(nodeId, sid) {
+    const key = 'sessionId:' + (nodeId || 'local');
+    try {
+      if (sid) localStorage.setItem(key, sid);
+      else localStorage.removeItem(key);
+    } catch {}
+  }
+  function storedNodeId() {
+    try { return localStorage.getItem('currentNodeId') || 'local'; } catch { return 'local'; }
+  }
+  function setStoredNodeId(nodeId) {
+    try {
+      if (nodeId && nodeId !== 'local') localStorage.setItem('currentNodeId', nodeId);
+      else localStorage.removeItem('currentNodeId');
+    } catch {}
+  }
+
+  // Set true while we're awaiting a remote node to connect, so the local hello
+  // handler doesn't auto-load a session for 'local' before we switch over.
+  let pendingNodeSwitch = null;
+
   function connect() {
     if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) return;
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -739,10 +815,14 @@
     ws.onopen = () => {
       els.connDot.className = 'connected';
       updateSendButton();
-      // Auto-attach to last session if we have one saved
-      let saved = null;
-      try { saved = localStorage.getItem('sessionId'); } catch {}
-      if (saved) send({ type: 'load_session', sessionId: saved });
+      // If user was last on a remote node, ask the server to proxy us there.
+      // The hello handler will auto-load the session for whichever node we land on.
+      const lastNode = storedNodeId();
+      if (lastNode && lastNode !== 'local') {
+        pendingNodeSwitch = lastNode;
+        send({ type: 'set_node', nodeId: lastNode });
+      }
+      // else: server already sent hello on connect; hello handler will auto-load.
     };
     ws.onclose = () => {
       els.connDot.className = 'disconnected';
@@ -786,13 +866,60 @@
         els.headerCwd.textContent = shortCwd(state.cwd);
         updatePermWarn();
         renderSessions();
+        if (m.nodes) {
+          state.nodes = m.nodes;
+          state.currentNodeId = m.nodeId || 'local';
+          state.currentNodeName = (m.nodes.find(n => n.id === (m.nodeId || 'local')) || {}).name || 'This machine';
+          state.nodeConnecting = false;
+          // Remove the "Connecting to X…" indicator if present.
+          const ncm = document.getElementById('node-connecting-msg');
+          if (ncm) ncm.remove();
+        }
+        renderNodeList();
+        updateNodeBadge();
+        // Auto-load the last-used session for whichever node we just landed on,
+        // UNLESS we're still in the middle of switching to a remote node
+        // (in which case the local hello is just a transient — we'll get the
+        // remote's hello next and load there).
+        if (!pendingNodeSwitch || pendingNodeSwitch === state.currentNodeId) {
+          pendingNodeSwitch = null;
+          const sid = storedSessionId(state.currentNodeId);
+          if (sid) {
+            send({ type: 'load_session', sessionId: sid });
+          } else {
+            // No saved session for this node — show clean empty state.
+            state.sessionId = null;
+            clearMessages();
+            const e = document.createElement('div');
+            e.className = 'empty-state';
+            e.textContent = 'Mulai chat baru — ketik pesan di bawah.';
+            els.messages.appendChild(e);
+            updateHeaderTitle();
+          }
+        }
+        break;
+      case 'node_connecting':
+        state.currentNodeId = m.nodeId;
+        state.currentNodeName = m.name;
+        state.nodeConnecting = true;
+        renderNodeList();
+        clearMessages();
+        { const ce = document.createElement('div'); ce.className = 'empty-state'; ce.id = 'node-connecting-msg'; ce.innerHTML = '<div style="display:flex;align-items:center;gap:8px;justify-content:center;"><span class="spinner"></span>Connecting to ' + escapeHtml(m.name) + '…</div>'; els.messages.appendChild(ce); }
+        break;
+      case 'node_set':
+        state.currentNodeId = m.nodeId;
+        state.currentNodeName = m.name;
+        state.nodeConnecting = false;
+        setStoredNodeId(m.nodeId);
+        renderNodeList();
+        updateNodeBadge();
         break;
       case 'session_loaded':
         loadSession(m.sessionId, m.cwd, m.events, m.permissionMode, m.model, m.active);
         break;
       case 'session_persisted':
         state.sessionId = m.sessionId;
-        try { if (m.sessionId) localStorage.setItem('sessionId', m.sessionId); } catch {}
+        setStoredSessionId(state.currentNodeId, m.sessionId);
         state.sessions = m.sessions || state.sessions;
         renderSessions();
         updateHeaderTitle();
@@ -800,7 +927,7 @@
       case 'session_cleared':
         clearMessages();
         state.sessionId = null;
-        try { localStorage.removeItem('sessionId'); } catch {}
+        setStoredSessionId(state.currentNodeId, null);
         state.inTurn = false;
         state.aborting = false;
         state.lastAssistantBubble = null;
@@ -1095,13 +1222,52 @@
     });
   }
 
+  // ---------- Node selector ----------
+  function renderNodeList() {
+    if (!els.nodeRow || !els.nodeList) return;
+    if (!state.nodes || state.nodes.length <= 1) {
+      els.nodeRow.style.display = 'none';
+      return;
+    }
+    // Use explicit 'block' (not '') so we override the `#node-row { display: none }`
+    // CSS rule. Setting style.display = '' would clear the inline and fall back to CSS.
+    els.nodeRow.style.display = 'block';
+    els.nodeList.innerHTML = '';
+    for (const node of state.nodes) {
+      const isActive = node.id === state.currentNodeId;
+      const isConnecting = state.nodeConnecting && node.id === state.currentNodeId;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'node-chip' + (isActive ? ' active' : '') + (isConnecting ? ' connecting' : '');
+      if (isConnecting) {
+        chip.innerHTML = '<span class="spinner" style="width:8px;height:8px;border-width:1.5px;border-top-color:#fff;border-color:rgba(255,255,255,.3);"></span>' + escapeHtml(node.name);
+      } else {
+        chip.innerHTML = '<span class="ndot"></span>' + escapeHtml(node.name);
+      }
+      if (!isActive && !isConnecting) {
+        chip.addEventListener('click', () => {
+          send({ type: 'set_node', nodeId: node.id });
+          closeSidebar();
+        });
+      }
+      els.nodeList.appendChild(chip);
+    }
+  }
+
+  function updateNodeBadge() {
+    if (!els.nodeBadge) return;
+    if (!state.currentNodeId || state.currentNodeId === 'local') {
+      els.nodeBadge.style.display = 'none';
+    } else {
+      els.nodeBadge.style.display = '';
+      els.nodeBadge.textContent = state.currentNodeName;
+    }
+  }
+
   // ---------- Sessions ----------
   function loadSession(id, cwd, events, permissionMode, model, active) {
     state.sessionId = id;
-    try {
-      if (id) localStorage.setItem('sessionId', id);
-      else localStorage.removeItem('sessionId');
-    } catch {}
+    setStoredSessionId(state.currentNodeId, id);
     state.cwd = cwd || state.cwd;
     if (permissionMode) state.permissionMode = permissionMode;
     if (model) state.model = model;
@@ -1320,7 +1486,13 @@
     try {
       const res = await fetch('/api/logout', { method: 'POST' });
       if (res.ok) {
-        localStorage.removeItem('sessionId');
+        // Clear all per-node session pointers + current node selection on logout
+        try {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith('sessionId:') || k === 'currentNodeId')) localStorage.removeItem(k);
+          }
+        } catch {}
         window.location.href = '/login.html';
       }
     } catch (err) {
