@@ -123,6 +123,70 @@ CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"
 read -p "Enter permission mode (bypassPermissions/acceptEdits/plan) [bypassPermissions]: " PERM_MODE
 PERM_MODE="${PERM_MODE:-bypassPermissions}"
 
+# Multi-node setup (optional)
+echo ""
+read -p "Set up multi-node? (control other machines from this UI) (y/n) [n]: " MULTINODE
+MULTINODE="${MULTINODE:-n}"
+
+NODE_NAME=""
+NODES_JSON=""
+
+if [[ "$MULTINODE" =~ ^[yY] ]]; then
+    DEFAULT_NODE_NAME=$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo "this-machine")
+    read -p "  Friendly name for THIS machine [$DEFAULT_NODE_NAME]: " NODE_NAME_INPUT
+    NODE_NAME="${NODE_NAME_INPUT:-$DEFAULT_NODE_NAME}"
+
+    NODE_COUNT=0
+    NODES_JSON="["
+    while true; do
+        echo ""
+        read -p "  Add a remote node? (y/n) [y]: " ADD_NODE
+        ADD_NODE="${ADD_NODE:-y}"
+        if [[ ! "$ADD_NODE" =~ ^[yY] ]]; then break; fi
+
+        read -p "    Node ID (short, no spaces, e.g., 'laptop-b'): " NODE_ID
+        if [ -z "$NODE_ID" ] || [ "$NODE_ID" = "local" ]; then
+            echo -e "    ${YELLOW}⚠ Skipped (id empty or 'local' is reserved)${NC}"
+            continue
+        fi
+
+        read -p "    Friendly display name [Node $NODE_ID]: " NODE_FRIENDLY
+        NODE_FRIENDLY="${NODE_FRIENDLY:-Node $NODE_ID}"
+
+        read -p "    URL (e.g., http://laptop-b:7000): " NODE_URL
+        if [ -z "$NODE_URL" ]; then
+            echo -e "    ${YELLOW}⚠ Skipped (URL is required)${NC}"
+            continue
+        fi
+
+        read -p "    Username [$WEB_USER]: " NODE_USER
+        NODE_USER="${NODE_USER:-$WEB_USER}"
+
+        read -p "    Password [$WEB_PASS]: " NODE_PASS
+        NODE_PASS="${NODE_PASS:-$WEB_PASS}"
+
+        # JSON-escape backslash and double quote in user-supplied values
+        esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+        NODE_FRIENDLY_ESC=$(esc "$NODE_FRIENDLY")
+        NODE_USER_ESC=$(esc "$NODE_USER")
+        NODE_PASS_ESC=$(esc "$NODE_PASS")
+        NODE_URL_ESC=$(esc "$NODE_URL")
+
+        if [ $NODE_COUNT -gt 0 ]; then NODES_JSON="${NODES_JSON},"; fi
+        NODES_JSON="${NODES_JSON}{\"id\":\"$NODE_ID\",\"name\":\"$NODE_FRIENDLY_ESC\",\"url\":\"$NODE_URL_ESC\",\"username\":\"$NODE_USER_ESC\",\"password\":\"$NODE_PASS_ESC\"}"
+        NODE_COUNT=$((NODE_COUNT + 1))
+        echo -e "    ${GREEN}✓ Added: $NODE_FRIENDLY${NC}"
+    done
+    NODES_JSON="${NODES_JSON}]"
+
+    if [ $NODE_COUNT -eq 0 ]; then
+        echo -e "${YELLOW}⚠ No remote nodes added — only NODE_NAME will be set.${NC}"
+        NODES_JSON=""
+    else
+        echo -e "${GREEN}✓ Configured $NODE_COUNT remote node(s)${NC}"
+    fi
+fi
+
 # 4. Generate .env file
 echo -e "\n📝 Generating .env file..."
 cat << EOF > .env
@@ -143,6 +207,23 @@ PERMISSION_MODE=$PERM_MODE
 # State directory (sessions, logs)
 STATE_DIR=$HOME/.self-agent-orchestrator
 EOF
+
+if [ -n "$NODE_NAME" ]; then
+    cat << EOF >> .env
+
+# Multi-node: Friendly name for this machine (shown in sidebar)
+NODE_NAME=$NODE_NAME
+EOF
+fi
+
+if [ -n "$NODES_JSON" ]; then
+    cat << EOF >> .env
+
+# Multi-node: Remote nodes to connect to (JSON array)
+NODES=$NODES_JSON
+EOF
+fi
+
 echo -e "${GREEN}✓ .env file created successfully.${NC}"
 
 # 4b. Migrate old data if exists

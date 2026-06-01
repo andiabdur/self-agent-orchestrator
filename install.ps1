@@ -254,6 +254,66 @@ if ([string]::IsNullOrWhiteSpace($claudeModel)) { $claudeModel = "sonnet" }
 $permMode = Read-Host "Enter permission mode (bypassPermissions/acceptEdits/plan) [bypassPermissions]"
 if ([string]::IsNullOrWhiteSpace($permMode)) { $permMode = "bypassPermissions" }
 
+# Multi-node setup (optional)
+Write-Host ""
+$multiNode = Read-Host "Set up multi-node? (control other machines from this UI) (y/n) [n]"
+if ([string]::IsNullOrWhiteSpace($multiNode)) { $multiNode = "n" }
+
+$nodeName = ""
+$nodesJson = ""
+
+if ($multiNode -match '^[yY]') {
+    $defaultNodeName = $env:COMPUTERNAME
+    $nodeNameInput = Read-Host "  Friendly name for THIS machine [$defaultNodeName]"
+    if ([string]::IsNullOrWhiteSpace($nodeNameInput)) { $nodeName = $defaultNodeName } else { $nodeName = $nodeNameInput }
+
+    $nodes = New-Object System.Collections.ArrayList
+    while ($true) {
+        Write-Host ""
+        $addNode = Read-Host "  Add a remote node? (y/n) [y]"
+        if ([string]::IsNullOrWhiteSpace($addNode)) { $addNode = "y" }
+        if ($addNode -notmatch '^[yY]') { break }
+
+        $nodeId = Read-Host "    Node ID (short, no spaces, e.g., 'laptop-b')"
+        if ([string]::IsNullOrWhiteSpace($nodeId) -or $nodeId -eq "local") {
+            Write-Host "    ⚠ Skipped (id empty or 'local' is reserved)" -ForegroundColor Yellow
+            continue
+        }
+
+        $nodeFriendly = Read-Host "    Friendly display name [Node $nodeId]"
+        if ([string]::IsNullOrWhiteSpace($nodeFriendly)) { $nodeFriendly = "Node $nodeId" }
+
+        $nodeUrl = Read-Host "    URL (e.g., http://laptop-b:7000)"
+        if ([string]::IsNullOrWhiteSpace($nodeUrl)) {
+            Write-Host "    ⚠ Skipped (URL is required)" -ForegroundColor Yellow
+            continue
+        }
+
+        $nodeUser = Read-Host "    Username [$webUser]"
+        if ([string]::IsNullOrWhiteSpace($nodeUser)) { $nodeUser = $webUser }
+
+        $nodePass = Read-Host "    Password [$webPass]"
+        if ([string]::IsNullOrWhiteSpace($nodePass)) { $nodePass = $webPass }
+
+        [void]$nodes.Add([PSCustomObject]@{
+            id       = $nodeId
+            name     = $nodeFriendly
+            url      = $nodeUrl
+            username = $nodeUser
+            password = $nodePass
+        })
+        Write-Host "    ✓ Added: $nodeFriendly" -ForegroundColor Green
+    }
+
+    if ($nodes.Count -gt 0) {
+        # Force array wrap (ConvertTo-Json unwraps single-element arrays without it)
+        $nodesJson = ConvertTo-Json @($nodes) -Compress
+        Write-Host "✓ Configured $($nodes.Count) remote node(s)" -ForegroundColor Green
+    } else {
+        Write-Host "⚠ No remote nodes added — only NODE_NAME will be set." -ForegroundColor Yellow
+    }
+}
+
 # 4. Generate .env file
 Write-Host "`n📝 Generating .env file..."
 $envContent = @"
@@ -274,6 +334,13 @@ PERMISSION_MODE=$permMode
 # State directory (sessions, logs)
 STATE_DIR=$env:USERPROFILE/.self-agent-orchestrator
 "@
+
+if (-not [string]::IsNullOrWhiteSpace($nodeName)) {
+    $envContent += "`n`n# Multi-node: Friendly name for this machine (shown in sidebar)`nNODE_NAME=$nodeName"
+}
+if (-not [string]::IsNullOrWhiteSpace($nodesJson)) {
+    $envContent += "`n`n# Multi-node: Remote nodes to connect to (JSON array)`nNODES=$nodesJson"
+}
 
 Set-Content -Path "$INSTALL_DIR_PATH\.env" -Value $envContent -Encoding utf8
 Write-Host "✓ .env file created successfully." -ForegroundColor Green
