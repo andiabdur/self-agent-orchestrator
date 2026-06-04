@@ -110,7 +110,41 @@ const ALL_NODES = [{ id: 'local', name: NODE_NAME }, ...REMOTE_NODES];
 const STATE_DIR = process.env.STATE_DIR || path.join(os.homedir(), '.self-agent-orchestrator');
 const SESSIONS_DIR = path.join(STATE_DIR, 'sessions');
 const SESSIONS_INDEX = path.join(STATE_DIR, 'sessions.json');
+const UPLOAD_DIR = path.join(STATE_DIR, 'uploads');
 fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+// ── Image upload helpers ──────────────────────────────────────
+const IMAGE_MIME_TO_EXT = {
+  'image/png':  '.png',
+  'image/jpeg': '.jpg',
+  'image/webp': '.webp',
+  'image/gif':  '.gif',
+};
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB per image
+const MAX_IMAGES_PER_TURN = 4;
+
+function saveUploadedImage(img) {
+  const mime = String(img?.mime || '').toLowerCase();
+  const ext = IMAGE_MIME_TO_EXT[mime];
+  if (!ext) return null;
+  const dataStr = String(img?.fullData || img?.data || '').replace(/^data:image\/[a-z+]+;base64,/i, '');
+  if (!dataStr) return null;
+  let buf;
+  try { buf = Buffer.from(dataStr, 'base64'); } catch { return null; }
+  if (buf.length === 0 || buf.length > MAX_IMAGE_BYTES) return null;
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
+  const filePath = path.join(UPLOAD_DIR, filename);
+  try { fs.writeFileSync(filePath, buf); } catch { return null; }
+  return {
+    filename,
+    path: filePath,
+    name: String(img.name || '').slice(0, 100) || filename,
+    thumbData: typeof img.thumbData === 'string' ? img.thumbData.slice(0, 200_000) : null,
+    bytes: buf.length,
+    mime,
+  };
+}
 
 function loadIndex() {
   try { return JSON.parse(fs.readFileSync(SESSIONS_INDEX, 'utf8')); } catch { return []; }
@@ -270,6 +304,18 @@ app.get('/api/dirs', (req, res) => {
 
 app.get('/api/nodes', (req, res) => {
   res.json(ALL_NODES.map(({ id, name }) => ({ id, name })));
+});
+
+// Serve uploaded images (used for full-resolution view; chat list uses embedded thumbnails)
+app.get('/api/uploads/:filename', (req, res) => {
+  const safe = String(req.params.filename || '').replace(/[^a-zA-Z0-9_.-]/g, '');
+  if (!safe || safe.startsWith('.') || safe.includes('..')) return res.status(400).end();
+  const filePath = path.join(UPLOAD_DIR, safe);
+  if (!filePath.startsWith(UPLOAD_DIR + path.sep)) return res.status(400).end();
+  fs.access(filePath, fs.constants.R_OK, (err) => {
+    if (err) return res.status(404).send('Not found');
+    res.sendFile(filePath, { headers: { 'Cache-Control': 'private, max-age=3600' } });
+  });
 });
 
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -586,10 +632,22 @@ wss.on('connection', (ws) => {
       }
 
       const text = String(m.text || '');
-      if (!text.trim()) return;
+      const incomingImages = Array.isArray(m.images) ? m.images.slice(0, MAX_IMAGES_PER_TURN) : [];
+      if (!text.trim() && incomingImages.length === 0) return;
 
       if (!fs.existsSync(currentCwd)) {
         send({ kind: 'error', message: `cwd does not exist: ${currentCwd}` });
+        return;
+      }
+
+      // Save uploaded images to UPLOAD_DIR; collect refs for prompt + event.
+      const savedImages = [];
+      for (const img of incomingImages) {
+        const saved = saveUploadedImage(img);
+        if (saved) savedImages.push(saved);
+      }
+      if (incomingImages.length > 0 && savedImages.length === 0) {
+        send({ kind: 'error', message: 'No valid images attached (check format / size — max 10MB each, PNG/JPG/WebP/GIF).' });
         return;
       }
 
@@ -616,7 +674,32 @@ wss.on('connection', (ws) => {
       const isNew = !currentSessionId;
       const tempKey = '__pending_' + Math.random().toString(36).slice(2, 10);
       const initialKey = currentSessionId || tempKey;
-      const userEvent = { kind: 'user_message', text, timestamp: Date.now() };
+
+      // Event embeds thumbnails (small) so display + replay works without
+      // depending on disk files (which matters for multi-node proxy).
+      const userEvent = {
+        kind: 'user_message',
+        text,
+        timestamp: Date.now(),
+        ...(savedImages.length > 0 ? {
+          images: savedImages.map(s => ({
+            filename: s.filename,
+            name: s.name,
+            mime: s.mime,
+            thumbData: s.thumbData,
+          })),
+        } : {}),
+      };
+
+      // Build augmented prompt for claude — paste image paths so Read tool sees them.
+      let promptForClaude = text;
+      if (savedImages.length > 0) {
+        const paths = savedImages.map(s => `- ${s.path}`).join('\n');
+        const intro = text.trim()
+          ? `${text}\n\n---\nGambar terlampir (gunakan Read tool untuk melihatnya):\n${paths}`
+          : `Tolong lihat gambar berikut menggunakan Read tool dan jelaskan:\n${paths}`;
+        promptForClaude = intro;
+      }
 
       const run = {
         proc,
@@ -641,7 +724,7 @@ wss.on('connection', (ws) => {
       }
       broadcast(initialKey, userEvent);
 
-      proc.stdin.write(text);
+      proc.stdin.write(promptForClaude);
       proc.stdin.end();
 
       let stderrBuf = '';
