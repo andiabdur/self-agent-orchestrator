@@ -1057,9 +1057,10 @@
         els.modelSelect.value = m.model;
         break;
       case 'user_message':
+        hideAndCancelThinking();
         renderUserMessage(m.text, m.images);
-        // Show indicator only for LIVE messages (not when replaying history).
-        // During replay we're streaming saved events; turn already concluded.
+        // Show indicator INSTANTLY for live messages (initial wait is the
+        // most painful to leave unindicated). Skip during session replay.
         if (state.inTurn || (m.timestamp && Date.now() - m.timestamp < 5000)) {
           showThinkingIndicator();
         }
@@ -1069,36 +1070,42 @@
         ensureAssistantBubble();
         break;
       case 'assistant_text':
-        hideThinkingIndicator();
+        hideAndCancelThinking();
         renderAssistantText(m.text);
+        scheduleThinkingIndicator();  // claude may pause then continue (next tool / text)
         break;
       case 'tool_start':
-        hideThinkingIndicator();
+        hideAndCancelThinking();      // tool card has its own spinner — no overlap
         renderToolStart(m);
         break;
       case 'tool_result':
+        hideAndCancelThinking();
         renderToolResult(m);
+        scheduleThinkingIndicator();  // claude reads result, decides next step
         break;
       case 'thinking':
-        hideThinkingIndicator();
+        hideAndCancelThinking();
         renderThinking(m.text);
+        scheduleThinkingIndicator();
         break;
       case 'turn_complete':
+        hideAndCancelThinking();
         renderTurnSummary(m);
         break;
       case 'aborting':
+        hideAndCancelThinking();
         state.aborting = true;
         updateSendButton();
         break;
       case 'turn_end':
-        hideThinkingIndicator();
+        hideAndCancelThinking();
         state.inTurn = false;
         state.aborting = false;
         state.lastAssistantBubble = null;
         updateSendButton();
         break;
       case 'error':
-        hideThinkingIndicator();
+        hideAndCancelThinking();
         renderError(m.message);
         break;
     }
@@ -1110,12 +1117,19 @@
     els.messages.innerHTML = '';
     state.toolsById.clear();
     state.lastAssistantBubble = null;
-    hideThinkingIndicator();
+    hideAndCancelThinking();
   }
 
-  // Thinking indicator: shown immediately after user sends, hidden on first
-  // assistant content (text, tool, or thinking). Reduces dead-air UX.
+  // Thinking indicator: shown when claude is processing with no visible output.
+  // - Instant after user_message (initial wait)
+  // - Delayed (400ms) after assistant_text / tool_result / thinking so quick
+  //   gaps between events don't cause flicker, but real pauses are visible.
+  // Tool execution itself is NOT covered here — the tool card has its own spinner.
+  const THINKING_DELAY_MS = 400;
+  let thinkingTimer = null;
+
   function showThinkingIndicator() {
+    cancelThinkingTimer();
     hideThinkingIndicator();
     const el = document.createElement('div');
     el.className = 'thinking-indicator';
@@ -1129,6 +1143,21 @@
   function hideThinkingIndicator() {
     const el = document.getElementById('thinking-indicator');
     if (el) el.remove();
+  }
+  function scheduleThinkingIndicator() {
+    cancelThinkingTimer();
+    if (!state.inTurn) return;
+    thinkingTimer = setTimeout(() => {
+      thinkingTimer = null;
+      if (state.inTurn) showThinkingIndicator();
+    }, THINKING_DELAY_MS);
+  }
+  function cancelThinkingTimer() {
+    if (thinkingTimer) { clearTimeout(thinkingTimer); thinkingTimer = null; }
+  }
+  function hideAndCancelThinking() {
+    cancelThinkingTimer();
+    hideThinkingIndicator();
   }
 
   function renderUserMessage(text, images) {
