@@ -620,6 +620,23 @@
     background: var(--accent); color: #fff; border-color: var(--accent);
   }
   .picker-footer button.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+  #picker-create-row {
+    display: none; padding: 8px 14px; gap: 6px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #picker-create-row.open { display: flex; }
+  #picker-create-input {
+    flex: 1; min-width: 0;
+    background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--accent); border-radius: 2px;
+    padding: 6px 9px; font-size: 12.5px;
+    font-family: 'IBM Plex Mono', monospace; outline: none;
+  }
+  #picker-create-input::placeholder { color: var(--muted); }
+  #picker-newfolder {
+    margin-right: auto;
+  }
 
   /* ─── Session list ────────────────────────────────────── */
   .session-list { flex: 1; overflow-y: auto; padding: 8px; }
@@ -697,6 +714,101 @@
     .session-action { opacity: 0.85; }
   }
 
+  /* ─── File viewer ────────────────────────────────────── */
+  #viewer {
+    position: fixed; top: 0; right: -540px; bottom: 0;
+    width: min(520px, 52vw);
+    background: var(--bg); border-left: 1px solid var(--border);
+    z-index: 44; display: flex; flex-direction: column;
+    transition: right .25s cubic-bezier(.4,0,.2,1);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #viewer.open { right: 0; }
+  #viewer-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px; height: 48px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #viewer-filename {
+    flex: 1; min-width: 0;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    color: var(--text-strong);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #viewer-raw-btn {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); cursor: pointer; padding: 3px 9px;
+    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+    transition: background .12s, color .12s; white-space: nowrap; flex: 0 0 auto;
+  }
+  #viewer-raw-btn:hover { background: var(--bg-3); color: var(--text); }
+  #viewer-close {
+    background: none; border: none; color: var(--muted);
+    font-size: 20px; cursor: pointer; line-height: 1;
+    padding: 4px 6px; border-radius: 2px; flex: 0 0 auto;
+    transition: background .12s, color .12s;
+  }
+  #viewer-close:hover { background: var(--bg-3); color: var(--text); }
+  #viewer-body {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 20px 22px; font-size: 14px; line-height: 1.65;
+    -webkit-overflow-scrolling: touch;
+  }
+  #viewer-body.md > *:first-child { margin-top: 0; }
+  #viewer-body.md p { margin: 0 0 10px; }
+  #viewer-body.md h1,#viewer-body.md h2,#viewer-body.md h3,#viewer-body.md h4 {
+    margin: 18px 0 6px; font-weight: 600; color: var(--text-strong); line-height: 1.2;
+  }
+  #viewer-body.md h1 { font-size: 20px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  #viewer-body.md h2 { font-size: 16px; }
+  #viewer-body.md h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+  #viewer-body.md strong { color: var(--text-strong); font-weight: 600; }
+  #viewer-body.md em { color: var(--text-em); font-style: italic; }
+  #viewer-body.md code {
+    background: var(--code-bg); padding: 1px 5px; border-radius: 2px;
+    font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; color: var(--code-fg);
+  }
+  #viewer-body.md pre {
+    background: var(--code-bg); border: 1px solid var(--border);
+    padding: 11px 13px; border-radius: 3px; margin: 10px 0; overflow-x: auto;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.55;
+  }
+  #viewer-body.md pre code { background: none; padding: 0; color: var(--text); }
+  #viewer-body.md ul,#viewer-body.md ol { margin: 6px 0 10px; padding-left: 20px; }
+  #viewer-body.md li { margin: 3px 0; }
+  #viewer-body.md blockquote { margin: 10px 0; padding: 4px 14px; border-left: 2px solid var(--border); color: var(--muted); }
+  #viewer-body.md a { color: var(--link); text-decoration: none; }
+  #viewer-body.md a:hover { text-decoration: underline; }
+  #viewer-body.md hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+  #viewer-body.md table { border-collapse: collapse; margin: 10px 0; font-size: 13px; width: 100%; }
+  #viewer-body.md th,#viewer-body.md td { border: 1px solid var(--border); padding: 6px 10px; }
+  #viewer-body.md th { background: var(--bg-3); font-weight: 500; text-align: left; }
+  #viewer-body.raw {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6;
+    white-space: pre-wrap; word-wrap: break-word; color: var(--text);
+  }
+  #viewer-body.csv .csv-wrap { overflow-x: auto; }
+  #viewer-body.csv table { border-collapse: collapse; font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; }
+  #viewer-body.csv th {
+    background: var(--bg-3); font-weight: 500;
+    position: sticky; top: 0; z-index: 1;
+  }
+  #viewer-body.csv th,#viewer-body.csv td { border: 1px solid var(--border); padding: 5px 10px; white-space: nowrap; }
+  #viewer-body.csv tr:nth-child(even) td { background: var(--bg-2); }
+  .tool-view-btn {
+    font-size: 10.5px; font-family: 'IBM Plex Mono', monospace;
+    color: var(--accent); background: rgba(15,98,254,.08);
+    border: 1px solid rgba(15,98,254,.2); border-radius: 2px;
+    padding: 2px 7px; cursor: pointer; flex: 0 0 auto;
+    transition: background .12s; white-space: nowrap; line-height: 1.4;
+  }
+  .tool-view-btn:hover { background: rgba(15,98,254,.18); }
+  @media (max-width: 700px) {
+    #viewer { width: 100%; right: -100vw; }
+    #viewer.open { right: 0; }
+  }
+
   /* ─── Reduced motion ──────────────────────────────────── */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -757,7 +869,13 @@
     </div>
     <div class="picker-path" id="picker-path"></div>
     <div class="picker-list" id="picker-list"></div>
+    <div id="picker-create-row">
+      <input id="picker-create-input" type="text" placeholder="Folder name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <button id="picker-create-confirm" type="button" class="primary">Create</button>
+      <button id="picker-create-cancel" type="button">Cancel</button>
+    </div>
     <div class="picker-footer">
+      <button id="picker-newfolder" type="button">+ New Folder</button>
       <button id="picker-cancel" type="button">Cancel</button>
       <button id="picker-select" type="button" class="primary">Select this folder</button>
     </div>
@@ -809,6 +927,15 @@
     <button id="btn-logout" type="button" onmouseover="this.style.background='rgba(255,131,137,0.08)'" onmouseout="this.style.background='var(--bg-2)'" style="width:100%; background:var(--bg-2); color:var(--error); border:1px solid var(--border); border-radius:2px; padding:8px 12px; font-size:13px; font-weight:500; cursor:pointer; text-align:center; transition:background .12s, color .12s;">Logout</button>
   </div>
 </aside>
+
+<div id="viewer">
+  <div id="viewer-header">
+    <span id="viewer-filename"></span>
+    <button id="viewer-raw-btn" type="button">Raw</button>
+    <button id="viewer-close" type="button">×</button>
+  </div>
+  <div id="viewer-body"></div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked@13.0.3/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
@@ -865,6 +992,7 @@
     inTurn: false,
     aborting: false,
     toolsById: new Map(),
+    toolContentCache: new Map(),
     lastAssistantBubble: null,
     ws: null,
     nodes: [],
@@ -1116,6 +1244,7 @@
   function clearMessages() {
     els.messages.innerHTML = '';
     state.toolsById.clear();
+    state.toolContentCache.clear();
     state.lastAssistantBubble = null;
     hideAndCancelThinking();
   }
@@ -1285,6 +1414,12 @@
 
     bubble.appendChild(el);
     state.toolsById.set(m.id, el);
+    // Store file path for View button; cache Write content so viewer works instantly
+    const fp = m.input?.file_path || '';
+    if (fp) el.dataset.toolFile = fp;
+    if (m.name === 'Write' && fp && isViewableFile(fp) && m.input?.content != null) {
+      state.toolContentCache.set(m.id, m.input.content);
+    }
   }
 
   function renderToolInput(name, input) {
@@ -1352,6 +1487,20 @@
       statusEl.classList.add('done');
       statusEl.innerHTML = SVG('<polyline points="20 6 9 17 4 12"/>', 13, 13);
     }
+    // Add View button for supported file types on success
+    if (!m.is_error) {
+      const fp = el.dataset.toolFile;
+      if (fp && isViewableFile(fp)) {
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'tool-view-btn';
+        viewBtn.textContent = '↗ View';
+        viewBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          openFileViewer(fp, state.toolContentCache.get(m.tool_use_id) ?? null);
+        });
+        el.querySelector('.tool-header').appendChild(viewBtn);
+      }
+    }
     const body = el.querySelector('.tool-body');
     const wrap = document.createElement('div');
     wrap.className = 'tool-section';
@@ -1409,6 +1558,99 @@
       els.messages.scrollTop = els.messages.scrollHeight;
     });
   }
+
+  // ---------- File viewer ----------
+  const VIEWABLE_EXTS = new Set(['.md', '.txt', '.csv']);
+  function isViewableFile(fp) {
+    const m = String(fp || '').match(/\.[^./\\]+$/);
+    return m ? VIEWABLE_EXTS.has(m[0].toLowerCase()) : false;
+  }
+  function fileExt(fp) {
+    const m = String(fp || '').match(/\.[^./\\]+$/);
+    return m ? m[0].toLowerCase() : '';
+  }
+
+  let viewerRaw = false;
+  let viewerFile = { path: '', content: '', ext: '' };
+  const viewerEl = document.getElementById('viewer');
+  const viewerBody = document.getElementById('viewer-body');
+  const viewerFilename = document.getElementById('viewer-filename');
+  const viewerRawBtn = document.getElementById('viewer-raw-btn');
+
+  async function openFileViewer(filePath, cachedContent) {
+    const ext = fileExt(filePath);
+    let content = cachedContent;
+    if (content == null) {
+      try {
+        const res = await fetch('/api/file?path=' + encodeURIComponent(filePath));
+        const data = await res.json();
+        if (!res.ok) { renderError(data.error || 'Cannot open file'); return; }
+        content = data.content;
+      } catch (e) { renderError('Cannot read file: ' + e.message); return; }
+    }
+    viewerFile = { path: filePath, content, ext };
+    viewerRaw = false;
+    viewerRawBtn.textContent = 'Raw';
+    viewerRawBtn.style.display = (ext === '.md' || ext === '.csv') ? '' : 'none';
+    viewerFilename.textContent = filePath.split(/[/\\]/).pop();
+    viewerFilename.title = filePath;
+    renderViewerBody();
+    viewerEl.classList.add('open');
+  }
+
+  function renderViewerBody() {
+    const { content, ext } = viewerFile;
+    viewerBody.className = '';
+    if (viewerRaw || ext === '.txt') {
+      viewerBody.className = 'raw';
+      viewerBody.textContent = content;
+      return;
+    }
+    if (ext === '.md') {
+      viewerBody.className = 'md';
+      const html = window.marked ? marked.parse(content || '') : escapeHtml(content);
+      viewerBody.innerHTML = window.DOMPurify ? DOMPurify.sanitize(html) : html;
+    } else if (ext === '.csv') {
+      viewerBody.className = 'csv';
+      viewerBody.innerHTML = renderCsvTable(content);
+    }
+  }
+
+  function renderCsvTable(csv) {
+    const lines = csv.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+    if (!lines.length) return '<p style="color:var(--muted);font-size:13px;">Empty file</p>';
+    function parseRow(line) {
+      const cells = []; let cur = ''; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+        else if (c === ',' && !inQ) { cells.push(cur); cur = ''; }
+        else cur += c;
+      }
+      cells.push(cur);
+      return cells;
+    }
+    const rows = lines.map(parseRow);
+    const header = rows[0];
+    let html = '<div class="csv-wrap"><table><thead><tr>';
+    for (const h of header) html += `<th>${escapeHtml(h)}</th>`;
+    html += '</tr></thead><tbody>';
+    for (const row of rows.slice(1)) {
+      html += '<tr>';
+      for (let i = 0; i < Math.max(row.length, header.length); i++) {
+        html += `<td>${escapeHtml(row[i] ?? '')}</td>`;
+      }
+      html += '</tr>';
+    }
+    return html + '</tbody></table></div>';
+  }
+
+  document.getElementById('viewer-close').addEventListener('click', () => viewerEl.classList.remove('open'));
+  viewerRawBtn.addEventListener('click', () => {
+    viewerRaw = !viewerRaw;
+    viewerRawBtn.textContent = viewerRaw ? 'Rendered' : 'Raw';
+    renderViewerBody();
+  });
 
   // ---------- Node selector ----------
   function renderNodeList() {
@@ -1687,6 +1929,22 @@
     els.fileInput.value = '';
   });
 
+  // ── Paste image from clipboard ────────────────────────────
+  els.input.addEventListener('paste', async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles = [];
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+    if (imageFiles.length === 0) return;
+    e.preventDefault();
+    for (const f of imageFiles) await addImageFile(f);
+  });
+
   // Lightbox for viewing full-resolution image
   function openLightbox(src) {
     els.lightboxImg.src = src;
@@ -1806,6 +2064,11 @@
     bg: $('#picker-bg'), path: $('#picker-path'), list: $('#picker-list'),
     close: $('#picker-close'), cancel: $('#picker-cancel'), select: $('#picker-select'),
     btn: $('#btn-browse'),
+    newFolder: $('#picker-newfolder'),
+    createRow: $('#picker-create-row'),
+    createInput: $('#picker-create-input'),
+    createConfirm: $('#picker-create-confirm'),
+    createCancel: $('#picker-create-cancel'),
     currentPath: '',
   };
 
@@ -1871,6 +2134,48 @@
       send({ type: 'set_cwd', cwd: picker.currentPath });
     }
     closePicker();
+  });
+
+  function openCreateRow() {
+    picker.createRow.classList.add('open');
+    picker.createInput.value = '';
+    picker.createInput.focus();
+  }
+  function closeCreateRow() {
+    picker.createRow.classList.remove('open');
+    picker.createInput.value = '';
+  }
+  async function doCreateFolder() {
+    const name = picker.createInput.value.trim();
+    if (!name) { picker.createInput.focus(); return; }
+    try {
+      const res = await fetch('/api/mkdir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: picker.currentPath, name }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        picker.createInput.style.borderColor = 'var(--error)';
+        picker.createInput.title = data.error || 'Failed';
+        setTimeout(() => { picker.createInput.style.borderColor = ''; picker.createInput.title = ''; }, 2000);
+        return;
+      }
+      closeCreateRow();
+      await pickerLoad(picker.currentPath);
+      // auto-navigate into the new folder
+      pickerLoad(data.path);
+    } catch (err) {
+      picker.createInput.style.borderColor = 'var(--error)';
+    }
+  }
+
+  picker.newFolder.addEventListener('click', openCreateRow);
+  picker.createConfirm.addEventListener('click', doCreateFolder);
+  picker.createCancel.addEventListener('click', closeCreateRow);
+  picker.createInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); doCreateFolder(); }
+    if (e.key === 'Escape') { e.preventDefault(); closeCreateRow(); }
   });
 
   els.permSelect.addEventListener('change', () => {

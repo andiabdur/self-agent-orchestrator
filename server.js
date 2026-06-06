@@ -302,8 +302,60 @@ app.get('/api/dirs', (req, res) => {
   res.json({ path: target, parent: path.dirname(target) === target ? null : path.dirname(target), entries });
 });
 
+app.post('/api/mkdir', (req, res) => {
+  const rawParent = req.body?.path ? String(req.body.path) : null;
+  const name = req.body?.name ? String(req.body.name).trim() : null;
+  if (!rawParent || !name) return res.status(400).json({ error: 'path and name required' });
+  if (/[/\\<>:"|?*]/.test(name) || name === '.' || name === '..' || name.length > 255) {
+    return res.status(400).json({ error: 'Invalid folder name' });
+  }
+  let parent;
+  try { parent = path.resolve(rawParent); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+  const newPath = path.join(parent, name);
+  if (!newPath.startsWith(parent + path.sep)) return res.status(400).json({ error: 'Invalid path' });
+  try {
+    fs.mkdirSync(newPath);
+    res.json({ ok: true, path: newPath });
+  } catch (err) {
+    if (err.code === 'EEXIST') return res.status(400).json({ error: 'Folder already exists' });
+    return res.status(400).json({ error: err.message });
+  }
+});
+
 app.get('/api/nodes', (req, res) => {
   res.json(ALL_NODES.map(({ id, name }) => ({ id, name })));
+});
+
+app.get('/api/file', (req, res) => {
+  const rawPath = req.query.path ? String(req.query.path) : null;
+  if (!rawPath) return res.status(400).json({ error: 'path required' });
+  const VIEWABLE = new Set(['.md', '.txt', '.csv']);
+  // Confine reads to the user's home directory — prevents reading system files
+  // even if an authenticated user crafts a malicious path.
+  const BASE = path.resolve(os.homedir());
+  let filePath;
+  try { filePath = path.resolve(rawPath); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+  // Resolve symlinks before containment check to prevent traversal via symlinks
+  let realPath, realBase;
+  try {
+    realBase = fs.realpathSync(BASE);
+    realPath = fs.realpathSync(filePath);
+  } catch { return res.status(404).json({ error: 'File not found' }); }
+  if (!realPath.startsWith(realBase + path.sep)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  const ext = path.extname(realPath).toLowerCase();
+  if (!VIEWABLE.has(ext)) return res.status(400).json({ error: 'File type not supported for viewing' });
+  const MAX_BYTES = 1024 * 1024;
+  try {
+    const stat = fs.statSync(realPath);
+    if (stat.size > MAX_BYTES) return res.status(400).json({ error: 'File too large to view (max 1 MB)' });
+    const content = fs.readFileSync(realPath, 'utf8');
+    res.json({ content, ext, name: path.basename(realPath) });
+  } catch (err) {
+    if (err.code === 'ENOENT') return res.status(404).json({ error: 'File not found' });
+    return res.status(400).json({ error: err.message });
+  }
 });
 
 // Serve uploaded images (used for full-resolution view; chat list uses embedded thumbnails)
