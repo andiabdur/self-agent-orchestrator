@@ -796,6 +796,13 @@
   }
   #viewer-body.csv th,#viewer-body.csv td { border: 1px solid var(--border); padding: 5px 10px; white-space: nowrap; }
   #viewer-body.csv tr:nth-child(even) td { background: var(--bg-2); }
+  .msg-text code.file-link {
+    cursor: pointer;
+    text-decoration: underline; text-decoration-style: dotted;
+    text-decoration-color: var(--tool);
+  }
+  .msg-text code.file-link:hover { background: var(--tool-bg); }
+
   .tool-view-btn {
     font-size: 10.5px; font-family: 'IBM Plex Mono', monospace;
     color: var(--accent); background: rgba(15,98,254,.08);
@@ -993,6 +1000,7 @@
     aborting: false,
     toolsById: new Map(),
     toolContentCache: new Map(),
+    writtenFiles: new Map(),
     lastAssistantBubble: null,
     ws: null,
     nodes: [],
@@ -1245,6 +1253,7 @@
     els.messages.innerHTML = '';
     state.toolsById.clear();
     state.toolContentCache.clear();
+    state.writtenFiles.clear();
     state.lastAssistantBubble = null;
     hideAndCancelThinking();
   }
@@ -1336,7 +1345,26 @@
     const el = document.createElement('div');
     el.className = 'msg-text';
     el.innerHTML = renderMarkdown(text);
+    linkifyFileRefs(el);
     bubble.appendChild(el);
+  }
+
+  function linkifyFileRefs(container) {
+    const codes = container.querySelectorAll('code');
+    for (const code of codes) {
+      const raw = code.textContent.trim();
+      if (!raw || raw.includes('\n')) continue;
+      const base = raw.split(/[/\\]/).pop();
+      if (!base || !isViewableFile(base)) continue;
+      const fullPath = state.writtenFiles.get(base) || state.writtenFiles.get(raw);
+      if (!fullPath) continue;
+      code.classList.add('file-link');
+      code.title = fullPath;
+      code.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openFileViewer(fullPath, null);
+      });
+    }
   }
 
   // ── Tool icons (Lucide-style SVG, stroke 1.5) ─────────────
@@ -1419,6 +1447,11 @@
     if (fp) el.dataset.toolFile = fp;
     if (m.name === 'Write' && fp && isViewableFile(fp) && m.input?.content != null) {
       state.toolContentCache.set(m.id, m.input.content);
+    }
+    // Register written/edited files so assistant text can link to them
+    if ((m.name === 'Write' || m.name === 'Edit') && fp) {
+      const base = fp.split(/[/\\]/).pop();
+      if (base) state.writtenFiles.set(base, fp);
     }
   }
 
