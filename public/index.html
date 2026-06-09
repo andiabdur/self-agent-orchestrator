@@ -82,7 +82,10 @@
     display: flex; flex-direction: column;
     position: fixed; inset: 0;
     height: 100vh; height: 100dvh;
+    transition: right .25s cubic-bezier(.4,0,.2,1), left .25s cubic-bezier(.4,0,.2,1);
   }
+  #app.viewer-open { right: var(--viewer-w, 520px); }
+  #app.sidebar-pinned { left: var(--sidebar-w, 272px); }
 
   /* ─── Header ──────────────────────────────────────────── */
   #header {
@@ -477,6 +480,17 @@
     transition: background .12s, color .12s;
   }
   #btn-close-sidebar:hover { background: var(--bg-3); color: var(--text); }
+  #btn-sidebar-pin {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); cursor: pointer;
+    padding: 3px 5px; margin-right: 4px;
+    display: none; align-items: center;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  #btn-sidebar-pin.visible { display: inline-flex; }
+  #btn-sidebar-pin svg { display: block; }
+  #btn-sidebar-pin:hover { background: var(--bg-3); color: var(--text); }
+  #btn-sidebar-pin.pinned { color: var(--accent); border-color: var(--accent); }
   .cwd-row {
     padding: 12px;
     border-bottom: 1px solid var(--border);
@@ -639,7 +653,26 @@
   }
 
   /* ─── Session list ────────────────────────────────────── */
-  .session-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .sidebar-tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; padding: 0 8px; gap: 2px;
+  }
+  .sidebar-tab {
+    flex: 1; background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--muted); cursor: pointer; padding: 10px 4px 8px;
+    font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase; letter-spacing: .08em; font-weight: 500;
+    transition: color .12s, border-color .12s;
+    text-align: center;
+  }
+  .sidebar-tab:hover { color: var(--text); }
+  .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .sidebar-view { display: none; flex-direction: column; }
+  .sidebar-view.active { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+  .session-list {
+    flex: 1; overflow-y: auto; padding: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
   .session-item {
     padding: 8px 10px; border-radius: 2px; cursor: pointer;
     display: flex; align-items: center; gap: 6px;
@@ -653,6 +686,13 @@
     font-size: 13px; font-weight: 400; color: var(--text-strong);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  .session-weight {
+    margin-top: 3px; font-size: 10.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted); letter-spacing: .02em;
+  }
+  .session-weight.medium { color: var(--tool); }
+  .session-weight.heavy  { color: var(--error); }
   .session-meta {
     font-size: 11px; color: var(--muted); margin-top: 2px;
     font-family: 'IBM Plex Mono', monospace;
@@ -709,6 +749,63 @@
     letter-spacing: .03em;
   }
 
+  /* ─── File list ───────────────────────────────────────── */
+  .file-path-row {
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .file-path-label {
+    font-size: 10px; color: var(--muted); margin-bottom: 4px;
+    text-transform: uppercase; letter-spacing: .07em; font-weight: 500;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .file-path-value {
+    font-size: 11px; color: var(--text-em);
+    font-family: 'IBM Plex Mono', monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .file-list {
+    flex: 1; overflow-y: auto; padding: 4px 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .file-item {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 8px; border-radius: 2px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    transition: background .1s;
+  }
+  .file-item:hover { background: var(--bg-2); }
+  .file-item:active { background: var(--bg-3); }
+  .file-item .fi-icon {
+    flex: 0 0 auto; display: flex; align-items: center;
+    color: var(--muted);
+  }
+  .file-item.dir .fi-icon { color: var(--tool); }
+  .file-item .fi-name {
+    flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .file-item .fi-size {
+    flex: 0 0 auto; font-size: 10px; color: var(--muted); white-space: nowrap;
+  }
+  .file-item .fi-dl {
+    flex: 0 0 auto; display: none; background: none; border: none;
+    color: var(--muted); cursor: pointer; padding: 2px; border-radius: 2px;
+    font-size: 0; line-height: 1;
+  }
+  .file-item .fi-dl svg { display: block; }
+  .file-item:hover .fi-dl { display: block; }
+  .file-item .fi-dl:hover { background: var(--bg-3); color: var(--accent); }
+  .file-empty {
+    padding: 20px; text-align: center; color: var(--muted);
+    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+  }
+  .file-loading {
+    padding: 20px; text-align: center; display: flex;
+    align-items: center; justify-content: center; gap: 8px;
+    color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+  }
+
   /* On touch devices (no hover), keep them clearly visible */
   @media (pointer: coarse) {
     .session-action { opacity: 0.85; }
@@ -716,13 +813,21 @@
 
   /* ─── File viewer ────────────────────────────────────── */
   #viewer {
-    position: fixed; top: 0; right: -540px; bottom: 0;
-    width: min(520px, 52vw);
+    position: fixed; top: 0; right: calc(-1 * var(--vw, 540px)); bottom: 0;
+    width: var(--vw, min(520px, 52vw));
     background: var(--bg); border-left: 1px solid var(--border);
     z-index: 44; display: flex; flex-direction: column;
     transition: right .25s cubic-bezier(.4,0,.2,1);
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
+  }
+  #viewer.open { right: 0; }
+  @media (max-width: 700px) {
+    #viewer { width: 100%; right: -100vw; }
+    #viewer.open { right: 0; }
+    #app.viewer-open { right: 0; }
+    #app.sidebar-pinned { left: 0; }
+    #viewer-resize { display: none; }
   }
   #viewer.open { right: 0; }
   #viewer-header {
@@ -796,6 +901,29 @@
   }
   #viewer-body.csv th,#viewer-body.csv td { border: 1px solid var(--border); padding: 5px 10px; white-space: nowrap; }
   #viewer-body.csv tr:nth-child(even) td { background: var(--bg-2); }
+  #viewer-body.img {
+    padding: 0; background: var(--bg-2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #viewer-body.img img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain; display: block;
+  }
+  #viewer-body.img.svg img { background: #fff; }
+  #viewer-resize {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 6px; cursor: col-resize;
+    background: transparent; transition: background .15s; z-index: 1;
+  }
+  #viewer-resize:hover, #viewer-resize.dragging { background: var(--accent); }
+  #btn-pin {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); cursor: pointer;
+    padding: 3px 7px; font-size: 13px;
+    transition: background .12s, color .12s; line-height: 1; flex: 0 0 auto;
+  }
+  #btn-pin:hover { background: var(--bg-3); color: var(--text); }
+  #btn-pin.pinned { color: var(--accent); border-color: var(--accent); }
   .msg-text code.file-link {
     cursor: pointer;
     text-decoration: underline; text-decoration-style: dotted;
@@ -811,10 +939,6 @@
     transition: background .12s; white-space: nowrap; line-height: 1.4;
   }
   .tool-view-btn:hover { background: rgba(15,98,254,.18); }
-  @media (max-width: 700px) {
-    #viewer { width: 100%; right: -100vw; }
-    #viewer.open { right: 0; }
-  }
 
   /* ─── Reduced motion ──────────────────────────────────── */
   @media (prefers-reduced-motion: reduce) {
@@ -892,52 +1016,69 @@
 <aside id="sidebar">
   <div class="sidebar-header">
     <div class="sidebar-title">Sessions</div>
+    <button id="btn-sidebar-pin" type="button" title="Pin sidebar"></button>
     <button id="btn-close-sidebar" type="button">×</button>
   </div>
-  <div id="node-row" class="cwd-row">
-    <div class="cwd-label">Machine</div>
-    <div id="node-list" class="node-chips"></div>
+  <div class="sidebar-tabs">
+    <button class="sidebar-tab active" data-tab="session">Sessions</button>
+    <button class="sidebar-tab" data-tab="file">Files</button>
   </div>
-  <div class="cwd-row">
-    <div class="cwd-label">Working directory</div>
-    <div class="cwd-input-row">
-      <input id="cwd-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-      <button id="btn-browse" type="button" title="Browse folders">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-        </svg>
-      </button>
+  <div id="session-view" class="sidebar-view active">
+    <div id="node-row" class="cwd-row">
+      <div class="cwd-label">Machine</div>
+      <div id="node-list" class="node-chips"></div>
     </div>
+    <div class="cwd-row">
+      <div class="cwd-label">Working directory</div>
+      <div class="cwd-input-row">
+        <input id="cwd-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+        <button id="btn-browse" type="button" title="Browse folders">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="cwd-row">
+      <div class="cwd-label">Model</div>
+      <select id="model-select">
+        <option value="sonnet">Sonnet — balanced (default)</option>
+        <option value="opus">Opus — most capable</option>
+        <option value="haiku">Haiku — fast &amp; cheap</option>
+      </select>
+    </div>
+    <div class="cwd-row">
+      <div class="cwd-label">Permission mode</div>
+      <select id="perm-select">
+        <option value="bypassPermissions">Bypass — auto-approve all</option>
+        <option value="acceptEdits">Accept edits</option>
+        <option value="plan">Plan — read-only</option>
+      </select>
+      <div id="perm-warn"></div>
+    </div>
+    <div class="cwd-row" style="display:flex;gap:8px;">
+      <button id="btn-new" type="button" style="flex:1;">+ New Chat</button>
+      <button id="btn-compact" type="button" title="Summarize history to reclaim context (/compact)" style="flex:0 0 auto;background:var(--bg-2);color:var(--muted);border:1px solid var(--border);padding:7px 11px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12.5px;">⊟ Compact</button>
+    </div>
+    <div class="session-list" id="session-list"></div>
   </div>
-  <div class="cwd-row">
-    <div class="cwd-label">Model</div>
-    <select id="model-select">
-      <option value="sonnet">Sonnet — balanced (default)</option>
-      <option value="opus">Opus — most capable</option>
-      <option value="haiku">Haiku — fast &amp; cheap</option>
-    </select>
+  <div id="file-view" class="sidebar-view">
+    <div class="file-path-row">
+      <div class="file-path-label">Current directory</div>
+      <div class="file-path-value" id="file-path-text"></div>
+    </div>
+    <div class="file-list" id="file-list"></div>
   </div>
-  <div class="cwd-row">
-    <div class="cwd-label">Permission mode</div>
-    <select id="perm-select">
-      <option value="bypassPermissions">Bypass — auto-approve all</option>
-      <option value="acceptEdits">Accept edits</option>
-      <option value="plan">Plan — read-only</option>
-    </select>
-    <div id="perm-warn"></div>
-  </div>
-  <div class="cwd-row">
-    <button id="btn-new" type="button">+ New Chat</button>
-  </div>
-  <div class="session-list" id="session-list"></div>
   <div class="cwd-row" id="sidebar-footer-row" style="border-top:1px solid var(--border); padding-top:12px; margin-top:auto; flex-shrink:0; display:flex; flex-direction:column; gap:12px;">
     <button id="btn-logout" type="button" onmouseover="this.style.background='rgba(255,131,137,0.08)'" onmouseout="this.style.background='var(--bg-2)'" style="width:100%; background:var(--bg-2); color:var(--error); border:1px solid var(--border); border-radius:2px; padding:8px 12px; font-size:13px; font-weight:500; cursor:pointer; text-align:center; transition:background .12s, color .12s;">Logout</button>
   </div>
 </aside>
 
 <div id="viewer">
+  <div id="viewer-resize"></div>
   <div id="viewer-header">
     <span id="viewer-filename"></span>
+    <button id="btn-pin" type="button" title="Pin viewer">📌</button>
     <button id="viewer-raw-btn" type="button">Raw</button>
     <button id="viewer-close" type="button">×</button>
   </div>
@@ -971,6 +1112,7 @@
     lightboxImg: $('#lightbox img'),
     btnMenu: $('#btn-menu'),
     btnNew: $('#btn-new'),
+    btnCompact: $('#btn-compact'),
     btnCloseSidebar: $('#btn-close-sidebar'),
     sidebar: $('#sidebar'),
     sidebarBg: $('#sidebar-bg'),
@@ -1140,6 +1282,7 @@
             updateHeaderTitle();
           }
         }
+        refreshFileList(state.cwd);
         break;
       case 'node_connecting':
         state.currentNodeId = m.nodeId;
@@ -1159,6 +1302,7 @@
         break;
       case 'session_loaded':
         loadSession(m.sessionId, m.cwd, m.events, m.permissionMode, m.model, m.active);
+        refreshFileList(m.cwd);
         break;
       case 'session_persisted':
         state.sessionId = m.sessionId;
@@ -1182,6 +1326,7 @@
       case 'cwd_set':
         state.cwd = m.cwd; els.cwdInput.value = m.cwd;
         els.headerCwd.textContent = shortCwd(m.cwd);
+        refreshFileList(m.cwd);
         break;
       case 'permission_set':
         state.permissionMode = m.permissionMode;
@@ -1365,6 +1510,11 @@
         openFileViewer(fullPath, null);
       });
     }
+  }
+
+  function linkifyAllTextBubbles() {
+    const texts = els.messages.querySelectorAll('.msg-text');
+    for (const t of texts) linkifyFileRefs(t);
   }
 
   // ── Tool icons (Lucide-style SVG, stroke 1.5) ─────────────
@@ -1593,7 +1743,23 @@
   }
 
   // ---------- File viewer ----------
-  const VIEWABLE_EXTS = new Set(['.md', '.txt', '.csv']);
+  const VIEWABLE_EXTS = new Set([
+    '.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.toml',
+    '.sh', '.bash', '.zsh', '.env', '.ini', '.cfg', '.conf',
+    '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs',
+    '.py', '.rb', '.go', '.rs', '.java', '.kt', '.scala',
+    '.css', '.scss', '.less', '.html', '.xml', '.svg',
+    '.tf', '.hcl', '.dockerfile', '.dbignore', '.gitignore',
+    '.properties', '.plist', '.gradle', '.makefile', '.lock', '.log',
+    '.sql', '.graphql', '.proto', '.pl', '.pm', '.lua',
+    '.ps1', '.bat', '.cmd',
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
+  ]);
+  const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+  function isImageFile(fp) {
+    const m = String(fp || '').match(/\.[^./\\]+$/);
+    return m ? IMAGE_EXTS.has(m[0].toLowerCase()) : false;
+  }
   function isViewableFile(fp) {
     const m = String(fp || '').match(/\.[^./\\]+$/);
     return m ? VIEWABLE_EXTS.has(m[0].toLowerCase()) : false;
@@ -1612,29 +1778,47 @@
 
   async function openFileViewer(filePath, cachedContent) {
     const ext = fileExt(filePath);
-    let content = cachedContent;
-    if (content == null) {
-      try {
-        const res = await fetch('/api/file?path=' + encodeURIComponent(filePath));
-        const data = await res.json();
-        if (!res.ok) { renderError(data.error || 'Cannot open file'); return; }
-        content = data.content;
-      } catch (e) { renderError('Cannot read file: ' + e.message); return; }
+    // Images: render directly, no API call needed
+    if (isImageFile(filePath)) {
+      viewerFile = { path: filePath, content: '', ext };
+      viewerRaw = false;
+      viewerRawBtn.style.display = 'none';
+      viewerFilename.textContent = filePath.split(/[/\\]/).pop();
+      viewerFilename.title = filePath;
+    } else {
+      let content = cachedContent;
+      if (content == null) {
+        try {
+          const res = await fetch('/api/file?path=' + encodeURIComponent(filePath));
+          const data = await res.json();
+          if (!res.ok) { renderError(data.error || 'Cannot open file'); return; }
+          content = data.content;
+        } catch (e) { renderError('Cannot read file: ' + e.message); return; }
+      }
+      viewerFile = { path: filePath, content, ext };
+      viewerRaw = false;
+      viewerRawBtn.textContent = 'Raw';
+      viewerRawBtn.style.display = (ext === '.md' || ext === '.csv') ? '' : 'none';
     }
-    viewerFile = { path: filePath, content, ext };
-    viewerRaw = false;
-    viewerRawBtn.textContent = 'Raw';
-    viewerRawBtn.style.display = (ext === '.md' || ext === '.csv') ? '' : 'none';
     viewerFilename.textContent = filePath.split(/[/\\]/).pop();
     viewerFilename.title = filePath;
     renderViewerBody();
     viewerEl.classList.add('open');
+    document.getElementById('app').classList.add('viewer-open');
+    const vw = (viewerEl.offsetWidth || parseInt(viewerEl.style.width) || 520);
+    document.documentElement.style.setProperty('--viewer-w', vw + 'px');
   }
 
   function renderViewerBody() {
-    const { content, ext } = viewerFile;
+    const { content, ext, path: fp } = viewerFile;
     viewerBody.className = '';
-    if (viewerRaw || ext === '.txt') {
+    if (isImageFile(fp)) {
+      viewerBody.className = 'img' + (ext === '.svg' ? ' svg' : '');
+      const imgUrl = '/api/download?path=' + encodeURIComponent(fp) + '&inline=1';
+      viewerBody.innerHTML = `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(fp.split(/[/\\]/).pop())}" />`;
+      return;
+    }
+    if (viewerRaw || (ext !== '.md' && ext !== '.csv')) {
       viewerBody.className = 'raw';
       viewerBody.textContent = content;
       return;
@@ -1678,12 +1862,212 @@
     return html + '</tbody></table></div>';
   }
 
-  document.getElementById('viewer-close').addEventListener('click', () => viewerEl.classList.remove('open'));
+  function closeViewer() {
+    viewerEl.classList.remove('open');
+    document.getElementById('app').classList.remove('viewer-open');
+    document.documentElement.style.removeProperty('--viewer-w');
+  }
+  document.getElementById('viewer-close').addEventListener('click', closeViewer);
+
+  // ── Viewer pin toggle (default: pinned) ─────────────────
+  let viewerPinned = true;
+  const btnPin = document.getElementById('btn-pin');
+  const PIN_ON_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>';
+  const PIN_OFF_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M15 9.34V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v2.34M9.22 14.59l-1.78.9A2 2 0 0 0 5 18h8"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+  btnPin.classList.add('pinned');
+  btnPin.innerHTML = PIN_ON_SVG;
+  btnPin.title = 'Unpin viewer';
+  btnPin.addEventListener('click', () => {
+    viewerPinned = !viewerPinned;
+    btnPin.classList.toggle('pinned', viewerPinned);
+    btnPin.innerHTML = viewerPinned ? PIN_ON_SVG : PIN_OFF_SVG;
+    btnPin.title = viewerPinned ? 'Unpin viewer' : 'Pin viewer (auto-close on click outside)';
+  });
+  // Click outside to close (only when not pinned)
+  document.addEventListener('click', (e) => {
+    if (!viewerEl.classList.contains('open') || viewerPinned) return;
+    if (e.target.closest('#viewer') || e.target.closest('.tool-view-btn') || e.target.closest('.file-link') || e.target.closest('#file-list')) return;
+    closeViewer();
+  });
+
+  // ── Viewer resize (desktop only) ────────────────────────
+  const resizeHandle = document.getElementById('viewer-resize');
+  let savedWidth = null;
+  try { savedWidth = localStorage.getItem('viewer-width'); } catch {}
+  if (savedWidth) {
+    const w = parseInt(savedWidth);
+    if (w >= 260 && w <= 900) setViewerWidth(w);
+  }
+
+  function setViewerWidth(w) {
+    viewerEl.style.width = w + 'px';
+    viewerEl.style.setProperty('--vw', w + 'px');
+    document.documentElement.style.setProperty('--viewer-w', w + 'px');
+  }
+  let resizing = false, resizeStartX = 0, resizeStartW = 0;
+  resizeHandle.addEventListener('mousedown', (e) => {
+    resizing = true; resizeStartX = e.clientX; resizeStartW = viewerEl.offsetWidth;
+    resizeHandle.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!resizing) return;
+    const dx = resizeStartX - e.clientX;
+    const w = Math.min(900, Math.max(260, resizeStartW + dx));
+    setViewerWidth(w);
+  });
+  document.addEventListener('mouseup', () => {
+    if (!resizing) return;
+    resizing = false;
+    resizeHandle.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    try { localStorage.setItem('viewer-width', w + 'px'); } catch {}
+  });
+  // Touch support for resize
+  resizeHandle.addEventListener('touchstart', (e) => {
+    resizing = true; resizeStartX = e.touches[0].clientX; resizeStartW = viewerEl.offsetWidth;
+    resizeHandle.classList.add('dragging');
+    e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('touchmove', (e) => {
+    if (!resizing) return;
+    const dx = resizeStartX - e.touches[0].clientX;
+    const w = Math.min(900, Math.max(260, resizeStartW + dx));
+    setViewerWidth(w);
+  }, { passive: false });
+  document.addEventListener('touchend', () => {
+    if (!resizing) return;
+    resizing = false;
+    resizeHandle.classList.remove('dragging');
+    try { localStorage.setItem('viewer-width', viewerEl.style.width); } catch {}
+  });
+
   viewerRawBtn.addEventListener('click', () => {
     viewerRaw = !viewerRaw;
     viewerRawBtn.textContent = viewerRaw ? 'Rendered' : 'Raw';
     renderViewerBody();
   });
+
+  // ---------- File browser ----------
+  const ICON_FOLDER_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>';
+  const ICON_FILE_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+  const ICON_DL_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+
+  let fileListPath = state.cwd || '';
+  const fileListEl = document.getElementById('file-list');
+  const filePathText = document.getElementById('file-path-text');
+
+  // Tab switching
+  document.querySelectorAll('.sidebar-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.sidebar-view').forEach(v => v.classList.remove('active'));
+      btn.classList.add('active');
+      const view = document.getElementById(btn.dataset.tab + '-view');
+      if (view) {
+        view.classList.add('active');
+        // Load files when switching to files tab
+        if (btn.dataset.tab === 'file') {
+          const path = fileListPath || els.cwdInput.value || state.cwd;
+          if (path) {
+            fileListPath = path;
+            loadFileList(path);
+          }
+        }
+      }
+    });
+  });
+
+  function formatSize(bytes) {
+    if (bytes === 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1048576).toFixed(1) + ' MB';
+  }
+
+  async function loadFileList(dirPath) {
+    if (!dirPath) return;
+    fileListPath = dirPath;
+    filePathText.textContent = dirPath;
+    fileListEl.innerHTML = '<div class="file-loading"><span class="spinner"></span>Loading files…</div>';
+    try {
+      const res = await fetch('/api/files?path=' + encodeURIComponent(dirPath));
+      const data = await res.json();
+      if (!res.ok) { fileListEl.innerHTML = '<div class="file-empty">Error: ' + escapeHtml(data.error || 'failed') + '</div>'; return; }
+      renderFileEntries(data);
+    } catch (err) {
+      fileListEl.innerHTML = '<div class="file-empty">Error: ' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  function renderFileEntries(data) {
+    fileListEl.innerHTML = '';
+    // Parent directory
+    if (data.parent) {
+      const up = document.createElement('div');
+      up.className = 'file-item';
+      up.innerHTML = ICON_FOLDER_SVG + '<span class="fi-name" style="color:var(--muted)">..</span>';
+      up.addEventListener('click', () => loadFileList(data.parent));
+      fileListEl.appendChild(up);
+    }
+    for (const e of data.entries) {
+      const item = document.createElement('div');
+      if (e.type === 'dir') {
+        item.className = 'file-item dir';
+        item.innerHTML = '<span class="fi-icon">' + ICON_FOLDER_SVG + '</span><span class="fi-name">' + escapeHtml(e.name) + '</span>';
+        item.addEventListener('click', () => {
+          const next = data.path.endsWith('/') ? data.path + e.name : data.path + '/' + e.name;
+          loadFileList(next);
+        });
+      } else {
+        const fullPath = data.path + '/' + e.name;
+        item.className = 'file-item';
+        const isViewable = isViewableFile(e.name);
+        const sizeStr = formatSize(e.size);
+        item.innerHTML = '<span class="fi-icon">' + ICON_FILE_SVG + '</span><span class="fi-name">' + escapeHtml(e.name) + '</span><span class="fi-size">' + sizeStr + '</span><button class="fi-dl" title="Download">' + ICON_DL_SVG + '</button>';
+        // Click file → view or download
+        item.addEventListener('click', (ev) => {
+          if (ev.target.closest('.fi-dl')) return;
+          if (isViewable) {
+            openFileViewer(fullPath, null);
+          } else {
+            downloadFile(fullPath);
+          }
+        });
+        // Download button
+        const dlBtn = item.querySelector('.fi-dl');
+        dlBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          downloadFile(fullPath);
+        });
+      }
+      fileListEl.appendChild(item);
+    }
+    if (!fileListEl.children.length) {
+      fileListEl.innerHTML = '<div class="file-empty">(empty directory)</div>';
+    }
+  }
+
+  function downloadFile(filePath) {
+    const a = document.createElement('a');
+    a.href = '/api/download?path=' + encodeURIComponent(filePath);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.click();
+  }
+
+  // Refresh file list when CWD changes
+  function refreshFileList(newPath) {
+    fileListPath = newPath || els.cwdInput.value || state.cwd || fileListPath;
+    if (!fileListPath) return;
+    const activeTab = document.querySelector('.sidebar-tab.active');
+    if (activeTab && activeTab.dataset.tab === 'file') {
+      loadFileList(fileListPath);
+    }
+  }
 
   // ---------- Node selector ----------
   function renderNodeList() {
@@ -1748,6 +2132,9 @@
     } else {
       // replay normalized events
       for (const evt of events) handle(evt);
+      // After replay, linkify all text bubbles — tool_start events that register
+      // writtenFiles may come AFTER the assistant_text that mentions them.
+      linkifyAllTextBubbles();
     }
     // Historical events have turn_start without matching turn_end (server-only).
     // Default: assume idle. But if server says the session has an active run,
@@ -1775,9 +2162,18 @@
       item.className = 'session-item' + (s.id === state.sessionId ? ' active' : '');
       const text = document.createElement('div');
       text.className = 'session-text';
+      // Build "weight" badge: $cost + token-heaviness color hint
+      const tk = s.tokensEstimate || 0;
+      const heavy = tk > 100_000 ? 'heavy' : (tk > 50_000 ? 'medium' : '');
+      const tkLabel = tk > 0 ? (tk >= 1000 ? `~${Math.round(tk/1000)}k` : `~${tk}`) + ' tokens' : '';
+      const costLabel = (typeof s.totalCostUsd === 'number' && s.totalCostUsd > 0)
+        ? '$' + s.totalCostUsd.toFixed(s.totalCostUsd < 0.1 ? 4 : 2)
+        : '';
+      const weight = [costLabel, tkLabel].filter(Boolean).join(' · ');
       text.innerHTML = `
         <div class="session-title-row">${escapeHtml(s.title || 'Untitled')}</div>
         <div class="session-meta">${timeAgo(s.last_used_at)} · ${shortCwd(s.cwd)}</div>
+        ${weight ? `<div class="session-weight ${heavy}">${weight}</div>` : ''}
       `;
       text.addEventListener('click', () => {
         send({ type: 'load_session', sessionId: s.id });
@@ -1880,7 +2276,9 @@
 
   // ---------- Image attachments ----------
   const MAX_IMAGES = 4;
-  const MAX_FULL_DIM = 2048;
+  // Was 2048 — lowered to 1280 to cut ~60% of vision tokens per image.
+  // Claude still reads small UI text reliably at this resolution.
+  const MAX_FULL_DIM = 1280;
   const MAX_THUMB_DIM = 512;
   const pendingImages = [];
 
@@ -2047,16 +2445,56 @@
   });
 
   // ---------- Sidebar ----------
+  let sidebarPinned = false;
+  const btnSidebarPin = document.getElementById('btn-sidebar-pin');
+  btnSidebarPin.innerHTML = PIN_OFF_SVG;
+
+  function updateSidebarLayout() {
+    const pinned = sidebarPinned && els.sidebar.classList.contains('open');
+    const app = document.getElementById('app');
+    app.classList.toggle('sidebar-pinned', pinned);
+    // When pinned: hide the overlay so chat remains interactive
+    if (pinned) {
+      els.sidebarBg.classList.remove('open');
+    } else if (els.sidebar.classList.contains('open')) {
+      els.sidebarBg.classList.add('open');
+    }
+    if (pinned) {
+      const sw = els.sidebar.offsetWidth;
+      document.documentElement.style.setProperty('--sidebar-w', sw + 'px');
+    } else {
+      document.documentElement.style.removeProperty('--sidebar-w');
+    }
+  }
+
+  btnSidebarPin.addEventListener('click', () => {
+    sidebarPinned = !sidebarPinned;
+    btnSidebarPin.classList.toggle('pinned', sidebarPinned);
+    btnSidebarPin.innerHTML = sidebarPinned ? PIN_ON_SVG : PIN_OFF_SVG;
+    btnSidebarPin.title = sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar';
+    updateSidebarLayout();
+  });
+
   function openSidebar() {
     els.sidebar.classList.add('open');
     els.sidebarBg.classList.add('open');
+    btnSidebarPin.classList.add('visible');
+    updateSidebarLayout();
   }
   function closeSidebar() {
+    if (sidebarPinned) return;
     els.sidebar.classList.remove('open');
     els.sidebarBg.classList.remove('open');
+    btnSidebarPin.classList.remove('visible');
+    updateSidebarLayout();
   }
   els.btnMenu.addEventListener('click', openSidebar);
-  els.btnCloseSidebar.addEventListener('click', closeSidebar);
+  els.btnCloseSidebar.addEventListener('click', () => {
+    sidebarPinned = false;
+    btnSidebarPin.classList.remove('pinned');
+    btnSidebarPin.innerHTML = PIN_OFF_SVG;
+    closeSidebar();
+  });
   els.sidebarBg.addEventListener('click', closeSidebar);
 
   els.btnNew.addEventListener('click', () => {
@@ -2066,6 +2504,20 @@
       permissionMode: els.permSelect.value,
       model: els.modelSelect.value,
     });
+    closeSidebar();
+  });
+
+  els.btnCompact.addEventListener('click', () => {
+    if (!state.sessionId) {
+      alert('Compact butuh session yang aktif. Mulai chat dulu, baru bisa di-compact.');
+      return;
+    }
+    if (state.inTurn) {
+      alert('Tunggu turn yang sedang jalan selesai dulu.');
+      return;
+    }
+    if (!confirm('Compact konteks sekarang?\n\nClaude akan ringkas percakapan jadi summary. Bisa ngurangin token usage untuk turn berikutnya.')) return;
+    send({ type: 'prompt', text: '/compact' });
     closeSidebar();
   });
 

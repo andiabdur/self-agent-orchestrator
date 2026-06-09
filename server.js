@@ -149,8 +149,24 @@ function saveUploadedImage(img) {
 function loadIndex() {
   try { return JSON.parse(fs.readFileSync(SESSIONS_INDEX, 'utf8')); } catch { return []; }
 }
+// Like loadIndex() but enriched with per-session disk weight, so the UI can
+// flag heavy sessions where `--resume` will burn a lot of input tokens.
+function loadIndexEnriched() {
+  const list = loadIndex();
+  for (const s of list) {
+    try {
+      const stat = fs.statSync(path.join(SESSIONS_DIR, `${s.id}.jsonl`));
+      s.bytes = stat.size;
+      // Crude token estimate (1 token ≈ 4 chars). Good enough for "heavy" UI hints.
+      s.tokensEstimate = Math.round(stat.size / 4);
+    } catch { s.bytes = 0; s.tokensEstimate = 0; }
+  }
+  return list;
+}
 function saveIndex(list) {
-  fs.writeFileSync(SESSIONS_INDEX, JSON.stringify(list, null, 2));
+  // Don't persist transient/computed fields back to disk.
+  const cleaned = list.map(({ bytes, tokensEstimate, ...rest }) => rest);
+  fs.writeFileSync(SESSIONS_INDEX, JSON.stringify(cleaned, null, 2));
 }
 function loadSessionEvents(id) {
   const f = path.join(SESSIONS_DIR, `${id}.jsonl`);
@@ -263,7 +279,7 @@ app.get('/api/auth/check', (req, res) => {
   res.json({ authenticated: isAuthenticated(req) });
 });
 
-app.get('/api/sessions', (req, res) => res.json(loadIndex()));
+app.get('/api/sessions', (req, res) => res.json(loadIndexEnriched()));
 app.get('/api/sessions/:id/events', (req, res) => res.json(loadSessionEvents(req.params.id)));
 app.delete('/api/sessions/:id', (req, res) => {
   const list = loadIndex().filter(s => s.id !== req.params.id);
@@ -302,6 +318,57 @@ app.get('/api/dirs', (req, res) => {
   res.json({ path: target, parent: path.dirname(target) === target ? null : path.dirname(target), entries });
 });
 
+app.get('/api/files', (req, res) => {
+  let target;
+  try { target = path.resolve(req.query.path ? String(req.query.path) : os.homedir()); } catch { return res.status(400).json({ error: 'invalid path' }); }
+  let entries;
+  try {
+    entries = fs.readdirSync(target, { withFileTypes: true }).filter(e => !e.name.startsWith('.')).map(e => {
+      try {
+        const full = path.join(target, e.name);
+        const stat = fs.statSync(full);
+        return {
+          name: e.name,
+          type: e.isDirectory() ? 'dir' : 'file',
+          ext: e.isFile() ? path.extname(e.name).toLowerCase() : '',
+          size: stat.size,
+          mtime: stat.mtimeMs,
+        };
+      } catch { return null; }
+    }).filter(Boolean).sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  } catch { return res.status(400).json({ error: err.message }); }
+  res.json({ path: target, parent: path.dirname(target) === target ? null : path.dirname(target), entries });
+});
+
+app.get('/api/download', (req, res) => {
+  const rawPath = req.query.path ? String(req.query.path) : null;
+  if (!rawPath) return res.status(400).json({ error: 'path required' });
+  const BASE = path.resolve(os.homedir());
+  let filePath;
+  try { filePath = path.resolve(rawPath); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+  let realPath, realBase;
+  try { realBase = fs.realpathSync(BASE); realPath = fs.realpathSync(filePath); } catch { return res.status(404).json({ error: 'File not found' }); }
+  if (!realPath.startsWith(realBase + path.sep)) return res.status(403).json({ error: 'Access denied' });
+  if (!fs.existsSync(realPath) || fs.statSync(realPath).isDirectory()) return res.status(404).json({ error: 'File not found' });
+  const ext = path.extname(realPath).toLowerCase();
+  const IMG_EXTS = new Set(['.png','.jpg','.jpeg','.gif','.webp','.svg']);
+  const name = path.basename(realPath);
+  if (IMG_EXTS.has(ext) && res.req?.query?.inline !== undefined) {
+    // Inline image display — no download, proper MIME
+    const mime = { '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.webp':'image/webp','.svg':'image/svg+xml' }[ext] || 'application/octet-stream';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.sendFile(realPath);
+  } else {
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(name)}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.sendFile(realPath);
+  }
+});
+
 app.post('/api/mkdir', (req, res) => {
   const rawParent = req.body?.path ? String(req.body.path) : null;
   const name = req.body?.name ? String(req.body.name).trim() : null;
@@ -329,7 +396,18 @@ app.get('/api/nodes', (req, res) => {
 app.get('/api/file', (req, res) => {
   const rawPath = req.query.path ? String(req.query.path) : null;
   if (!rawPath) return res.status(400).json({ error: 'path required' });
-  const VIEWABLE = new Set(['.md', '.txt', '.csv']);
+  const VIEWABLE = new Set([
+    '.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.toml',
+    '.sh', '.bash', '.zsh', '.env', '.ini', '.cfg', '.conf',
+    '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs',
+    '.py', '.rb', '.go', '.rs', '.java', '.kt', '.scala',
+    '.css', '.scss', '.less', '.html', '.xml', '.svg',
+    '.tf', '.hcl', '.dockerfile', '.dbignore', '.gitignore',
+    '.properties', '.plist', '.gradle', '.makefile', '.lock', '.log',
+    '.sql', '.graphql', '.proto', '.pl', '.pm', '.lua',
+    '.ps1', '.bat', '.cmd',
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg',
+  ]);
   // Confine reads to the user's home directory — prevents reading system files
   // even if an authenticated user crafts a malicious path.
   const BASE = path.resolve(os.homedir());
@@ -483,7 +561,7 @@ wss.on('connection', (ws) => {
       defaultCwd: DEFAULT_CWD,
       defaultPerm: DEFAULT_PERM,
       defaultModel: DEFAULT_MODEL,
-      sessions: loadIndex(),
+      sessions: loadIndexEnriched(),
       nodes: ALL_NODES.map(({ id, name }) => ({ id, name })),
       nodeId: 'local',
       nodeName: NODE_NAME,
@@ -810,12 +888,17 @@ wss.on('connection', (ws) => {
             const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
             upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, model: run.model, ...(title ? { title } : {}) });
             // Inform clients about session_id assignment + updated sessions list
-            broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndex() });
+            broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
           }
 
           const normalized = normalizeEvent(evt);
           const key = run.sessionId || initialKey;
           for (const n of normalized) {
+            // Accumulate cumulative session cost when a turn finishes.
+            if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
+              const prev = (loadIndex().find(s => s.id === run.sessionId)?.totalCostUsd) || 0;
+              upsertSessionMeta(run.sessionId, { totalCostUsd: prev + n.cost_usd });
+            }
             if (run.sessionId) appendSessionEvent(run.sessionId, n);
             else run.bufferedEvents.push(n);
             broadcast(key, n);
@@ -838,7 +921,7 @@ wss.on('connection', (ws) => {
         }
         if (run.sessionId) {
           upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, model: run.model });
-          broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndex() });
+          broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
         }
         broadcast(key, { kind: 'turn_end' });
       });
