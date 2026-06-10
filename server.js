@@ -210,6 +210,217 @@ function findFreePort() {
   });
 }
 
+// ─── OpenCode Engine ─────────────────────────────────────────────────────
+
+async function sendPromptOpenCode(ws, text, savedImages, currentSessionId, currentCwd) {
+  if (!opencodeReady) {
+    try {
+      await startOpenCodeServer();
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
+
+  let promptText = text;
+  if (savedImages && savedImages.length > 0) {
+    const paths = savedImages.map(s => `- ${s.path}`).join('\n');
+    promptText = text && text.trim()
+      ? `${text}\n\n---\nAttached images:\n${paths}`
+      : `Please examine these images:\n${paths}`;
+  }
+
+  let ocSessionId = currentSessionId && currentSessionId.startsWith('ses_')
+    ? currentSessionId
+    : 'ses_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  try {
+    const promptRes = await fetch(`http://127.0.0.1:${opencodePort}/api/session/${ocSessionId}/prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: { text: promptText },
+        resume: !!currentSessionId,
+      }),
+    });
+
+    if (!promptRes.ok) {
+      const errBody = await promptRes.text();
+      return { error: `OpenCode API error (${promptRes.status}): ${errBody}` };
+    }
+  } catch (err) {
+    return { error: `OpenCode request failed: ${err.message}` };
+  }
+
+  if (ws && ws.readyState === 1) {
+    const userEvent = {
+      kind: 'user_message',
+      text,
+      timestamp: Date.now(),
+      ...(savedImages && savedImages.length > 0 ? {
+        images: savedImages.map(s => ({
+          filename: s.filename, name: s.name, mime: s.mime, thumbData: s.thumbData,
+        })),
+      } : {}),
+    };
+    broadcast(ocSessionId, userEvent);
+  }
+
+  subscribeOpenCodeSSE(ocSessionId, ws);
+
+  return { key: ocSessionId, sessionId: ocSessionId };
+}
+
+function subscribeOpenCodeSSE(sessionId, ws) {
+  const url = `http://127.0.0.1:${opencodePort}/api/event`;
+
+  fetch(url).then(response => {
+    if (!response.ok || !response.body) return;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    function readChunk() {
+      reader.read().then(({ done, value }) => {
+        if (done) return;
+        buffer += decoder.decode(value, { stream: true });
+
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          const lines = part.split('\n').filter(l => l.startsWith('data: '));
+          for (const line of lines) {
+            try {
+              const event = JSON.parse(line.slice(6));
+              translateOpenCodeEvent(event, sessionId, ws);
+            } catch {}
+          }
+        }
+
+        readChunk();
+      }).catch(() => {});
+    }
+
+    readChunk();
+  }).catch(() => {
+    // SSE failed, fall back to polling
+    pollOpenCodeSession(sessionId, ws);
+  });
+}
+
+function translateOpenCodeEvent(event, sessionId, ws) {
+  if (!event || !event.type) return;
+
+  switch (event.type) {
+    case 'user':
+      break;
+
+    case 'assistant': {
+      if (!event.content) break;
+      for (const item of event.content) {
+        switch (item.type) {
+          case 'text':
+            broadcast(sessionId, { kind: 'assistant_text', text: item.text || '' });
+            break;
+          case 'reasoning':
+            broadcast(sessionId, { kind: 'assistant_reasoning', text: item.text || '' });
+            break;
+          case 'tool': {
+            const toolName = item.name || 'unknown';
+            const toolInput = item.state?.input ? JSON.stringify(item.state.input) : '';
+
+            if (item.state?.status === 'pending' || item.state?.status === 'running') {
+              broadcast(sessionId, { kind: 'tool_use', name: toolName, input: toolInput });
+            } else if (item.state?.status === 'completed' || item.state?.status === 'error') {
+              const output = item.state?.content
+                ? item.state.content.map(c => c.text || '').filter(Boolean).join('\n')
+                : '';
+              broadcast(sessionId, { kind: 'tool_result', name: toolName, output });
+            }
+            break;
+          }
+        }
+      }
+      if (event.finish || event.time?.completed) {
+        broadcast(sessionId, { kind: 'turn_complete' });
+      }
+      break;
+    }
+
+    case 'shell': {
+      broadcast(sessionId, { kind: 'tool_use', name: 'bash', input: event.command || '' });
+      if (event.output) {
+        broadcast(sessionId, { kind: 'tool_result', name: 'bash', output: event.output });
+      }
+      break;
+    }
+
+    case 'compaction':
+      broadcast(sessionId, { kind: 'compact', summary: event.summary || '' });
+      break;
+
+    case 'system':
+      if (event.text) {
+        broadcast(sessionId, { kind: 'status', text: event.text });
+      }
+      break;
+  }
+}
+
+async function pollOpenCodeSession(sessionId, ws, intervalMs = 1000, maxWaitMs = 120000) {
+  const startTime = Date.now();
+  let lastMessageCount = 0;
+
+  while (Date.now() - startTime < maxWaitMs) {
+    await new Promise(r => setTimeout(r, intervalMs));
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${opencodePort}/api/session/${sessionId}/message?order=asc&limit=50`);
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const messages = data?.data || [];
+
+      if (messages.length > lastMessageCount) {
+        for (let i = lastMessageCount; i < messages.length; i++) {
+          translateOpenCodeEvent(messages[i], sessionId, ws);
+        }
+        lastMessageCount = messages.length;
+      }
+
+      const last = messages[messages.length - 1];
+      if (last?.type === 'assistant' && last.finish) {
+        break;
+      }
+    } catch {}
+  }
+}
+
+async function fetchOpenCodeModels() {
+  if (!opencodeReady) {
+    try {
+      await startOpenCodeServer();
+    } catch {
+      return [];
+    }
+  }
+
+  try {
+    const res = await fetch(`http://127.0.0.1:${opencodePort}/api/model`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data?.data || []).map(m => ({
+      id: m.id,
+      name: m.name || m.id,
+      providerID: m.providerID,
+      enabled: m.enabled,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 const STATE_DIR = process.env.STATE_DIR || path.join(os.homedir(), '.self-agent-orchestrator');
 const SESSIONS_DIR = path.join(STATE_DIR, 'sessions');
 const SESSIONS_INDEX = path.join(STATE_DIR, 'sessions.json');
@@ -765,11 +976,6 @@ async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, 
   });
 
   return { key: initialKey, sessionId: currentSessionId };
-}
-
-async function sendPromptOpenCode(_ws, _text, _savedImages, _sessionId, _cwd) {
-  // Placeholder — implemented in Task 5
-  return { error: 'OpenCode engine not yet implemented' };
 }
 
 wss.on('connection', (ws) => {
