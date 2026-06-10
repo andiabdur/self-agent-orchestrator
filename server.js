@@ -550,6 +550,7 @@ wss.on('connection', (ws) => {
   let currentCwd = DEFAULT_CWD;
   let currentPerm = DEFAULT_PERM;
   let currentModel = DEFAULT_MODEL;
+  let currentEngine = DEFAULT_ENGINE;
   let attachedKey = null;
 
   // Multi-node proxy state
@@ -564,6 +565,7 @@ wss.on('connection', (ws) => {
       defaultCwd: DEFAULT_CWD,
       defaultPerm: DEFAULT_PERM,
       defaultModel: DEFAULT_MODEL,
+      defaultEngine: DEFAULT_ENGINE,
       sessions: loadIndexEnriched(),
       nodes: ALL_NODES.map(({ id, name }) => ({ id, name })),
       nodeId: 'local',
@@ -686,7 +688,7 @@ wss.on('connection', (ws) => {
       const events = currentSessionId ? loadSessionEvents(currentSessionId) : [];
       const run = currentSessionId ? attach(currentSessionId) : null;
       const active = !!run && run.status === 'running';
-      send({ kind: 'session_loaded', sessionId: currentSessionId, cwd: currentCwd, permissionMode: currentPerm, model: currentModel, events, active });
+      send({ kind: 'session_loaded', sessionId: currentSessionId, cwd: currentCwd, permissionMode: currentPerm, model: currentModel, engine: currentEngine, events, active });
       return;
     }
 
@@ -696,7 +698,26 @@ wss.on('connection', (ws) => {
       currentCwd = m.cwd || DEFAULT_CWD;
       if (m.permissionMode && VALID_PERMS.has(m.permissionMode)) currentPerm = m.permissionMode;
       if (m.model && VALID_MODELS.has(m.model)) currentModel = m.model;
-      send({ kind: 'session_loaded', sessionId: null, cwd: currentCwd, permissionMode: currentPerm, model: currentModel, events: [], active: false });
+      send({ kind: 'session_loaded', sessionId: null, cwd: currentCwd, permissionMode: currentPerm, model: currentModel, engine: currentEngine, events: [], active: false });
+      return;
+    }
+
+    if (m.type === 'set_engine') {
+      if (VALID_ENGINES.has(m.engine)) {
+        currentEngine = m.engine;
+        if (m.engine === 'opencode') {
+          startOpenCodeServer().then(() => {
+            fetchOpenCodeModels().then(models => {
+              send({ kind: 'opencode_models', models });
+            }).catch(() => {});
+          }).catch(err => {
+            send({ kind: 'error', message: `OpenCode: ${err.message}` });
+            currentEngine = DEFAULT_ENGINE;
+            send({ kind: 'engine_set', engine: currentEngine });
+          });
+        }
+        send({ kind: 'engine_set', engine: currentEngine });
+      }
       return;
     }
 
