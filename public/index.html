@@ -1056,6 +1056,13 @@
       </select>
       <div id="perm-warn"></div>
     </div>
+    <div class="cwd-row">
+      <div class="cwd-label">Engine</div>
+      <select id="engine-select">
+        <option value="claude">Claude Code</option>
+        <option value="opencode">OpenCode</option>
+      </select>
+    </div>
     <div class="cwd-row" style="display:flex;gap:8px;">
       <button id="btn-new" type="button" style="flex:1;">+ New Chat</button>
       <button id="btn-compact" type="button" title="Summarize history to reclaim context (/compact)" style="flex:0 0 auto;background:var(--bg-2);color:var(--muted);border:1px solid var(--border);padding:7px 11px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12.5px;">⊟ Compact</button>
@@ -1123,6 +1130,7 @@
     themeIcon: $('#theme-icon'),
     permSelect: $('#perm-select'),
     permWarn: $('#perm-warn'),
+    engineSelect: $('#engine-select'),
     headerTitle: $('#header-title'),
     headerCwd: $('#header-cwd'),
     connDot: $('#conn-dot'),
@@ -1138,6 +1146,7 @@
     cwd: '',
     permissionMode: 'bypassPermissions',
     model: 'sonnet',
+    engine: 'claude',
     inTurn: false,
     aborting: false,
     toolsById: new Map(),
@@ -1244,10 +1253,12 @@
         state.cwd = m.defaultCwd;
         state.permissionMode = m.defaultPerm || 'bypassPermissions';
         state.model = m.defaultModel || 'sonnet';
+        state.engine = m.defaultEngine || 'claude';
         state.sessions = m.sessions || [];
         els.cwdInput.value = state.cwd;
         els.permSelect.value = state.permissionMode;
         els.modelSelect.value = state.model;
+        if (els.engineSelect) els.engineSelect.value = state.engine;
         els.headerCwd.textContent = shortCwd(state.cwd);
         updatePermWarn();
         renderSessions();
@@ -1301,7 +1312,7 @@
         updateNodeBadge();
         break;
       case 'session_loaded':
-        loadSession(m.sessionId, m.cwd, m.events, m.permissionMode, m.model, m.active);
+        loadSession(m.sessionId, m.cwd, m.events, m.permissionMode, m.model, m.active, m.engine);
         refreshFileList(m.cwd);
         break;
       case 'session_persisted':
@@ -1337,6 +1348,21 @@
         state.model = m.model;
         els.modelSelect.value = m.model;
         break;
+
+      case 'engine_set':
+        state.engine = m.engine;
+        els.engineSelect.value = m.engine;
+        // Reset model options when switching engine
+        if (m.engine === 'claude') {
+          els.modelSelect.innerHTML = '<option value="sonnet">Sonnet — balanced (default)</option><option value="opus">Opus — most capable</option><option value="haiku">Haiku — fast &amp; cheap</option>';
+          els.modelSelect.value = state.model || 'sonnet';
+        }
+        break;
+
+      case 'opencode_models':
+        populateOpenCodeModels(m.models);
+        break;
+
       case 'user_message':
         hideAndCancelThinking();
         renderUserMessage(m.text, m.images);
@@ -2112,15 +2138,17 @@
   }
 
   // ---------- Sessions ----------
-  function loadSession(id, cwd, events, permissionMode, model, active) {
+  function loadSession(id, cwd, events, permissionMode, model, active, engine) {
     state.sessionId = id;
     setStoredSessionId(state.currentNodeId, id);
     state.cwd = cwd || state.cwd;
     if (permissionMode) state.permissionMode = permissionMode;
     if (model) state.model = model;
+    if (engine) state.engine = engine;
     els.cwdInput.value = state.cwd;
     els.permSelect.value = state.permissionMode;
     els.modelSelect.value = state.model;
+    if (els.engineSelect) els.engineSelect.value = state.engine;
     updatePermWarn();
     els.headerCwd.textContent = shortCwd(state.cwd);
     clearMessages();
@@ -2674,6 +2702,11 @@
     send({ type: 'set_model', model: els.modelSelect.value });
   });
 
+  els.engineSelect.addEventListener('change', () => {
+    state.engine = els.engineSelect.value;
+    send({ type: 'set_engine', engine: state.engine });
+  });
+
   // ---------- Visual viewport (mobile keyboard) ----------
   if (window.visualViewport) {
     const apply = () => {
@@ -2688,6 +2721,28 @@
   // ---------- Utils ----------
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  function populateOpenCodeModels(models) {
+    const select = els.modelSelect;
+    select.innerHTML = '';
+
+    if (!models || !models.length) {
+      select.innerHTML = '<option value="deepseek-v4-flash/qwen3.7-max">qwen3.7-max (default)</option>';
+      return;
+    }
+
+    models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      select.appendChild(opt);
+    });
+
+    if (models.length > 0) {
+      state.model = models[0].id;
+      select.value = models[0].id;
+    }
   }
 
   // ---------- Theme ----------
