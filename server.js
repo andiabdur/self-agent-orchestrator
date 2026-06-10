@@ -110,6 +110,106 @@ const REMOTE_NODES = (() => {
 })();
 const ALL_NODES = [{ id: 'local', name: NODE_NAME }, ...REMOTE_NODES];
 
+// ─── OpenCode Server Management ──────────────────────────────────────────
+let opencodeProc = null;
+let opencodePort = null;
+let opencodeReady = false;
+
+function findOpenCodeBin() {
+  if (OPENCODE_BIN && fs.existsSync(OPENCODE_BIN)) return OPENCODE_BIN;
+  const candidates = [
+    '/opt/homebrew/bin/lildax',
+    '/usr/local/bin/lildax',
+    path.join(os.homedir(), '.local', 'bin', 'lildax'),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return 'lildax';
+}
+
+const OPENCODE_RESOLVED_BIN = findOpenCodeBin();
+
+async function startOpenCodeServer() {
+  if (opencodeReady) return;
+  const port = await findFreePort();
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(OPENCODE_RESOLVED_BIN, ['serve', '--port', String(port)], {
+      env: {
+        ...process.env,
+        ...(process.env.OPENAI_BASE_URL ? { OPENAI_BASE_URL: process.env.OPENAI_BASE_URL } : {}),
+        ...(process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: !isWin,
+      shell: isWin,
+    });
+
+    proc.stdout.on('data', (d) => {});
+    proc.stderr.on('data', (d) => {});
+
+    proc.on('error', (err) => {
+      opencodeProc = null;
+      opencodeReady = false;
+      reject(new Error(`Failed to start OpenCode server: ${err.message}`));
+    });
+
+    proc.on('exit', (code) => {
+      if (opencodeReady) {
+        console.log(`[opencode] server exited with code ${code}, will restart on next use`);
+      }
+      opencodeProc = null;
+      opencodeReady = false;
+    });
+
+    let attempts = 0;
+    const maxAttempts = 15;
+    const check = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/api/health`);
+        if (res.ok) {
+          clearInterval(check);
+          opencodePort = port;
+          opencodeProc = proc;
+          opencodeReady = true;
+          console.log(`[opencode] server running on port ${port}`);
+          resolve();
+          return;
+        }
+      } catch {}
+      if (attempts >= maxAttempts) {
+        clearInterval(check);
+        try { proc.kill(); } catch {}
+        opencodeProc = null;
+        reject(new Error('OpenCode server did not start within 15s'));
+      }
+    }, 1000);
+  });
+}
+
+function stopOpenCodeServer() {
+  if (opencodeProc) {
+    try { opencodeProc.kill('SIGTERM'); } catch {}
+    opencodeProc = null;
+  }
+  opencodePort = null;
+  opencodeReady = false;
+}
+
+function findFreePort() {
+  return new Promise((resolve, reject) => {
+    const net = require('net');
+    const server = net.createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+    server.on('error', reject);
+  });
+}
+
 const STATE_DIR = process.env.STATE_DIR || path.join(os.homedir(), '.self-agent-orchestrator');
 const SESSIONS_DIR = path.join(STATE_DIR, 'sessions');
 const SESSIONS_INDEX = path.join(STATE_DIR, 'sessions.json');
@@ -961,6 +1061,9 @@ wss.on('connection', (ws) => {
 
 process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));
 process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
+
+process.on('SIGINT', () => { stopOpenCodeServer(); process.exit(0); });
+process.on('SIGTERM', () => { stopOpenCodeServer(); process.exit(0); });
 
 server.listen(PORT, HOST, () => {
   console.log(`Self Agent Orchestrator listening on http://${HOST}:${PORT}`);
