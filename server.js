@@ -545,6 +545,133 @@ setInterval(() => {
   }
 }, 60_000).unref();
 
+// ─── Engine implementations ──────────────────────────────────────────────
+
+async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, onSessionId) {
+  const args = ['-p', '--output-format', 'stream-json', '--verbose'];
+  args.push('--permission-mode', currentPerm);
+  if (currentPerm === 'bypassPermissions') args.push('--allow-dangerously-skip-permissions');
+  args.push('--model', currentModel);
+  if (currentSessionId) args.push('--resume', currentSessionId);
+
+  let proc;
+  try {
+    proc = spawn(CLAUDE_BIN, args, {
+      cwd: currentCwd,
+      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      detached: !isWin,
+      shell: isWin,
+    });
+  } catch (err) {
+    return { error: `Failed to spawn claude: ${err.message}` };
+  }
+
+  const tempKey = '__pending_' + Math.random().toString(36).slice(2, 10);
+  const initialKey = currentSessionId || tempKey;
+
+  const userEvent = {
+    kind: 'user_message',
+    text,
+    timestamp: Date.now(),
+    ...(savedImages.length > 0 ? {
+      images: savedImages.map(s => ({
+        filename: s.filename, name: s.name, mime: s.mime, thumbData: s.thumbData,
+      })),
+    } : {}),
+  };
+
+  let promptForClaude = text;
+  if (savedImages.length > 0) {
+    const paths = savedImages.map(s => `- ${s.path}`).join('\n');
+    promptForClaude = text.trim()
+      ? `${text}\n\n---\nGambar terlampir (gunakan Read tool untuk melihatnya):\n${paths}`
+      : `Tolong lihat gambar berikut menggunakan Read tool dan jelaskan:\n${paths}`;
+  }
+
+  const run = {
+    proc, status: 'running', cwd: currentCwd, perm: currentPerm,
+    model: currentModel, promptText: text, sessionId: currentSessionId, isNew,
+    bufferedEvents: [userEvent], subscribers: new Set([ws]), completedAt: null,
+  };
+  activeRuns.set(initialKey, run);
+
+  if (currentSessionId) {
+    appendSessionEvent(currentSessionId, userEvent);
+    run.bufferedEvents = [];
+  }
+  broadcast(initialKey, userEvent);
+
+  proc.stdin.write(promptForClaude);
+  proc.stdin.end();
+
+  let stderrBuf = '';
+  let buffer = '';
+  proc.stdout.on('data', chunk => {
+    buffer += chunk.toString();
+    let idx;
+    while ((idx = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 1);
+      if (!line.trim()) continue;
+      let evt;
+      try { evt = JSON.parse(line); } catch { console.error('parse fail:', line.slice(0, 200)); continue; }
+
+      // First time we see session_id: re-key the activeRuns map
+      if (evt.session_id && !run.sessionId) {
+        run.sessionId = evt.session_id;
+        if (onSessionId) onSessionId(evt.session_id);
+        activeRuns.delete(initialKey);
+        activeRuns.set(run.sessionId, run);
+        for (const e of run.bufferedEvents) appendSessionEvent(run.sessionId, e);
+        run.bufferedEvents = [];
+        const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
+        upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, model: run.model, ...(title ? { title } : {}) });
+        broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
+      }
+
+      const normalized = normalizeEvent(evt);
+      const key = run.sessionId || initialKey;
+      for (const n of normalized) {
+        if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
+          const prev = (loadIndex().find(s => s.id === run.sessionId)?.totalCostUsd) || 0;
+          upsertSessionMeta(run.sessionId, { totalCostUsd: prev + n.cost_usd });
+        }
+        if (run.sessionId) appendSessionEvent(run.sessionId, n);
+        else run.bufferedEvents.push(n);
+        broadcast(key, n);
+      }
+    }
+  });
+
+  proc.stderr.on('data', d => { stderrBuf += d.toString(); });
+
+  proc.on('error', err => {
+    broadcast(run.sessionId || initialKey, { kind: 'error', message: `claude process error: ${err.message}` });
+  });
+
+  proc.on('exit', (code) => {
+    run.status = 'done';
+    run.completedAt = Date.now();
+    const key = run.sessionId || initialKey;
+    if (code !== 0 && code !== null) {
+      broadcast(key, { kind: 'error', message: `claude exited with code ${code}${stderrBuf ? ': ' + stderrBuf.slice(0, 500) : ''}` });
+    }
+    if (run.sessionId) {
+      upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, model: run.model });
+      broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
+    }
+    broadcast(key, { kind: 'turn_end' });
+  });
+
+  return { key: initialKey, sessionId: currentSessionId };
+}
+
+async function sendPromptOpenCode(_ws, _text, _savedImages, _sessionId, _cwd) {
+  // Placeholder — implemented in Task 5
+  return { error: 'OpenCode engine not yet implemented' };
+}
+
 wss.on('connection', (ws) => {
   let currentSessionId = null;
   let currentCwd = DEFAULT_CWD;
@@ -650,7 +777,7 @@ wss.on('connection', (ws) => {
 
   send(buildHello());
 
-  ws.on('message', (raw) => {
+  ws.on('message', async (raw) => {
     let m;
     try { m = JSON.parse(raw.toString()); } catch { return; }
 
@@ -805,151 +932,19 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      const args = ['-p', '--output-format', 'stream-json', '--verbose'];
-      args.push('--permission-mode', currentPerm);
-      if (currentPerm === 'bypassPermissions') args.push('--allow-dangerously-skip-permissions');
-      args.push('--model', currentModel);
-      if (currentSessionId) args.push('--resume', currentSessionId);
-
-      let proc;
-      try {
-        proc = spawn(CLAUDE_BIN, args, {
-          cwd: currentCwd,
-          env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
-          stdio: ['pipe', 'pipe', 'pipe'],
-          detached: !isWin,
-          shell: isWin,
-        });
-      } catch (err) {
-        send({ kind: 'error', message: `Failed to spawn claude: ${err.message}` });
-        return;
-      }
-
       const isNew = !currentSessionId;
-      const tempKey = '__pending_' + Math.random().toString(36).slice(2, 10);
-      const initialKey = currentSessionId || tempKey;
 
-      // Event embeds thumbnails (small) so display + replay works without
-      // depending on disk files (which matters for multi-node proxy).
-      const userEvent = {
-        kind: 'user_message',
-        text,
-        timestamp: Date.now(),
-        ...(savedImages.length > 0 ? {
-          images: savedImages.map(s => ({
-            filename: s.filename,
-            name: s.name,
-            mime: s.mime,
-            thumbData: s.thumbData,
-          })),
-        } : {}),
-      };
-
-      // Build augmented prompt for claude — paste image paths so Read tool sees them.
-      let promptForClaude = text;
-      if (savedImages.length > 0) {
-        const paths = savedImages.map(s => `- ${s.path}`).join('\n');
-        const intro = text.trim()
-          ? `${text}\n\n---\nGambar terlampir (gunakan Read tool untuk melihatnya):\n${paths}`
-          : `Tolong lihat gambar berikut menggunakan Read tool dan jelaskan:\n${paths}`;
-        promptForClaude = intro;
+      if (currentEngine === 'opencode') {
+        const result = await sendPromptOpenCode(ws, text, savedImages, currentSessionId, currentCwd);
+        if (result?.error) { send({ kind: 'error', message: result.error }); return; }
+        if (result?.key) attachedKey = result.key;
+        if (result?.sessionId) currentSessionId = result.sessionId;
+      } else {
+        const result = await sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, (sid) => { currentSessionId = sid; });
+        if (result?.error) { send({ kind: 'error', message: result.error }); return; }
+        if (result?.key) attachedKey = result.key;
+        if (result?.sessionId) currentSessionId = result.sessionId;
       }
-
-      const run = {
-        proc,
-        status: 'running',
-        cwd: currentCwd,
-        perm: currentPerm,
-        model: currentModel,
-        promptText: text,
-        sessionId: currentSessionId,
-        isNew,
-        bufferedEvents: [userEvent],  // for new sessions before session_id is known
-        subscribers: new Set([ws]),
-        completedAt: null,
-      };
-      activeRuns.set(initialKey, run);
-      attachedKey = initialKey;
-
-      // Immediately persist + broadcast user message
-      if (currentSessionId) {
-        appendSessionEvent(currentSessionId, userEvent);
-        run.bufferedEvents = [];
-      }
-      broadcast(initialKey, userEvent);
-
-      proc.stdin.write(promptForClaude);
-      proc.stdin.end();
-
-      let stderrBuf = '';
-      let buffer = '';
-      proc.stdout.on('data', chunk => {
-        buffer += chunk.toString();
-        let idx;
-        while ((idx = buffer.indexOf('\n')) >= 0) {
-          const line = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 1);
-          if (!line.trim()) continue;
-          let evt;
-          try { evt = JSON.parse(line); } catch { console.error('parse fail:', line.slice(0, 200)); continue; }
-
-          // First time we see session_id: re-key the activeRuns map
-          if (evt.session_id && !run.sessionId) {
-            run.sessionId = evt.session_id;
-            currentSessionId = evt.session_id;
-            activeRuns.delete(initialKey);
-            activeRuns.set(run.sessionId, run);
-            // Move any subscribers' attachedKey reference would be stale, but
-            // they attached via initialKey; we need to broadcast under both keys.
-            // Simpler: notify clients of the new id so their next attach uses it.
-            for (const s of run.subscribers) {
-              // Best-effort: refresh attach reference (not strictly needed since broadcast uses run.subscribers directly)
-            }
-            // Persist all buffered events with the real sessionId
-            for (const e of run.bufferedEvents) appendSessionEvent(run.sessionId, e);
-            run.bufferedEvents = [];
-            // Update session metadata + title for new sessions
-            const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
-            upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, model: run.model, ...(title ? { title } : {}) });
-            // Inform clients about session_id assignment + updated sessions list
-            broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
-          }
-
-          const normalized = normalizeEvent(evt);
-          const key = run.sessionId || initialKey;
-          for (const n of normalized) {
-            // Accumulate cumulative session cost when a turn finishes.
-            if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
-              const prev = (loadIndex().find(s => s.id === run.sessionId)?.totalCostUsd) || 0;
-              upsertSessionMeta(run.sessionId, { totalCostUsd: prev + n.cost_usd });
-            }
-            if (run.sessionId) appendSessionEvent(run.sessionId, n);
-            else run.bufferedEvents.push(n);
-            broadcast(key, n);
-          }
-        }
-      });
-
-      proc.stderr.on('data', d => { stderrBuf += d.toString(); });
-
-      proc.on('error', err => {
-        broadcast(run.sessionId || initialKey, { kind: 'error', message: `claude process error: ${err.message}` });
-      });
-
-      proc.on('exit', (code) => {
-        run.status = 'done';
-        run.completedAt = Date.now();
-        const key = run.sessionId || initialKey;
-        if (code !== 0 && code !== null) {
-          broadcast(key, { kind: 'error', message: `claude exited with code ${code}${stderrBuf ? ': ' + stderrBuf.slice(0, 500) : ''}` });
-        }
-        if (run.sessionId) {
-          upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, model: run.model });
-          broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
-        }
-        broadcast(key, { kind: 'turn_end' });
-      });
-
       return;
     }
   });
