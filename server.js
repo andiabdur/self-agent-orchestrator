@@ -69,6 +69,9 @@ const DEFAULT_PERM = process.env.PERMISSION_MODE || 'bypassPermissions';
 const VALID_PERMS = new Set(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'dontAsk', 'plan']);
 const DEFAULT_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
 const VALID_MODELS = new Set(['sonnet', 'opus', 'haiku']);
+const DEFAULT_ENGINE = process.env.ENGINE || 'claude';
+const VALID_ENGINES = new Set(['claude', 'opencode']);
+const OPENCODE_BIN = process.env.OPENCODE_BIN || 'lildax';
 
 // ─── Multi-node ────────────────────────────────────────────────────────────────
 const NODE_NAME = process.env.NODE_NAME || os.hostname();
