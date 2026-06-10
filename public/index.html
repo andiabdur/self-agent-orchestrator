@@ -947,6 +947,26 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+  /* ─── Engine indicator badge ─────────────────────────── */
+  .engine-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    flex: 0 0 auto;
+  }
+  .engine-badge.claude { border-color: var(--accent); color: var(--accent); }
+  .engine-badge.opencode { border-color: #4ade80; color: #4ade80; }
+  .engine-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .engine-label { text-transform: capitalize; }
+  .engine-model { opacity: 0.7; }
+  .engine-model::before { content: '· '; }
 </style>
 </head>
 <body>
@@ -985,6 +1005,12 @@
       </button>
       <input type="file" id="file-input" accept="image/*" multiple hidden />
       <textarea id="input" rows="1" placeholder="Type a message…"></textarea>
+      <!-- Engine indicator -->
+      <div id="engine-badge" class="engine-badge claude" title="Active engine">
+        <span class="engine-dot"></span>
+        <span class="engine-label">Claude Code</span>
+        <span class="engine-model" id="engine-model-label">sonnet</span>
+      </div>
       <button id="btn-send" type="button" disabled>➤</button>
     </div>
   </div>
@@ -1273,6 +1299,7 @@
         }
         renderNodeList();
         updateNodeBadge();
+        updateEngineBadge(state.engine, state.model);
         // Auto-load the last-used session for whichever node we just landed on,
         // UNLESS we're still in the middle of switching to a remote node
         // (in which case the local hello is just a transient — we'll get the
@@ -1347,6 +1374,7 @@
       case 'model_set':
         state.model = m.model;
         els.modelSelect.value = m.model;
+        updateEngineBadge(state.engine, m.model);
         break;
 
       case 'engine_set':
@@ -1357,10 +1385,12 @@
           els.modelSelect.innerHTML = '<option value="sonnet">Sonnet — balanced (default)</option><option value="opus">Opus — most capable</option><option value="haiku">Haiku — fast &amp; cheap</option>';
           els.modelSelect.value = state.model || 'sonnet';
         }
+        updateEngineBadge(m.engine, state.model);
         break;
 
       case 'opencode_models':
         populateOpenCodeModels(m.models);
+        updateEngineBadge(state.engine, state.model);
         break;
 
       case 'user_message':
@@ -2743,6 +2773,16 @@
       state.model = models[0].id;
       select.value = models[0].id;
     }
+  }
+
+  function updateEngineBadge(engine, model) {
+    const badge = document.getElementById('engine-badge');
+    if (!badge) return;
+    badge.className = 'engine-badge ' + engine;
+    const label = badge.querySelector('.engine-label');
+    const modelSpan = document.getElementById('engine-model-label');
+    if (label) label.textContent = engine === 'claude' ? 'Claude Code' : 'OpenCode';
+    if (modelSpan) modelSpan.textContent = model || '';
   }
 
   // ---------- Theme ----------
