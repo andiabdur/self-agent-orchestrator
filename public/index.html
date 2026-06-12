@@ -187,7 +187,11 @@
     font-family: 'IBM Plex Mono', monospace;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 38%;
+    background: none; border: none; cursor: pointer; padding: 2px 5px;
+    border-radius: 3px; transition: background .12s, color .12s;
+    text-align: left;
   }
+  #header-cwd:hover { background: var(--bg-3); color: var(--text); }
   #theme-toggle {
     background: none; border: none; color: var(--muted);
     width: 32px; height: 32px; cursor: pointer; flex: 0 0 auto;
@@ -664,27 +668,78 @@
   #btn-new:hover { opacity: 0.85; }
   #btn-new:active { opacity: 0.7; }
 
-  /* ─── Settings collapsible ──────────────────────────────── */
-  #sidebar-settings {
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
+  /* ─── Settings panel (tab) ───────────────────────────────── */
+  #settings-view {
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 0 0 16px;
   }
-  #btn-settings-toggle {
-    width: 100%; background: none; border: none;
-    color: var(--muted); cursor: pointer;
-    padding: 9px 12px;
-    display: flex; align-items: center; gap: 6px;
-    font-size: 10.5px; font-family: 'IBM Plex Mono', monospace;
-    text-transform: uppercase; letter-spacing: .07em;
-    transition: color .12s, background .12s;
+  .settings-section {
+    padding: 14px 14px 0;
   }
-  #btn-settings-toggle:hover { color: var(--text); background: var(--bg-2); }
-  #btn-settings-toggle .settings-chevron {
-    margin-left: auto; transition: transform .2s;
+  .settings-section-title {
+    font-size: 9.5px; font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); font-weight: 600; margin-bottom: 8px;
   }
-  #btn-settings-toggle.open .settings-chevron { transform: rotate(180deg); }
-  #settings-content { display: none; }
-  #settings-content.open { display: block; }
+  .settings-card {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 6px; overflow: hidden; margin-bottom: 8px;
+  }
+  .settings-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    min-height: 48px;
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-icon {
+    color: var(--muted); flex-shrink: 0;
+    display: flex; align-items: center;
+  }
+  .settings-row-label {
+    flex: 1; font-size: 13px; color: var(--text);
+    font-weight: 500;
+  }
+  .settings-row-sub {
+    font-size: 11px; color: var(--muted); margin-top: 1px;
+    font-family: 'IBM Plex Mono', monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 100%;
+  }
+  .settings-row-label-wrap { flex: 1; min-width: 0; }
+  .settings-select {
+    background: var(--bg-3); color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 7px 10px; font-size: 12.5px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    outline: none; cursor: pointer; min-width: 130px;
+    transition: border-color .15s; flex-shrink: 0;
+  }
+  .settings-select:focus { border-color: var(--accent); }
+  .settings-cwd-btn {
+    width: 100%; background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px; min-height: 56px; text-align: left;
+    transition: background .12s;
+  }
+  .settings-cwd-btn:hover { background: var(--bg-3); }
+  .settings-cwd-chevron { margin-left: auto; color: var(--muted); flex-shrink: 0; }
+  .settings-action-btn {
+    width: 100%; background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px; min-height: 48px; text-align: left;
+    font-size: 13px; font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--text); transition: background .12s;
+  }
+  .settings-action-btn:hover { background: var(--bg-3); }
+  .settings-action-btn.danger { color: var(--error); }
+  .settings-action-btn.danger:hover { background: rgba(255,131,137,.06); }
+  #perm-warn-card {
+    font-size: 11px; color: var(--muted); padding: 8px 14px 10px;
+    font-family: 'IBM Plex Mono', monospace; line-height: 1.45;
+    display: none;
+  }
+  #perm-warn-card.visible { display: block; }
 
   /* ─── Engine popover ────────────────────────────────────── */
   #composer-meta { position: relative; }
@@ -1299,7 +1354,7 @@
       </svg>
     </button>
     <div id="header-title">New chat</div>
-    <div id="header-cwd"></div>
+    <button id="header-cwd" type="button" title="Change working directory" aria-label="Working directory"></button>
     <div id="node-badge"></div>
     <button id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
       <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
@@ -1388,6 +1443,11 @@
   <div class="sidebar-tabs">
     <button class="sidebar-tab active" data-tab="session">Sessions</button>
     <button class="sidebar-tab" data-tab="file">Files</button>
+    <button class="sidebar-tab" data-tab="settings">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:middle;margin-bottom:1px">
+        <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 0-14.14 0M4.93 19.07a10 10 0 0 0 14.14 0"/><path d="M12 2v2m0 18v2M2 12h2m18 0h2m-3.05-6.95-1.41 1.41M6.46 17.54l-1.41 1.41M17.54 17.54l1.41 1.41M5.05 6.05 6.46 7.46"/>
+      </svg>
+    </button>
   </div>
   <div id="session-view" class="sidebar-view active">
     <!-- Search + New -->
@@ -1418,59 +1478,6 @@
     <div class="session-list" id="session-list"></div>
 
     <!-- Collapsible settings -->
-    <div id="sidebar-settings">
-      <button id="btn-settings-toggle" type="button">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.07 4.93a10 10 0 0 0-14.14 0M4.93 19.07a10 10 0 0 0 14.14 0"/>
-          <path d="M12 2v2m0 18v2M2 12h2m18 0h2m-3.05-6.95-1.41 1.41M6.46 17.54l-1.41 1.41M17.54 17.54l1.41 1.41M5.05 6.05 6.46 7.46"/>
-        </svg>
-        Settings
-        <svg class="settings-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M1 1l4 4 4-4"/>
-        </svg>
-      </button>
-      <div id="settings-content">
-        <div class="cwd-row">
-          <div class="cwd-label">Working directory</div>
-          <div class="cwd-input-row">
-            <input id="cwd-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-            <button id="btn-browse" type="button" title="Browse folders">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="cwd-row">
-          <div class="cwd-label">Model</div>
-          <select id="model-select">
-            <option value="sonnet">Sonnet — balanced (default)</option>
-            <option value="opus">Opus — most capable</option>
-            <option value="haiku">Haiku — fast &amp; cheap</option>
-          </select>
-        </div>
-        <div class="cwd-row">
-          <div class="cwd-label">Permission mode</div>
-          <select id="perm-select">
-            <option value="bypassPermissions">Bypass — auto-approve all</option>
-            <option value="acceptEdits">Accept edits</option>
-            <option value="plan">Plan — read-only</option>
-          </select>
-          <div id="perm-warn"></div>
-        </div>
-        <div class="cwd-row">
-          <div class="cwd-label">Engine</div>
-          <select id="engine-select">
-            <option value="claude">Claude Code</option>
-            <option value="oi">Open Interpreter</option>
-          </select>
-        </div>
-        <div class="cwd-row" style="padding-bottom:10px;">
-          <button id="btn-compact" type="button" title="Summarize history to reclaim context (/compact)" style="width:100%;background:var(--bg-2);color:var(--muted);border:1px solid var(--border);padding:7px 11px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12.5px;">⊟ Compact history</button>
-        </div>
-      </div>
-    </div>
   </div>
   <div id="file-view" class="sidebar-view">
     <div class="file-path-row">
@@ -1486,8 +1493,93 @@
     </div>
     <div class="file-list" id="file-list"></div>
   </div>
-  <div class="cwd-row" id="sidebar-footer-row" style="border-top:1px solid var(--border); padding-top:12px; margin-top:auto; flex-shrink:0; display:flex; flex-direction:column; gap:12px;">
-    <button id="btn-logout" type="button" onmouseover="this.style.background='rgba(255,131,137,0.08)'" onmouseout="this.style.background='var(--bg-2)'" style="width:100%; background:var(--bg-2); color:var(--error); border:1px solid var(--border); border-radius:2px; padding:8px 12px; font-size:13px; font-weight:500; cursor:pointer; text-align:center; transition:background .12s, color .12s;">Logout</button>
+  <div id="settings-view" class="sidebar-view">
+    <!-- Workspace -->
+    <div class="settings-section">
+      <div class="settings-section-title">Workspace</div>
+      <div class="settings-card">
+        <button class="settings-cwd-btn" id="btn-cwd-pick" type="button" title="Change working directory">
+          <span class="settings-row-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+          </span>
+          <span class="settings-row-label-wrap">
+            <span class="settings-row-label">Working directory</span>
+            <span class="settings-row-sub" id="settings-cwd-display">—</span>
+          </span>
+          <svg class="settings-cwd-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <!-- hidden input kept for compat with existing JS that reads/writes cwdInput.value -->
+        <input id="cwd-input" type="text" style="display:none" autocomplete="off" />
+        <button id="btn-browse" type="button" style="display:none"></button>
+      </div>
+    </div>
+
+    <!-- Agent -->
+    <div class="settings-section">
+      <div class="settings-section-title">Agent</div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <span class="settings-row-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          </span>
+          <span class="settings-row-label">Engine</span>
+          <select id="engine-select" class="settings-select">
+            <option value="claude">Claude Code</option>
+            <option value="oi">Open Interpreter</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><circle cx="18" cy="6" r="3"/></svg>
+          </span>
+          <span class="settings-row-label">Model</span>
+          <select id="model-select" class="settings-select">
+            <option value="sonnet">Sonnet</option>
+            <option value="opus">Opus</option>
+            <option value="haiku">Haiku</option>
+          </select>
+        </div>
+        <div class="settings-row" style="flex-wrap:wrap;gap:6px;">
+          <span class="settings-row-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </span>
+          <span class="settings-row-label">Permission</span>
+          <select id="perm-select" class="settings-select">
+            <option value="bypassPermissions">Bypass all</option>
+            <option value="acceptEdits">Accept edits</option>
+            <option value="plan">Plan only</option>
+          </select>
+        </div>
+        <div id="perm-warn" style="display:none"></div>
+        <div id="perm-warn-card"></div>
+      </div>
+    </div>
+
+    <!-- Session -->
+    <div class="settings-section">
+      <div class="settings-section-title">Session</div>
+      <div class="settings-card">
+        <button id="btn-compact" class="settings-action-btn" type="button" title="Summarize history to reclaim context (/compact)">
+          <span class="settings-row-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+          </span>
+          Compact history
+        </button>
+      </div>
+    </div>
+
+    <!-- Account -->
+    <div class="settings-section">
+      <div class="settings-section-title">Account</div>
+      <div class="settings-card">
+        <button id="btn-logout" class="settings-action-btn danger" type="button">
+          <span class="settings-row-icon" style="color:inherit">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </span>
+          Logout
+        </button>
+      </div>
+    </div>
   </div>
 </aside>
 
@@ -1560,8 +1652,8 @@
     engineBadge: $('#engine-badge'),
     enginePopover: $('#engine-popover'),
     popoverModelSection: $('#popover-model-section'),
-    btnSettingsToggle: $('#btn-settings-toggle'),
-    settingsContent: $('#settings-content'),
+    settingsCwdDisplay: $('#settings-cwd-display'),
+    btnCwdPick: $('#btn-cwd-pick'),
     viewerCopyBtn: $('#viewer-copy-btn'),
     viewerHtmlBtn: $('#viewer-html-btn'),
     viewerEditBtn: $('#viewer-edit-btn'),
@@ -1606,7 +1698,13 @@
     plan: 'Read-only mode. Agen bisa explore tapi gak bisa modif file / jalanin command.',
   };
   function updatePermWarn() {
-    els.permWarn.textContent = PERM_WARNINGS[state.permissionMode] || '';
+    const msg = PERM_WARNINGS[state.permissionMode] || '';
+    const cardEl = document.getElementById('perm-warn-card');
+    if (cardEl) { cardEl.textContent = msg; cardEl.classList.toggle('visible', !!msg); }
+  }
+  function updateSettingsCwd(cwd) {
+    if (els.settingsCwdDisplay) els.settingsCwdDisplay.textContent = shortCwd(cwd) || '—';
+    els.headerCwd.textContent = shortCwd(cwd);
   }
 
   // ---------- WS ----------
@@ -1699,7 +1797,7 @@
         els.permSelect.value = state.permissionMode;
         els.modelSelect.value = state.model;
         if (els.engineSelect) els.engineSelect.value = state.engine;
-        els.headerCwd.textContent = shortCwd(state.cwd);
+        updateSettingsCwd(state.cwd);
         updatePermWarn();
         renderSessions();
         if (m.nodes) {
@@ -1777,7 +1875,7 @@
         break;
       case 'cwd_set':
         state.cwd = m.cwd; els.cwdInput.value = m.cwd;
-        els.headerCwd.textContent = shortCwd(m.cwd);
+        updateSettingsCwd(m.cwd);
         refreshFileList(m.cwd);
         break;
       case 'permission_set':
@@ -2891,7 +2989,7 @@
       els.modelSelect.value = state.model || 'sonnet';
     }
     updatePermWarn();
-    els.headerCwd.textContent = shortCwd(state.cwd);
+    updateSettingsCwd(state.cwd);
     clearMessages();
     if (!events || !events.length) {
       const e = document.createElement('div');
@@ -3450,6 +3548,8 @@
   function closePicker() { picker.bg.classList.remove('open'); }
 
   picker.btn.addEventListener('click', openPicker);
+  if (els.btnCwdPick) els.btnCwdPick.addEventListener('click', openPicker);
+  els.headerCwd.addEventListener('click', openPicker);
   picker.close.addEventListener('click', closePicker);
   picker.cancel.addEventListener('click', closePicker);
   picker.bg.addEventListener('click', (e) => { if (e.target === picker.bg) closePicker(); });
@@ -3578,10 +3678,11 @@
     }
   });
 
-  // ---------- Settings collapsible ----------
-  els.btnSettingsToggle.addEventListener('click', () => {
-    const open = els.settingsContent.classList.toggle('open');
-    els.btnSettingsToggle.classList.toggle('open', open);
+  // Settings tab: sync CWD display on open
+  document.querySelectorAll('.sidebar-tab').forEach(btn => {
+    if (btn.dataset.tab === 'settings') {
+      btn.addEventListener('click', () => updateSettingsCwd(state.cwd));
+    }
   });
 
   // ---------- Engine badge popover ----------
