@@ -6,6 +6,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { randomBytes } from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -70,8 +71,12 @@ const VALID_PERMS = new Set(['default', 'acceptEdits', 'auto', 'bypassPermission
 const DEFAULT_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
 const VALID_MODELS = new Set(['sonnet', 'opus', 'haiku']);
 const DEFAULT_ENGINE = process.env.ENGINE || 'claude';
-const VALID_ENGINES = new Set(['claude', 'opencode']);
-const OPENCODE_BIN = process.env.OPENCODE_BIN || 'lildax';
+const VALID_ENGINES = new Set(['claude', 'oi']);
+const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'http://localhost:20128/v1').replace(/\/$/, '');
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'local';
+const OPENAI_DEFAULT_MODEL = process.env.OPENAI_MODEL || '';
+const OI_BRIDGE = path.join(__dirname, 'oi_bridge.py');
+const OI_PYTHON = process.env.OI_PYTHON || 'python3';
 
 // ─── Multi-node ────────────────────────────────────────────────────────────────
 const NODE_NAME = process.env.NODE_NAME || os.hostname();
@@ -110,315 +115,165 @@ const REMOTE_NODES = (() => {
 })();
 const ALL_NODES = [{ id: 'local', name: NODE_NAME }, ...REMOTE_NODES];
 
-// ─── OpenCode Server Management ──────────────────────────────────────────
-let opencodeProc = null;
-let opencodePort = null;
-let opencodeReady = false;
+// ─── Open Interpreter Engine state ───────────────────────────────────────
+const oiHistories = new Map(); // sessionId -> OI messages[]
 
-function findOpenCodeBin() {
-  if (OPENCODE_BIN && fs.existsSync(OPENCODE_BIN)) return OPENCODE_BIN;
-  const candidates = [
-    '/opt/homebrew/bin/lildax',
-    '/usr/local/bin/lildax',
-    path.join(os.homedir(), '.local', 'bin', 'lildax'),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
+async function fetchOIModels() {
+  try {
+    const res = await fetch(`${OPENAI_BASE_URL}/models`, {
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.data || []).map(m => ({ id: m.id, name: m.id }));
+  } catch {
+    return [];
   }
-  return 'lildax';
 }
 
-const OPENCODE_RESOLVED_BIN = findOpenCodeBin();
+// ─── Open Interpreter Engine ──────────────────────────────────────────────────
+async function sendPromptOI(ws, text, savedImages, currentSessionId, currentModel, currentCwd) {
+  const isExisting = !!(currentSessionId && currentSessionId.startsWith('oi_'));
+  const sessionId = isExisting ? currentSessionId : 'oi_' + randomBytes(12).toString('hex');
 
-async function startOpenCodeServer() {
-  if (opencodeReady) return;
-  const port = await findFreePort();
-
-  return new Promise((resolve, reject) => {
-    const proc = spawn(OPENCODE_RESOLVED_BIN, ['serve', '--port', String(port)], {
-      env: {
-        ...process.env,
-        ...(process.env.OPENAI_BASE_URL ? { OPENAI_BASE_URL: process.env.OPENAI_BASE_URL } : {}),
-        ...(process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}),
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: !isWin,
-      shell: isWin,
-    });
-
-    proc.stdout.on('data', (d) => {});
-    proc.stderr.on('data', (d) => {});
-
-    proc.on('error', (err) => {
-      opencodeProc = null;
-      opencodeReady = false;
-      reject(new Error(`Failed to start OpenCode server: ${err.message}`));
-    });
-
-    proc.on('exit', (code) => {
-      if (opencodeReady) {
-        console.log(`[opencode] server exited with code ${code}, will restart on next use`);
-      }
-      opencodeProc = null;
-      opencodeReady = false;
-    });
-
-    let attempts = 0;
-    const maxAttempts = 15;
-    const check = setInterval(async () => {
-      attempts++;
-      try {
-        const res = await fetch(`http://127.0.0.1:${port}/api/health`);
-        if (res.ok) {
-          clearInterval(check);
-          opencodePort = port;
-          opencodeProc = proc;
-          opencodeReady = true;
-          console.log(`[opencode] server running on port ${port}`);
-          resolve();
-          return;
-        }
-      } catch {}
-      if (attempts >= maxAttempts) {
-        clearInterval(check);
-        try { proc.kill(); } catch {}
-        opencodeProc = null;
-        reject(new Error('OpenCode server did not start within 15s'));
-      }
-    }, 1000);
-  });
-}
-
-function stopOpenCodeServer() {
-  if (opencodeProc) {
-    try { opencodeProc.kill('SIGTERM'); } catch {}
-    opencodeProc = null;
-  }
-  opencodePort = null;
-  opencodeReady = false;
-}
-
-function findFreePort() {
-  return new Promise((resolve, reject) => {
-    const net = require('net');
-    const server = net.createServer();
-    server.listen(0, '127.0.0.1', () => {
-      const port = server.address().port;
-      server.close(() => resolve(port));
-    });
-    server.on('error', reject);
-  });
-}
-
-// ─── OpenCode Engine ─────────────────────────────────────────────────────
-
-async function sendPromptOpenCode(ws, text, savedImages, currentSessionId, currentCwd) {
-  if (!opencodeReady) {
-    try {
-      await startOpenCodeServer();
-    } catch (err) {
-      return { error: err.message };
-    }
-  }
+  const history = oiHistories.get(sessionId) || [];
 
   let promptText = text;
   if (savedImages && savedImages.length > 0) {
     const paths = savedImages.map(s => `- ${s.path}`).join('\n');
     promptText = text && text.trim()
-      ? `${text}\n\n---\nAttached images:\n${paths}`
+      ? `${text}\n\nAttached images:\n${paths}`
       : `Please examine these images:\n${paths}`;
   }
 
-  let ocSessionId = currentSessionId && currentSessionId.startsWith('ses_')
-    ? currentSessionId
-    : 'ses_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const userEvent = {
+    kind: 'user_message', text, timestamp: Date.now(),
+    ...(savedImages && savedImages.length > 0 ? {
+      images: savedImages.map(s => ({ filename: s.filename, name: s.name, mime: s.mime, thumbData: s.thumbData })),
+    } : {}),
+  };
 
-  try {
-    const promptRes = await fetch(`http://127.0.0.1:${opencodePort}/api/session/${ocSessionId}/prompt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: { text: promptText },
-        resume: !!currentSessionId,
-      }),
-    });
+  const run = {
+    proc: null, status: 'running', cwd: currentCwd, perm: 'oi',
+    model: currentModel, promptText: text, sessionId,
+    bufferedEvents: [], subscribers: new Set([ws]), completedAt: null,
+  };
+  activeRuns.set(sessionId, run);
+  broadcast(sessionId, { kind: 'turn_start' });
 
-    if (!promptRes.ok) {
-      const errBody = await promptRes.text();
-      return { error: `OpenCode API error (${promptRes.status}): ${errBody}` };
-    }
-  } catch (err) {
-    return { error: `OpenCode request failed: ${err.message}` };
+  appendSessionEvent(sessionId, userEvent);
+  broadcast(sessionId, userEvent);
+
+  if (!isExisting) {
+    const title = text.split('\n')[0].slice(0, 60);
+    upsertSessionMeta(sessionId, { cwd: currentCwd, permissionMode: DEFAULT_PERM, engine: 'oi', model: currentModel || OPENAI_DEFAULT_MODEL, title });
+    broadcast(sessionId, { kind: 'session_persisted', sessionId, sessions: loadIndexEnriched() });
   }
 
-  if (ws && ws.readyState === 1) {
-    const userEvent = {
-      kind: 'user_message',
-      text,
-      timestamp: Date.now(),
-      ...(savedImages && savedImages.length > 0 ? {
-        images: savedImages.map(s => ({
-          filename: s.filename, name: s.name, mime: s.mime, thumbData: s.thumbData,
-        })),
-      } : {}),
-    };
-    broadcast(ocSessionId, userEvent);
-  }
-
-  subscribeOpenCodeSSE(ocSessionId, ws);
-
-  return { key: ocSessionId, sessionId: ocSessionId };
-}
-
-function subscribeOpenCodeSSE(sessionId, ws) {
-  const url = `http://127.0.0.1:${opencodePort}/api/event`;
-
-  fetch(url).then(response => {
-    if (!response.ok || !response.body) return;
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    function readChunk() {
-      reader.read().then(({ done, value }) => {
-        if (done) return;
-        buffer += decoder.decode(value, { stream: true });
-
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
-
-        for (const part of parts) {
-          const lines = part.split('\n').filter(l => l.startsWith('data: '));
-          for (const line of lines) {
-            try {
-              const event = JSON.parse(line.slice(6));
-              translateOpenCodeEvent(event, sessionId, ws);
-            } catch {}
-          }
-        }
-
-        readChunk();
-      }).catch(() => {});
-    }
-
-    readChunk();
-  }).catch(() => {
-    // SSE failed, fall back to polling
-    pollOpenCodeSession(sessionId, ws);
+  const config = JSON.stringify({
+    prompt: promptText,
+    model: currentModel || OPENAI_DEFAULT_MODEL,
+    api_base: OPENAI_BASE_URL,
+    api_key: OPENAI_API_KEY,
+    cwd: currentCwd,
+    history,
   });
-}
 
-function translateOpenCodeEvent(event, sessionId, ws) {
-  if (!event || !event.type) return;
-
-  switch (event.type) {
-    case 'user':
-      break;
-
-    case 'assistant': {
-      if (!event.content) break;
-      for (const item of event.content) {
-        switch (item.type) {
-          case 'text':
-            broadcast(sessionId, { kind: 'assistant_text', text: item.text || '' });
-            break;
-          case 'reasoning':
-            broadcast(sessionId, { kind: 'assistant_reasoning', text: item.text || '' });
-            break;
-          case 'tool': {
-            const toolName = item.name || 'unknown';
-            const toolInput = item.state?.input ? JSON.stringify(item.state.input) : '';
-
-            if (item.state?.status === 'pending' || item.state?.status === 'running') {
-              broadcast(sessionId, { kind: 'tool_use', name: toolName, input: toolInput });
-            } else if (item.state?.status === 'completed' || item.state?.status === 'error') {
-              const output = item.state?.content
-                ? item.state.content.map(c => c.text || '').filter(Boolean).join('\n')
-                : '';
-              broadcast(sessionId, { kind: 'tool_result', name: toolName, output });
-            }
-            break;
-          }
-        }
-      }
-      if (event.finish || event.time?.completed) {
-        broadcast(sessionId, { kind: 'turn_complete' });
-      }
-      break;
-    }
-
-    case 'shell': {
-      broadcast(sessionId, { kind: 'tool_use', name: 'bash', input: event.command || '' });
-      if (event.output) {
-        broadcast(sessionId, { kind: 'tool_result', name: 'bash', output: event.output });
-      }
-      break;
-    }
-
-    case 'compaction':
-      broadcast(sessionId, { kind: 'compact', summary: event.summary || '' });
-      break;
-
-    case 'system':
-      if (event.text) {
-        broadcast(sessionId, { kind: 'status', text: event.text });
-      }
-      break;
-  }
-}
-
-async function pollOpenCodeSession(sessionId, ws, intervalMs = 1000, maxWaitMs = 120000) {
-  const startTime = Date.now();
-  let lastMessageCount = 0;
-
-  while (Date.now() - startTime < maxWaitMs) {
-    await new Promise(r => setTimeout(r, intervalMs));
-
-    try {
-      const res = await fetch(`http://127.0.0.1:${opencodePort}/api/session/${sessionId}/message?order=asc&limit=50`);
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      const messages = data?.data || [];
-
-      if (messages.length > lastMessageCount) {
-        for (let i = lastMessageCount; i < messages.length; i++) {
-          translateOpenCodeEvent(messages[i], sessionId, ws);
-        }
-        lastMessageCount = messages.length;
-      }
-
-      const last = messages[messages.length - 1];
-      if (last?.type === 'assistant' && last.finish) {
-        break;
-      }
-    } catch {}
-  }
-}
-
-async function fetchOpenCodeModels() {
-  if (!opencodeReady) {
-    try {
-      await startOpenCodeServer();
-    } catch {
-      return [];
-    }
-  }
-
+  let proc;
   try {
-    const res = await fetch(`http://127.0.0.1:${opencodePort}/api/model`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data?.data || []).map(m => ({
-      id: m.id,
-      name: m.name || m.id,
-      providerID: m.providerID,
-      enabled: m.enabled,
-    }));
-  } catch {
-    return [];
+    proc = spawn(OI_PYTHON, [OI_BRIDGE], {
+      cwd: currentCwd,
+      env: { ...process.env, PYTHONUNBUFFERED: '1' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      detached: !isWin,
+    });
+    run.proc = proc;
+  } catch (err) {
+    run.status = 'done';
+    broadcast(sessionId, { kind: 'error', message: `Failed to spawn OI: ${err.message}` });
+    broadcast(sessionId, { kind: 'turn_end' });
+    return { key: sessionId, sessionId };
   }
+
+  proc.stdin.write(config + '\n');
+  proc.stdin.end();
+
+  let stderrBuf = '';
+  let lineBuf = '';
+  let assistantBuf = '';
+  let codeBuf = '';
+  let inCode = false;
+  let finalAssistantText = '';
+
+  proc.stderr.on('data', d => { stderrBuf += d.toString(); });
+
+  proc.stdout.on('data', chunk => {
+    lineBuf += chunk.toString();
+    let idx;
+    while ((idx = lineBuf.indexOf('\n')) >= 0) {
+      const line = lineBuf.slice(0, idx).trim();
+      lineBuf = lineBuf.slice(idx + 1);
+      if (!line) continue;
+      let evt;
+      try { evt = JSON.parse(line); } catch { continue; }
+
+      if (evt.type === '__error__') {
+        broadcast(sessionId, { kind: 'error', message: evt.content || 'OI error' });
+        return;
+      }
+
+      if (evt.type === '__history__') {
+        if (Array.isArray(evt.messages)) oiHistories.set(sessionId, evt.messages);
+        return;
+      }
+
+      // Translate OI chunk format → our event format
+      if (evt.type === 'message' && evt.role === 'assistant') {
+        if (evt.start) { assistantBuf = ''; return; }
+        if (evt.content) {
+          assistantBuf += evt.content;
+          broadcast(sessionId, { kind: 'assistant_delta', text: evt.content });
+          return;
+        }
+        if (evt.end) {
+          finalAssistantText += assistantBuf;
+          return;
+        }
+      }
+
+      if (evt.type === 'code') {
+        if (evt.start) { codeBuf = ''; inCode = true; return; }
+        if (evt.content) { codeBuf += evt.content; return; }
+        if (evt.end) {
+          inCode = false;
+          const lang = evt.format || 'bash';
+          broadcast(sessionId, { kind: 'tool_use', name: lang, input: codeBuf });
+          return;
+        }
+      }
+
+      if (evt.type === 'console') {
+        if (evt.start || !evt.content) return;
+        if (evt.format === 'active_line') return; // skip line highlights
+        broadcast(sessionId, { kind: 'tool_result', name: 'console', output: String(evt.content) });
+      }
+    }
+  });
+
+  await new Promise(resolve => proc.on('close', resolve));
+
+  if (finalAssistantText) {
+    appendSessionEvent(sessionId, { kind: 'assistant_text', text: finalAssistantText });
+  }
+  const completeEvt = { kind: 'turn_complete' };
+  appendSessionEvent(sessionId, completeEvt);
+  broadcast(sessionId, completeEvt);
+
+  run.status = 'done';
+  run.completedAt = Date.now();
+  broadcast(sessionId, { kind: 'turn_end' });
+
+  return { key: sessionId, sessionId };
 }
 
 const STATE_DIR = process.env.STATE_DIR || path.join(os.homedir(), '.self-agent-orchestrator');
@@ -612,6 +467,51 @@ app.patch('/api/sessions/:id', (req, res) => {
   res.json({ ok: true, sessions: list });
 });
 
+app.get('/api/sessions/search', (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) return res.json([]);
+  const lower = q.toLowerCase();
+  const list = loadIndex();
+  const results = [];
+  for (const s of list) {
+    const f = path.join(SESSIONS_DIR, `${s.id}.jsonl`);
+    if (!fs.existsSync(f)) continue;
+    let lines;
+    try { lines = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean); } catch { continue; }
+    const snippets = [];
+    let hitCount = 0;
+    for (const line of lines) {
+      let evt;
+      try { evt = JSON.parse(line); } catch { continue; }
+      if (evt.kind !== 'user_message' && evt.kind !== 'assistant_text') continue;
+      const text = String(evt.text || '');
+      const ltext = text.toLowerCase();
+      let idx = ltext.indexOf(lower);
+      while (idx !== -1) {
+        hitCount++;
+        if (snippets.length < 3) {
+          const start = Math.max(0, idx - 80);
+          const end = Math.min(text.length, idx + lower.length + 80);
+          let snippet = text.slice(start, end).replace(/\n+/g, ' ');
+          if (start > 0) snippet = '…' + snippet;
+          if (end < text.length) snippet = snippet + '…';
+          snippets.push(snippet.replace(
+            new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+            m => `\x00${m}\x00`
+          ));
+        }
+        idx = ltext.indexOf(lower, idx + 1);
+      }
+    }
+    if (hitCount > 0) {
+      results.push({ id: s.id, title: s.title, cwd: s.cwd, last_used_at: s.last_used_at, snippets, hitCount });
+    }
+  }
+  results.sort((a, b) => b.hitCount - a.hitCount);
+  res.json(results.slice(0, 20));
+});
+
 app.get('/api/dirs', (req, res) => {
   let target;
   try {
@@ -699,6 +599,51 @@ app.post('/api/mkdir', (req, res) => {
     res.json({ ok: true, path: newPath });
   } catch (err) {
     if (err.code === 'EEXIST') return res.status(400).json({ error: 'Folder already exists' });
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/file', (req, res) => {
+  const rawParent = req.body?.path ? String(req.body.path) : null;
+  const name = req.body?.name ? String(req.body.name).trim() : null;
+  if (!rawParent || !name) return res.status(400).json({ error: 'path and name required' });
+  if (/[/\\<>:"|?*]/.test(name) || name === '.' || name === '..' || name.length > 255) {
+    return res.status(400).json({ error: 'Invalid file name' });
+  }
+  let parent;
+  try { parent = path.resolve(rawParent); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+  const newPath = path.join(parent, name);
+  if (!newPath.startsWith(parent + path.sep)) return res.status(400).json({ error: 'Invalid path' });
+  try {
+    if (!fs.existsSync(parent)) return res.status(400).json({ error: 'Parent directory does not exist' });
+    if (fs.existsSync(newPath)) return res.status(400).json({ error: 'File already exists' });
+    fs.writeFileSync(newPath, '');
+    res.json({ ok: true, path: newPath });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/rename', (req, res) => {
+  const from = req.body?.from ? String(req.body.from) : null;
+  const to = req.body?.to ? String(req.body.to) : null;
+  if (!from || !to) return res.status(400).json({ error: 'from and to required' });
+  try {
+    const fromPath = path.resolve(from);
+    const toPath = path.resolve(to);
+    const BASE = path.resolve(os.homedir());
+    if (!fromPath.startsWith(BASE + path.sep) || !toPath.startsWith(BASE + path.sep)) {
+      return res.status(400).json({ error: 'Access denied' });
+    }
+    if (!fs.existsSync(fromPath)) return res.status(404).json({ error: 'Source not found' });
+    if (fs.existsSync(toPath)) return res.status(400).json({ error: 'Target already exists' });
+    const toParent = path.dirname(toPath);
+    const toParentStat = fs.statSync(toParent);
+    if (!toParentStat.isDirectory()) return res.status(400).json({ error: 'Target parent is not a directory' });
+    fs.renameSync(fromPath, toPath);
+    res.json({ ok: true, from: fromPath, to: toPath });
+  } catch (err) {
+    if (err.code === 'ENOENT') return res.status(404).json({ error: 'Source not found' });
     return res.status(400).json({ error: err.message });
   }
 });
@@ -937,7 +882,7 @@ async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, 
         for (const e of run.bufferedEvents) appendSessionEvent(run.sessionId, e);
         run.bufferedEvents = [];
         const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
-        upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, model: run.model, ...(title ? { title } : {}) });
+        upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: 'claude', model: run.model, ...(title ? { title } : {}) });
         broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
       }
 
@@ -969,7 +914,7 @@ async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, 
       broadcast(key, { kind: 'error', message: `claude exited with code ${code}${stderrBuf ? ': ' + stderrBuf.slice(0, 500) : ''}` });
     }
     if (run.sessionId) {
-      upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, model: run.model });
+      upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: 'claude', model: run.model });
       broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
     }
     broadcast(key, { kind: 'turn_end' });
@@ -1117,6 +1062,12 @@ wss.on('connection', (ws) => {
         currentCwd = meta.cwd || DEFAULT_CWD;
         currentPerm = meta.permissionMode || DEFAULT_PERM;
         currentModel = meta.model || DEFAULT_MODEL;
+        if (meta.engine && VALID_ENGINES.has(meta.engine)) {
+          currentEngine = meta.engine;
+        } else if (currentSessionId) {
+          // Fallback for sessions created before engine field was added
+          currentEngine = currentSessionId.startsWith('oi_') ? 'oi' : 'claude';
+        }
       }
       const events = currentSessionId ? loadSessionEvents(currentSessionId) : [];
       const run = currentSessionId ? attach(currentSessionId) : null;
@@ -1138,16 +1089,10 @@ wss.on('connection', (ws) => {
     if (m.type === 'set_engine') {
       if (VALID_ENGINES.has(m.engine)) {
         currentEngine = m.engine;
-        if (m.engine === 'opencode') {
-          startOpenCodeServer().then(() => {
-            fetchOpenCodeModels().then(models => {
-              send({ kind: 'opencode_models', models });
-            }).catch(() => {});
-          }).catch(err => {
-            send({ kind: 'error', message: `OpenCode: ${err.message}` });
-            currentEngine = DEFAULT_ENGINE;
-            send({ kind: 'engine_set', engine: currentEngine });
-          });
+        if (m.engine === 'oi') {
+          fetchOIModels().then(models => {
+            send({ kind: 'oi_models', models, defaultModel: OPENAI_DEFAULT_MODEL });
+          }).catch(() => {});
         }
         send({ kind: 'engine_set', engine: currentEngine });
       }
@@ -1155,7 +1100,8 @@ wss.on('connection', (ws) => {
     }
 
     if (m.type === 'set_model') {
-      if (VALID_MODELS.has(m.model)) {
+      const modelOk = VALID_MODELS.has(m.model) || (currentEngine === 'oi' && typeof m.model === 'string' && m.model.length > 0);
+      if (modelOk) {
         currentModel = m.model;
         if (currentSessionId) upsertSessionMeta(currentSessionId, { model: currentModel });
         send({ kind: 'model_set', model: currentModel });
@@ -1240,8 +1186,8 @@ wss.on('connection', (ws) => {
 
       const isNew = !currentSessionId;
 
-      if (currentEngine === 'opencode') {
-        const result = await sendPromptOpenCode(ws, text, savedImages, currentSessionId, currentCwd);
+      if (currentEngine === 'oi') {
+        const result = await sendPromptOI(ws, text, savedImages, currentSessionId, currentModel, currentCwd);
         if (result?.error) { send({ kind: 'error', message: result.error }); return; }
         if (result?.key) attachedKey = result.key;
         if (result?.sessionId) currentSessionId = result.sessionId;
@@ -1268,8 +1214,8 @@ wss.on('connection', (ws) => {
 process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));
 process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
 
-process.on('SIGINT', () => { stopOpenCodeServer(); process.exit(0); });
-process.on('SIGTERM', () => { stopOpenCodeServer(); process.exit(0); });
+process.on('SIGINT', () => process.exit(0));
+process.on('SIGTERM', () => process.exit(0));
 
 server.listen(PORT, HOST, () => {
   console.log(`Self Agent Orchestrator listening on http://${HOST}:${PORT}`);

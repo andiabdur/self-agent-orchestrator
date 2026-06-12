@@ -534,17 +534,127 @@
     font-size: 11px; color: var(--muted); margin-top: 6px;
     line-height: 1.45; font-family: 'IBM Plex Mono', monospace;
   }
-  #btn-new {
-    width: 100%;
-    background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 2px;
-    padding: 8px 12px; font-size: 13px; cursor: pointer;
-    font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
-    text-align: center;
-    transition: background .12s;
+  /* ─── Session controls (search + new) ──────────────────── */
+  #session-controls {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
-  #btn-new:hover { background: var(--bg-3); }
-  #btn-new:active { background: var(--border); }
+  .session-search-wrap {
+    flex: 1; position: relative; display: flex; align-items: center;
+  }
+  .session-search-icon {
+    position: absolute; left: 8px; color: var(--muted); pointer-events: none;
+    display: flex; align-items: center;
+  }
+  #session-search {
+    width: 100%; background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 6px 8px 6px 28px;
+    font-size: 12px; font-family: 'IBM Plex Sans', sans-serif;
+    outline: none; transition: border-color .15s;
+  }
+  #session-search:focus { border-color: var(--accent); }
+  #session-search::placeholder { color: var(--muted); }
+  #btn-search-mode {
+    position: absolute; right: 6px;
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); padding: 2px 4px; border-radius: 3px;
+    display: flex; align-items: center;
+    transition: color .15s, background .15s;
+    flex-shrink: 0;
+  }
+  #btn-search-mode:hover { color: var(--text); background: var(--bg-3); }
+  #btn-search-mode.active { color: var(--accent); }
+  #session-search.content-mode { padding-right: 28px; }
+  .session-snippet {
+    font-size: 11px; color: var(--muted); margin-top: 3px;
+    line-height: 1.45; white-space: pre-wrap; word-break: break-word;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .session-snippet mark {
+    background: transparent; color: var(--accent); font-weight: 600;
+  }
+  .search-loading {
+    font-size: 11px; color: var(--muted);
+    padding: 12px 14px; text-align: center;
+  }
+  #btn-new {
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 4px;
+    padding: 6px 12px; font-size: 12px; cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+    white-space: nowrap; flex-shrink: 0;
+    transition: opacity .12s;
+  }
+  #btn-new:hover { opacity: 0.85; }
+  #btn-new:active { opacity: 0.7; }
+
+  /* ─── Settings collapsible ──────────────────────────────── */
+  #sidebar-settings {
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #btn-settings-toggle {
+    width: 100%; background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    padding: 9px 12px;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10.5px; font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase; letter-spacing: .07em;
+    transition: color .12s, background .12s;
+  }
+  #btn-settings-toggle:hover { color: var(--text); background: var(--bg-2); }
+  #btn-settings-toggle .settings-chevron {
+    margin-left: auto; transition: transform .2s;
+  }
+  #btn-settings-toggle.open .settings-chevron { transform: rotate(180deg); }
+  #settings-content { display: none; }
+  #settings-content.open { display: block; }
+
+  /* ─── Engine popover ────────────────────────────────────── */
+  #composer-meta { position: relative; }
+  #engine-badge {
+    cursor: pointer; font-family: inherit; font-size: inherit;
+    appearance: none; -webkit-appearance: none;
+  }
+  #engine-badge:hover { opacity: 0.85; }
+  .badge-chevron { margin-left: 2px; transition: transform .15s; flex-shrink: 0; }
+  #engine-badge[aria-expanded="true"] .badge-chevron { transform: rotate(180deg); }
+  #engine-popover {
+    position: absolute; bottom: calc(100% + 6px); left: 0;
+    min-width: 210px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.28);
+    z-index: 200; overflow: hidden;
+  }
+  #engine-popover[hidden] { display: none; }
+  .popover-section { padding: 6px 0; }
+  .popover-section + .popover-section { border-top: 1px solid var(--border); }
+  .popover-label {
+    font-size: 10px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .07em; padding: 4px 12px 3px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .popover-opt {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    padding: 7px 12px; font-size: 12.5px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    text-align: left; white-space: nowrap;
+    transition: background .1s, color .1s;
+  }
+  .popover-opt:hover { background: var(--bg-2); color: var(--text); }
+  .popover-opt.active { color: var(--text-strong); font-weight: 500; }
+  .opt-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    border: 1.5px solid var(--muted); flex-shrink: 0;
+    transition: background .1s, border-color .1s;
+  }
+  .popover-opt.active .opt-dot { background: var(--accent); border-color: var(--accent); }
 
   /* ─── Folder picker ───────────────────────────────────── */
   #picker-bg {
@@ -582,11 +692,25 @@
     font-size: 11.5px; color: var(--muted);
     word-break: break-all; flex-shrink: 0;
   }
-  .picker-list {
-    flex: 1; overflow-y: auto; padding: 6px;
-    -webkit-overflow-scrolling: touch;
-  }
-  .picker-item {
+   .picker-list {
+     flex: 1; overflow-y: auto; padding: 6px;
+     -webkit-overflow-scrolling: touch;
+   }
+   #picker-search {
+     width: 100%;
+     padding: 6px 9px;
+     background: var(--bg);
+     color: var(--text);
+     border: 1px solid var(--border);
+     border-radius: 2px;
+     font-size: 12.5px;
+     font-family: 'IBM Plex Mono', monospace;
+     outline: none;
+   }
+   #picker-search:focus {
+     border-color: var(--accent);
+   }
+   .picker-item {
     padding: 10px 12px; border-radius: 2px;
     cursor: pointer;
     display: flex; align-items: center; gap: 10px;
@@ -800,13 +924,80 @@
     padding: 20px; text-align: center; color: var(--muted);
     font-size: 11px; font-family: 'IBM Plex Mono', monospace;
   }
-  .file-loading {
-    padding: 20px; text-align: center; display: flex;
-    align-items: center; justify-content: center; gap: 8px;
-    color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace;
-  }
+   .file-loading {
+     padding: 20px; text-align: center; display: flex;
+     align-items: center; justify-content: center; gap: 8px;
+     color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+   }
 
-  /* On touch devices (no hover), keep them clearly visible */
+   /* File creation & rename */
+   #btn-newfile {
+     background: var(--bg-2); color: var(--muted);
+     border: 1px solid var(--border); border-radius: 2px;
+     padding: 4px 9px; font-size: 12.5px; cursor: pointer;
+     font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+     margin-left: 8px; white-space: nowrap;
+     transition: background .12s, color .12s;
+   }
+   #btn-newfile:hover { background: var(--bg-3); color: var(--text); }
+
+   .file-create-row {
+     display: flex; gap: 6px; padding: 8px 10px;
+     background: var(--bg-2); border-bottom: 1px solid var(--border);
+   }
+   .file-create-row input {
+     flex: 1; min-width: 0;
+     background: var(--bg); color: var(--text);
+     border: 1px solid var(--border); border-radius: 2px;
+     padding: 6px 9px; font-size: 12.5px;
+     font-family: 'IBM Plex Mono', monospace; outline: none;
+   }
+   .file-create-row input:focus { border-color: var(--accent); }
+   .file-create-row button {
+     background: var(--bg-2); color: var(--text);
+     border: 1px solid var(--border); border-radius: 2px;
+     padding: 7px 14px; font-size: 13px; cursor: pointer;
+     font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+     transition: background .12s;
+   }
+   .file-create-row button.primary {
+     background: var(--accent); color: #fff; border-color: var(--accent);
+   }
+   .file-create-row button.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+
+   .file-rename-row {
+     display: flex; gap: 6px; padding: 6px 8px;
+     background: var(--bg-2);
+   }
+   .file-rename-row input {
+     flex: 1; min-width: 0;
+     background: var(--bg); color: var(--text);
+     border: 1px solid var(--accent); border-radius: 2px;
+     padding: 6px 9px; font-size: 12.5px;
+     font-family: 'IBM Plex Mono', monospace; outline: none;
+   }
+   .file-rename-row input:focus { border-color: var(--accent); }
+   .file-rename-row button {
+     background: var(--bg-2); color: var(--text);
+     border: 1px solid var(--border); border-radius: 2px;
+     padding: 6px 12px; font-size: 12.5px; cursor: pointer;
+     font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+     transition: background .12s;
+   }
+   .file-rename-row button.primary {
+     background: var(--accent); color: #fff; border-color: var(--accent);
+   }
+   .file-rename-row button.primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+
+   .file-item .fi-rename {
+     flex: 0 0 auto; display: none; background: none; border: none;
+     color: var(--muted); cursor: pointer; padding: 2px; border-radius: 2px;
+     font-size: 0; line-height: 1;
+   }
+   .file-item:hover .fi-rename { display: block; }
+   .file-item .fi-rename:hover { background: var(--bg-3); color: var(--accent); }
+
+   /* On touch devices (no hover), keep them clearly visible */
   @media (pointer: coarse) {
     .session-action { opacity: 0.85; }
   }
@@ -949,24 +1140,33 @@
   }
 
   /* ─── Engine indicator badge ─────────────────────────── */
+  #composer-meta {
+    display: flex; align-items: center; gap: 6px;
+    min-height: 20px;
+  }
   .engine-badge {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 3px 10px;
+    gap: 4px;
+    padding: 2px 8px;
     border-radius: 10px;
     font-size: 11px;
     font-weight: 500;
     border: 1px solid var(--border);
     background: var(--bg-2);
     flex: 0 0 auto;
+    max-width: 100%;
+    overflow: hidden;
   }
   .engine-badge.claude { border-color: var(--accent); color: var(--accent); }
-  .engine-badge.opencode { border-color: #4ade80; color: #4ade80; }
+  .engine-badge.oi { border-color: #fb923c; color: #fb923c; }
   .engine-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-  .engine-label { text-transform: capitalize; }
-  .engine-model { opacity: 0.7; }
+  .engine-label { text-transform: capitalize; white-space: nowrap; }
+  .engine-model { opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
   .engine-model::before { content: '· '; }
+  @media (max-width: 480px) {
+    .engine-model { max-width: 120px; }
+  }
 </style>
 </head>
 <body>
@@ -996,6 +1196,30 @@
   </div>
 
   <div id="composer">
+    <div id="composer-meta">
+      <button id="engine-badge" class="engine-badge claude" title="Click to change engine or model" aria-expanded="false" type="button">
+        <span class="engine-dot"></span>
+        <span class="engine-label">Claude Code</span>
+        <span class="engine-model" id="engine-model-label">sonnet</span>
+        <svg class="badge-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M1 1l4 4 4-4"/>
+        </svg>
+      </button>
+      <div id="engine-popover" hidden>
+        <div class="popover-section">
+          <div class="popover-label">Engine</div>
+          <button class="popover-opt active" data-engine="claude" type="button">
+            <span class="opt-dot"></span>Claude Code
+          </button>
+          <button class="popover-opt" data-engine="oi" type="button">
+            <span class="opt-dot"></span>Open Interpreter
+          </button>
+        </div>
+        <div class="popover-section" id="popover-model-section">
+          <div class="popover-label">Model</div>
+        </div>
+      </div>
+    </div>
     <div id="image-previews"></div>
     <div class="composer-row">
       <button id="btn-attach" type="button" title="Attach image" aria-label="Attach image">
@@ -1005,12 +1229,6 @@
       </button>
       <input type="file" id="file-input" accept="image/*" multiple hidden />
       <textarea id="input" rows="1" placeholder="Type a message…"></textarea>
-      <!-- Engine indicator -->
-      <div id="engine-badge" class="engine-badge claude" title="Active engine">
-        <span class="engine-dot"></span>
-        <span class="engine-label">Claude Code</span>
-        <span class="engine-model" id="engine-model-label">sonnet</span>
-      </div>
       <button id="btn-send" type="button" disabled>➤</button>
     </div>
   </div>
@@ -1024,9 +1242,12 @@
       <div class="picker-title">Choose folder</div>
       <button id="picker-close" type="button">×</button>
     </div>
-    <div class="picker-path" id="picker-path"></div>
-    <div class="picker-list" id="picker-list"></div>
-    <div id="picker-create-row">
+     <div class="picker-path" id="picker-path"></div>
+     <div class="picker-search" style="padding:8px 10px; border-bottom:1px solid var(--border);">
+       <input type="text" id="picker-search" placeholder="Search folders…" />
+     </div>
+     <div class="picker-list" id="picker-list"></div>
+     <div id="picker-create-row">
       <input id="picker-create-input" type="text" placeholder="Folder name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
       <button id="picker-create-confirm" type="button" class="primary">Create</button>
       <button id="picker-create-cancel" type="button">Cancel</button>
@@ -1050,55 +1271,98 @@
     <button class="sidebar-tab" data-tab="file">Files</button>
   </div>
   <div id="session-view" class="sidebar-view active">
+    <!-- Search + New -->
+    <div id="session-controls">
+      <div class="session-search-wrap">
+        <span class="session-search-icon" aria-hidden="true">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </span>
+        <input id="session-search" type="text" placeholder="Search sessions…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Search sessions" />
+        <button id="btn-search-mode" type="button" title="Toggle: search inside conversations" aria-pressed="false">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+        </button>
+      </div>
+      <button id="btn-new" type="button">+ New</button>
+    </div>
+
+    <!-- Node row (hidden unless multi-node) -->
     <div id="node-row" class="cwd-row">
       <div class="cwd-label">Machine</div>
       <div id="node-list" class="node-chips"></div>
     </div>
-    <div class="cwd-row">
-      <div class="cwd-label">Working directory</div>
-      <div class="cwd-input-row">
-        <input id="cwd-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-        <button id="btn-browse" type="button" title="Browse folders">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-          </svg>
-        </button>
+
+    <!-- Session list — takes all remaining space -->
+    <div class="session-list" id="session-list"></div>
+
+    <!-- Collapsible settings -->
+    <div id="sidebar-settings">
+      <button id="btn-settings-toggle" type="button">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.07 4.93a10 10 0 0 0-14.14 0M4.93 19.07a10 10 0 0 0 14.14 0"/>
+          <path d="M12 2v2m0 18v2M2 12h2m18 0h2m-3.05-6.95-1.41 1.41M6.46 17.54l-1.41 1.41M17.54 17.54l1.41 1.41M5.05 6.05 6.46 7.46"/>
+        </svg>
+        Settings
+        <svg class="settings-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M1 1l4 4 4-4"/>
+        </svg>
+      </button>
+      <div id="settings-content">
+        <div class="cwd-row">
+          <div class="cwd-label">Working directory</div>
+          <div class="cwd-input-row">
+            <input id="cwd-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+            <button id="btn-browse" type="button" title="Browse folders">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="cwd-row">
+          <div class="cwd-label">Model</div>
+          <select id="model-select">
+            <option value="sonnet">Sonnet — balanced (default)</option>
+            <option value="opus">Opus — most capable</option>
+            <option value="haiku">Haiku — fast &amp; cheap</option>
+          </select>
+        </div>
+        <div class="cwd-row">
+          <div class="cwd-label">Permission mode</div>
+          <select id="perm-select">
+            <option value="bypassPermissions">Bypass — auto-approve all</option>
+            <option value="acceptEdits">Accept edits</option>
+            <option value="plan">Plan — read-only</option>
+          </select>
+          <div id="perm-warn"></div>
+        </div>
+        <div class="cwd-row">
+          <div class="cwd-label">Engine</div>
+          <select id="engine-select">
+            <option value="claude">Claude Code</option>
+            <option value="oi">Open Interpreter</option>
+          </select>
+        </div>
+        <div class="cwd-row" style="padding-bottom:10px;">
+          <button id="btn-compact" type="button" title="Summarize history to reclaim context (/compact)" style="width:100%;background:var(--bg-2);color:var(--muted);border:1px solid var(--border);padding:7px 11px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12.5px;">⊟ Compact history</button>
+        </div>
       </div>
     </div>
-    <div class="cwd-row">
-      <div class="cwd-label">Model</div>
-      <select id="model-select">
-        <option value="sonnet">Sonnet — balanced (default)</option>
-        <option value="opus">Opus — most capable</option>
-        <option value="haiku">Haiku — fast &amp; cheap</option>
-      </select>
-    </div>
-    <div class="cwd-row">
-      <div class="cwd-label">Permission mode</div>
-      <select id="perm-select">
-        <option value="bypassPermissions">Bypass — auto-approve all</option>
-        <option value="acceptEdits">Accept edits</option>
-        <option value="plan">Plan — read-only</option>
-      </select>
-      <div id="perm-warn"></div>
-    </div>
-    <div class="cwd-row">
-      <div class="cwd-label">Engine</div>
-      <select id="engine-select">
-        <option value="claude">Claude Code</option>
-        <option value="opencode">OpenCode</option>
-      </select>
-    </div>
-    <div class="cwd-row" style="display:flex;gap:8px;">
-      <button id="btn-new" type="button" style="flex:1;">+ New Chat</button>
-      <button id="btn-compact" type="button" title="Summarize history to reclaim context (/compact)" style="flex:0 0 auto;background:var(--bg-2);color:var(--muted);border:1px solid var(--border);padding:7px 11px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:12.5px;">⊟ Compact</button>
-    </div>
-    <div class="session-list" id="session-list"></div>
   </div>
   <div id="file-view" class="sidebar-view">
     <div class="file-path-row">
       <div class="file-path-label">Current directory</div>
+      <button type="button" id="btn-newfile" class="file-action-btn" title="Create new file">+ New</button>
       <div class="file-path-value" id="file-path-text"></div>
+    </div>
+    <div class="file-create-row" id="file-create-row" style="display:none;">
+      <input type="text" id="file-create-input" placeholder="Filename" />
+      <button type="button" id="file-create-confirm" class="primary">Create</button>
+      <button type="button" id="file-create-cancel">Cancel</button>
     </div>
     <div class="file-list" id="file-list"></div>
   </div>
@@ -1164,11 +1428,22 @@
     nodeBadge: $('#node-badge'),
     nodeRow: $('#node-row'),
     nodeList: $('#node-list'),
+    sessionSearch: $('#session-search'),
+    btnSearchMode: $('#btn-search-mode'),
+    engineBadge: $('#engine-badge'),
+    enginePopover: $('#engine-popover'),
+    popoverModelSection: $('#popover-model-section'),
+    btnSettingsToggle: $('#btn-settings-toggle'),
+    settingsContent: $('#settings-content'),
   };
 
   const state = {
     sessionId: null,
     sessions: [],
+    sessionSearch: '',
+    contentSearchMode: false,
+    contentSearchResults: null,
+    contentSearchLoading: false,
     cwd: '',
     permissionMode: 'bypassPermissions',
     model: 'sonnet',
@@ -1179,6 +1454,8 @@
     toolContentCache: new Map(),
     writtenFiles: new Map(),
     lastAssistantBubble: null,
+    streamingTextEl: null,
+    streamingTextBuf: '',
     ws: null,
     nodes: [],
     currentNodeId: 'local',
@@ -1380,21 +1657,44 @@
       case 'engine_set':
         state.engine = m.engine;
         els.engineSelect.value = m.engine;
-        // Reset model options when switching engine
         if (m.engine === 'claude') {
           els.modelSelect.innerHTML = '<option value="sonnet">Sonnet — balanced (default)</option><option value="opus">Opus — most capable</option><option value="haiku">Haiku — fast &amp; cheap</option>';
           els.modelSelect.value = state.model || 'sonnet';
+        } else if (m.engine === 'oi') {
+          els.modelSelect.innerHTML = '<option value="">— fetching models… —</option>';
         }
         updateEngineBadge(m.engine, state.model);
         break;
 
-      case 'opencode_models':
-        populateOpenCodeModels(m.models);
+      case 'oi_models':
+        els.modelSelect.innerHTML = '';
+        if (m.models && m.models.length > 0) {
+          for (const mdl of m.models) {
+            const id = typeof mdl === 'string' ? mdl : mdl.id;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = id;
+            els.modelSelect.appendChild(opt);
+          }
+          const preferred = state.model || m.defaultModel || '';
+          if (preferred && els.modelSelect.querySelector(`option[value="${CSS.escape(preferred)}"]`)) {
+            els.modelSelect.value = preferred;
+          }
+          state.model = els.modelSelect.value;
+          send({ type: 'set_model', model: state.model });
+        } else {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = '— no models found —';
+          els.modelSelect.appendChild(opt);
+        }
         updateEngineBadge(state.engine, state.model);
+        if (els.enginePopover && !els.enginePopover.hidden) buildPopoverModels();
         break;
 
       case 'user_message':
         hideAndCancelThinking();
+        finalizeStreamingText();
         renderUserMessage(m.text, m.images);
         // Show indicator INSTANTLY for live messages (initial wait is the
         // most painful to leave unindicated). Skip during session replay.
@@ -1408,8 +1708,13 @@
         break;
       case 'assistant_text':
         hideAndCancelThinking();
+        finalizeStreamingText();      // flush any pending delta buffer before full-block render
         renderAssistantText(m.text);
         scheduleThinkingIndicator();  // claude may pause then continue (next tool / text)
+        break;
+      case 'assistant_delta':
+        hideAndCancelThinking();
+        appendStreamingDelta(m.text);
         break;
       case 'tool_start':
         hideAndCancelThinking();      // tool card has its own spinner — no overlap
@@ -1427,6 +1732,7 @@
         break;
       case 'turn_complete':
         hideAndCancelThinking();
+        finalizeStreamingText();
         renderTurnSummary(m);
         break;
       case 'aborting':
@@ -1548,6 +1854,28 @@
     el.innerHTML = renderMarkdown(text);
     linkifyFileRefs(el);
     bubble.appendChild(el);
+  }
+
+  function appendStreamingDelta(text) {
+    if (!text) return;
+    const bubble = ensureAssistantBubble();
+    if (!state.streamingTextEl) {
+      state.streamingTextEl = document.createElement('div');
+      state.streamingTextEl.className = 'msg-text';
+      bubble.appendChild(state.streamingTextEl);
+    }
+    state.streamingTextBuf += text;
+    state.streamingTextEl.innerHTML = renderMarkdown(state.streamingTextBuf);
+    // Auto-scroll while streaming
+    els.messages.scrollTop = els.messages.scrollHeight;
+  }
+
+  function finalizeStreamingText() {
+    if (state.streamingTextEl) {
+      linkifyFileRefs(state.streamingTextEl);
+    }
+    state.streamingTextEl = null;
+    state.streamingTextBuf = '';
   }
 
   function linkifyFileRefs(container) {
@@ -2010,13 +2338,57 @@
   // ---------- File browser ----------
   const ICON_FOLDER_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>';
   const ICON_FILE_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-  const ICON_DL_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+   const ICON_DL_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+   const ICON_RENAME_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
 
-  let fileListPath = state.cwd || '';
-  const fileListEl = document.getElementById('file-list');
-  const filePathText = document.getElementById('file-path-text');
+   let fileListPath = state.cwd || '';
+   const fileListEl = document.getElementById('file-list');
+   const filePathText = document.getElementById('file-path-text');
 
-  // Tab switching
+   // File creation UI elements
+   const btnNewFile = document.getElementById('btn-newfile');
+   const fileCreateRow = document.getElementById('file-create-row');
+   const fileCreateInput = document.getElementById('file-create-input');
+   const fileCreateConfirm = document.getElementById('file-create-confirm');
+   const fileCreateCancel = document.getElementById('file-create-cancel');
+
+   function showCreateFileRow() {
+     fileCreateRow.style.display = 'flex';
+     fileCreateInput.value = '';
+     fileCreateInput.focus();
+   }
+   function hideCreateFileRow() {
+     fileCreateRow.style.display = 'none';
+   }
+   btnNewFile.addEventListener('click', showCreateFileRow);
+   fileCreateCancel.addEventListener('click', hideCreateFileRow);
+   fileCreateConfirm.addEventListener('click', async () => {
+     const name = fileCreateInput.value.trim();
+     if (!name) return;
+     hideCreateFileRow();
+     const currentDir = fileListPath;
+     try {
+       const res = await fetch('/api/file', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ path: currentDir, name }),
+       });
+       const data = await res.json();
+       if (!res.ok) {
+         alert('Failed to create file: ' + (data.error || 'Unknown error'));
+         return;
+       }
+       loadFileList(currentDir);
+     } catch (err) {
+       alert('Error creating file: ' + err.message);
+     }
+   });
+   fileCreateInput.addEventListener('keydown', (e) => {
+     if (e.key === 'Enter') fileCreateConfirm.click();
+     if (e.key === 'Escape') hideCreateFileRow();
+   });
+
+   // Tab switching
   document.querySelectorAll('.sidebar-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.remove('active'));
@@ -2070,37 +2442,110 @@
       fileListEl.appendChild(up);
     }
     for (const e of data.entries) {
+      const isDir = e.type === 'dir';
+      const fullPath = (data.path.endsWith('/') ? data.path.slice(0, -1) : data.path) + '/' + e.name;
       const item = document.createElement('div');
-      if (e.type === 'dir') {
-        item.className = 'file-item dir';
-        item.innerHTML = '<span class="fi-icon">' + ICON_FOLDER_SVG + '</span><span class="fi-name">' + escapeHtml(e.name) + '</span>';
-        item.addEventListener('click', () => {
-          const next = data.path.endsWith('/') ? data.path + e.name : data.path + '/' + e.name;
-          loadFileList(next);
-        });
-      } else {
-        const fullPath = data.path + '/' + e.name;
-        item.className = 'file-item';
-        const isViewable = isViewableFile(e.name);
-        const sizeStr = formatSize(e.size);
-        item.innerHTML = '<span class="fi-icon">' + ICON_FILE_SVG + '</span><span class="fi-name">' + escapeHtml(e.name) + '</span><span class="fi-size">' + sizeStr + '</span><button class="fi-dl" title="Download">' + ICON_DL_SVG + '</button>';
-        // Click file → view or download
-        item.addEventListener('click', (ev) => {
-          if (ev.target.closest('.fi-dl')) return;
-          if (isViewable) {
-            openFileViewer(fullPath, null);
-          } else {
-            downloadFile(fullPath);
-          }
-        });
-        // Download button
+      item.className = 'file-item' + (isDir ? ' dir' : '');
+      const icon = isDir ? ICON_FOLDER_SVG : ICON_FILE_SVG;
+      const sizeStr = isDir ? '' : formatSize(e.size);
+      let extraButtons = '';
+      if (!isDir) extraButtons += `<button class="fi-dl" title="Download">${ICON_DL_SVG}</button>`;
+      extraButtons += `<button class="fi-rename" title="Rename">${ICON_RENAME_SVG}</button>`;
+      item.innerHTML = `<span class="fi-icon">${icon}</span><span class="fi-name">${escapeHtml(e.name)}</span>${sizeStr ? '<span class="fi-size">' + sizeStr + '</span>' : ''}${extraButtons}`;
+
+      // Main click (open dir or file)
+      item.addEventListener('click', (ev) => {
+        if (ev.target.closest('.fi-dl')) return;
+        if (ev.target.closest('.fi-rename')) return;
+        if (isDir) {
+          loadFileList(fullPath);
+        } else {
+          const isViewable = isViewableFile(e.name);
+          if (isViewable) openFileViewer(fullPath, null);
+          else downloadFile(fullPath);
+        }
+      });
+
+      // Download button (only for files)
+      if (!isDir) {
         const dlBtn = item.querySelector('.fi-dl');
         dlBtn.addEventListener('click', (ev) => {
           ev.stopPropagation();
           downloadFile(fullPath);
         });
       }
+
+      // Rename button (both files and dirs)
+      const renameBtn = item.querySelector('.fi-rename');
+      renameBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        item.style.display = 'none';
+        renameRow.style.display = 'flex';
+        renameInput.focus();
+        renameInput.select();
+      });
+
       fileListEl.appendChild(item);
+
+      // Create rename row (hidden) for this entry
+      const renameRow = document.createElement('div');
+      renameRow.className = 'file-rename-row';
+      renameRow.style.display = 'none';
+      renameRow.innerHTML = `
+        <input type="text" class="rename-input" value="${escapeHtml(e.name)}" />
+        <button type="button" class="rename-confirm primary">Rename</button>
+        <button type="button" class="rename-cancel">Cancel</button>
+      `;
+      renameRow.dataset.fullPath = fullPath;
+      renameRow.dataset.originalName = e.name;
+
+      const renameInput = renameRow.querySelector('.rename-input');
+      renameInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          renameRow.querySelector('.rename-confirm').click();
+        }
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          renameRow.querySelector('.rename-cancel').click();
+        }
+      });
+      renameRow.querySelector('.rename-cancel').addEventListener('click', () => {
+        renameRow.style.display = 'none';
+        item.style.display = 'flex';
+      });
+      renameRow.querySelector('.rename-confirm').addEventListener('click', async () => {
+        const newName = renameInput.value.trim();
+        if (!newName) {
+          alert('Name cannot be empty');
+          return;
+        }
+        if (newName === renameRow.dataset.originalName) {
+          renameRow.style.display = 'none';
+          item.style.display = 'flex';
+          return;
+        }
+        const fromPath = renameRow.dataset.fullPath;
+        const toPath = fileListPath.replace(/\/?$/, '/') + newName;
+        try {
+          const res = await fetch('/api/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: fromPath, to: toPath }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            alert('Rename failed: ' + data.error);
+            return;
+          }
+          // Success: update UI and reload
+          loadFileList(fileListPath);
+        } catch (err) {
+          alert('Rename error: ' + err.message);
+        }
+      });
+
+      fileListEl.appendChild(renameRow);
     }
     if (!fileListEl.children.length) {
       fileListEl.innerHTML = '<div class="file-empty">(empty directory)</div>';
@@ -2174,11 +2619,26 @@
     state.cwd = cwd || state.cwd;
     if (permissionMode) state.permissionMode = permissionMode;
     if (model) state.model = model;
+    const prevEngine = state.engine;
     if (engine) state.engine = engine;
     els.cwdInput.value = state.cwd;
     els.permSelect.value = state.permissionMode;
-    els.modelSelect.value = state.model;
     if (els.engineSelect) els.engineSelect.value = state.engine;
+    if (state.engine === 'oi') {
+      if (engine !== prevEngine) {
+        // Engine changed — fetch fresh model list
+        els.modelSelect.innerHTML = '<option value="">— fetching models… —</option>';
+        send({ type: 'set_engine', engine: 'oi' });
+      } else {
+        // Same engine, just restore selected model if already populated
+        if (state.model && els.modelSelect.querySelector(`option[value="${CSS.escape(state.model)}"]`)) {
+          els.modelSelect.value = state.model;
+        }
+      }
+    } else {
+      els.modelSelect.innerHTML = '<option value="sonnet">Sonnet — balanced (default)</option><option value="opus">Opus — most capable</option><option value="haiku">Haiku — fast &amp; cheap</option>';
+      els.modelSelect.value = state.model || 'sonnet';
+    }
     updatePermWarn();
     els.headerCwd.textContent = shortCwd(state.cwd);
     clearMessages();
@@ -2206,78 +2666,126 @@
     closeSidebar();
   }
 
+  function renderSnippets(snippets) {
+    return snippets.map(raw => {
+      const div = document.createElement('div');
+      div.className = 'session-snippet';
+      const parts = raw.split('\x00');
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) {
+          div.appendChild(document.createTextNode(parts[i]));
+        } else {
+          const mark = document.createElement('mark');
+          mark.textContent = parts[i];
+          div.appendChild(mark);
+        }
+      }
+      return div;
+    });
+  }
+
+  function buildSessionItem(s, snippets) {
+    const item = document.createElement('div');
+    item.className = 'session-item' + (s.id === state.sessionId ? ' active' : '');
+    const text = document.createElement('div');
+    text.className = 'session-text';
+    const tk = s.tokensEstimate || 0;
+    const heavy = tk > 100_000 ? 'heavy' : (tk > 50_000 ? 'medium' : '');
+    const tkLabel = tk > 0 ? (tk >= 1000 ? `~${Math.round(tk/1000)}k` : `~${tk}`) + ' tokens' : '';
+    const costLabel = (typeof s.totalCostUsd === 'number' && s.totalCostUsd > 0)
+      ? '$' + s.totalCostUsd.toFixed(s.totalCostUsd < 0.1 ? 4 : 2)
+      : '';
+    const weight = [costLabel, tkLabel].filter(Boolean).join(' · ');
+    text.innerHTML = `
+      <div class="session-title-row">${escapeHtml(s.title || 'Untitled')}</div>
+      <div class="session-meta">${timeAgo(s.last_used_at)} · ${shortCwd(s.cwd)}</div>
+      ${weight ? `<div class="session-weight ${heavy}">${weight}</div>` : ''}
+    `;
+    if (snippets && snippets.length) {
+      renderSnippets(snippets).forEach(el => text.appendChild(el));
+    }
+    text.addEventListener('click', () => {
+      send({ type: 'load_session', sessionId: s.id });
+    });
+    const rename = document.createElement('button');
+    rename.className = 'session-action rename';
+    rename.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
+    rename.setAttribute('aria-label', 'Rename');
+    rename.title = 'Rename';
+    rename.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const newTitle = prompt('New title:', s.title || '');
+      if (!newTitle || newTitle.trim() === s.title) return;
+      const res = await fetch('/api/sessions/' + s.id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        state.sessions = data.sessions || state.sessions;
+        renderSessions();
+        updateHeaderTitle();
+      }
+    });
+    const del = document.createElement('button');
+    del.className = 'session-action delete';
+    del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+    del.setAttribute('aria-label', 'Delete');
+    del.title = 'Delete';
+    del.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm('Delete this session?')) return;
+      await fetch('/api/sessions/' + s.id, { method: 'DELETE' });
+      state.sessions = state.sessions.filter(x => x.id !== s.id);
+      if (state.sessionId === s.id) {
+        state.sessionId = null;
+        clearMessages();
+        updateHeaderTitle();
+      }
+      renderSessions();
+    });
+    item.appendChild(text);
+    item.appendChild(rename);
+    item.appendChild(del);
+    return item;
+  }
+
   function renderSessions() {
     els.sessionList.innerHTML = '';
-    if (!state.sessions.length) {
+    if (state.contentSearchMode && state.contentSearchResults !== null) {
+      if (state.contentSearchLoading) {
+        const e = document.createElement('div');
+        e.className = 'search-loading';
+        e.textContent = 'Searching…';
+        els.sessionList.appendChild(e);
+        return;
+      }
+      if (!state.contentSearchResults.length) {
+        const e = document.createElement('div');
+        e.style.cssText = 'padding:20px;color:var(--muted);font-size:12px;text-align:center;';
+        e.textContent = 'No sessions match';
+        els.sessionList.appendChild(e);
+        return;
+      }
+      for (const s of state.contentSearchResults) {
+        els.sessionList.appendChild(buildSessionItem(s, s.snippets || []));
+      }
+      return;
+    }
+    const q = state.sessionSearch.toLowerCase().trim();
+    const visible = q
+      ? state.sessions.filter(s => (s.title || 'Untitled').toLowerCase().includes(q))
+      : state.sessions;
+    if (!visible.length) {
       const e = document.createElement('div');
       e.style.cssText = 'padding:20px;color:var(--muted);font-size:12px;text-align:center;';
-      e.textContent = 'No sessions yet';
+      e.textContent = q ? 'No sessions match' : 'No sessions yet';
       els.sessionList.appendChild(e);
       return;
     }
-    for (const s of state.sessions) {
-      const item = document.createElement('div');
-      item.className = 'session-item' + (s.id === state.sessionId ? ' active' : '');
-      const text = document.createElement('div');
-      text.className = 'session-text';
-      // Build "weight" badge: $cost + token-heaviness color hint
-      const tk = s.tokensEstimate || 0;
-      const heavy = tk > 100_000 ? 'heavy' : (tk > 50_000 ? 'medium' : '');
-      const tkLabel = tk > 0 ? (tk >= 1000 ? `~${Math.round(tk/1000)}k` : `~${tk}`) + ' tokens' : '';
-      const costLabel = (typeof s.totalCostUsd === 'number' && s.totalCostUsd > 0)
-        ? '$' + s.totalCostUsd.toFixed(s.totalCostUsd < 0.1 ? 4 : 2)
-        : '';
-      const weight = [costLabel, tkLabel].filter(Boolean).join(' · ');
-      text.innerHTML = `
-        <div class="session-title-row">${escapeHtml(s.title || 'Untitled')}</div>
-        <div class="session-meta">${timeAgo(s.last_used_at)} · ${shortCwd(s.cwd)}</div>
-        ${weight ? `<div class="session-weight ${heavy}">${weight}</div>` : ''}
-      `;
-      text.addEventListener('click', () => {
-        send({ type: 'load_session', sessionId: s.id });
-      });
-      const rename = document.createElement('button');
-      rename.className = 'session-action rename';
-      rename.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
-      rename.setAttribute('aria-label', 'Rename');
-      rename.title = 'Rename';
-      rename.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const newTitle = prompt('New title:', s.title || '');
-        if (!newTitle || newTitle.trim() === s.title) return;
-        const res = await fetch('/api/sessions/' + s.id, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: newTitle.trim() }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          state.sessions = data.sessions || state.sessions;
-          renderSessions();
-          updateHeaderTitle();
-        }
-      });
-      const del = document.createElement('button');
-      del.className = 'session-action delete';
-      del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
-      del.setAttribute('aria-label', 'Delete');
-      del.title = 'Delete';
-      del.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!confirm('Delete this session?')) return;
-        await fetch('/api/sessions/' + s.id, { method: 'DELETE' });
-        state.sessions = state.sessions.filter(x => x.id !== s.id);
-        if (state.sessionId === s.id) {
-          state.sessionId = null;
-          clearMessages();
-          updateHeaderTitle();
-        }
-        renderSessions();
-      });
-      item.appendChild(text);
-      item.appendChild(rename);
-      item.appendChild(del);
-      els.sessionList.appendChild(item);
+    for (const s of visible) {
+      els.sessionList.appendChild(buildSessionItem(s, []));
     }
   }
 
@@ -2603,25 +3111,27 @@
   });
 
   // ---------- Folder Picker ----------
-  const picker = {
-    bg: $('#picker-bg'), path: $('#picker-path'), list: $('#picker-list'),
-    close: $('#picker-close'), cancel: $('#picker-cancel'), select: $('#picker-select'),
-    btn: $('#btn-browse'),
-    newFolder: $('#picker-newfolder'),
-    createRow: $('#picker-create-row'),
-    createInput: $('#picker-create-input'),
-    createConfirm: $('#picker-create-confirm'),
-    createCancel: $('#picker-create-cancel'),
-    currentPath: '',
-  };
+   const picker = {
+     bg: $('#picker-bg'), path: $('#picker-path'), list: $('#picker-list'),
+     close: $('#picker-close'), cancel: $('#picker-cancel'), select: $('#picker-select'),
+     btn: $('#btn-browse'),
+     newFolder: $('#picker-newfolder'),
+     createRow: $('#picker-create-row'),
+     createInput: $('#picker-create-input'),
+     createConfirm: $('#picker-create-confirm'),
+     createCancel: $('#picker-create-cancel'),
+     search: $('#picker-search'),
+     currentPath: '',
+   };
 
   const ICON_FOLDER = '<svg class="picker-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>';
   const ICON_UP = '<svg class="picker-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
   const ICON_CHEVRON = '<svg class="picker-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 
-  async function pickerLoad(p) {
-    picker.list.innerHTML = '<div class="picker-empty">Loading…</div>';
-    try {
+   async function pickerLoad(p) {
+     picker.search.value = '';
+     picker.list.innerHTML = '<div class="picker-empty">Loading…</div>';
+     try {
       const res = await fetch('/api/dirs?path=' + encodeURIComponent(p || ''));
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'failed');
@@ -2658,28 +3168,49 @@
       }
     } catch (err) {
       picker.list.innerHTML = '<div class="picker-empty" style="color:var(--error);">' + escapeHtml(err.message) + '</div>';
-    }
-  }
+     }
+   }
 
-  function openPicker() {
-    picker.bg.classList.add('open');
-    pickerLoad(els.cwdInput.value || state.cwd);
-  }
+   function filterPicker() {
+     const q = picker.search.value.trim().toLowerCase();
+     const items = picker.list.querySelectorAll('.picker-item');
+     items.forEach(item => {
+       if (item.classList.contains('up')) {
+         item.style.display = '';
+         return;
+       }
+       const label = item.querySelector('.picker-label');
+       if (!label) return;
+       if (label.textContent.toLowerCase().includes(q)) {
+         item.style.display = '';
+       } else {
+         item.style.display = 'none';
+       }
+     });
+   }
+
+   function openPicker() {
+     picker.bg.classList.add('open');
+     picker.search.focus();
+     pickerLoad(els.cwdInput.value || state.cwd);
+   }
   function closePicker() { picker.bg.classList.remove('open'); }
 
   picker.btn.addEventListener('click', openPicker);
   picker.close.addEventListener('click', closePicker);
   picker.cancel.addEventListener('click', closePicker);
   picker.bg.addEventListener('click', (e) => { if (e.target === picker.bg) closePicker(); });
-  picker.select.addEventListener('click', () => {
-    if (picker.currentPath) {
-      els.cwdInput.value = picker.currentPath;
-      send({ type: 'set_cwd', cwd: picker.currentPath });
-    }
-    closePicker();
-  });
+   picker.select.addEventListener('click', () => {
+     if (picker.currentPath) {
+       els.cwdInput.value = picker.currentPath;
+       send({ type: 'set_cwd', cwd: picker.currentPath });
+     }
+     closePicker();
+   });
 
-  function openCreateRow() {
+   picker.search.addEventListener('input', filterPicker);
+
+   function openCreateRow() {
     picker.createRow.classList.add('open');
     picker.createInput.value = '';
     picker.createInput.focus();
@@ -2737,6 +3268,167 @@
     send({ type: 'set_engine', engine: state.engine });
   });
 
+  // ---------- Session search ----------
+  let _searchDebounce = null;
+
+  function runContentSearch(q) {
+    if (q.length < 2) {
+      state.contentSearchResults = null;
+      state.contentSearchLoading = false;
+      renderSessions();
+      return;
+    }
+    state.contentSearchLoading = true;
+    state.contentSearchResults = null;
+    renderSessions();
+    fetch('/api/sessions/search?' + new URLSearchParams({ q }))
+      .then(r => r.json())
+      .then(data => {
+        state.contentSearchResults = data;
+        state.contentSearchLoading = false;
+        renderSessions();
+      })
+      .catch(() => {
+        state.contentSearchResults = [];
+        state.contentSearchLoading = false;
+        renderSessions();
+      });
+  }
+
+  els.sessionSearch.addEventListener('input', () => {
+    const val = els.sessionSearch.value;
+    if (state.contentSearchMode) {
+      clearTimeout(_searchDebounce);
+      _searchDebounce = setTimeout(() => runContentSearch(val.trim()), 350);
+    } else {
+      state.sessionSearch = val;
+      renderSessions();
+    }
+  });
+
+  els.btnSearchMode.addEventListener('click', () => {
+    state.contentSearchMode = !state.contentSearchMode;
+    els.btnSearchMode.classList.toggle('active', state.contentSearchMode);
+    els.btnSearchMode.setAttribute('aria-pressed', String(state.contentSearchMode));
+    els.sessionSearch.classList.toggle('content-mode', state.contentSearchMode);
+    if (state.contentSearchMode) {
+      els.sessionSearch.placeholder = 'Search inside conversations…';
+      const val = els.sessionSearch.value.trim();
+      if (val.length >= 2) runContentSearch(val);
+      else { state.contentSearchResults = null; renderSessions(); }
+    } else {
+      els.sessionSearch.placeholder = 'Search sessions…';
+      state.contentSearchResults = null;
+      state.contentSearchLoading = false;
+      state.sessionSearch = els.sessionSearch.value;
+      renderSessions();
+    }
+  });
+
+  // ---------- Settings collapsible ----------
+  els.btnSettingsToggle.addEventListener('click', () => {
+    const open = els.settingsContent.classList.toggle('open');
+    els.btnSettingsToggle.classList.toggle('open', open);
+  });
+
+  // ---------- Engine badge popover ----------
+  function openPopover() {
+    els.enginePopover.hidden = false;
+    els.engineBadge.setAttribute('aria-expanded', 'true');
+    syncPopoverState();
+  }
+  function closePopover() {
+    els.enginePopover.hidden = true;
+    els.engineBadge.setAttribute('aria-expanded', 'false');
+  }
+  function syncPopoverState() {
+    els.enginePopover.querySelectorAll('.popover-opt[data-engine]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.engine === state.engine);
+    });
+    buildPopoverModels();
+  }
+  function buildPopoverModels() {
+    const sec = els.popoverModelSection;
+    while (sec.children.length > 1) sec.removeChild(sec.lastChild);
+    if (state.engine === 'claude') {
+      const models = [
+        { id: 'sonnet', label: 'Sonnet — balanced' },
+        { id: 'opus',   label: 'Opus — most capable' },
+        { id: 'haiku',  label: 'Haiku — fast & cheap' },
+      ];
+      for (const m of models) {
+        const btn = document.createElement('button');
+        btn.className = 'popover-opt' + (state.model === m.id ? ' active' : '');
+        btn.type = 'button';
+        btn.dataset.model = m.id;
+        const dot = document.createElement('span');
+        dot.className = 'opt-dot';
+        btn.appendChild(dot);
+        btn.appendChild(document.createTextNode(m.label));
+        btn.addEventListener('click', () => {
+          state.model = m.id;
+          els.modelSelect.value = m.id;
+          send({ type: 'set_model', model: m.id });
+          updateEngineBadge(state.engine, m.id);
+          closePopover();
+        });
+        sec.appendChild(btn);
+      }
+    } else {
+      const opts = Array.from(els.modelSelect.options).filter(o => o.value);
+      if (!opts.length) {
+        const hint = document.createElement('div');
+        hint.style.cssText = 'padding:7px 12px;font-size:11.5px;color:var(--muted);font-family:\'IBM Plex Mono\',monospace;';
+        hint.textContent = 'Fetching models…';
+        sec.appendChild(hint);
+      } else {
+        for (const opt of opts) {
+          const btn = document.createElement('button');
+          btn.className = 'popover-opt' + (state.model === opt.value ? ' active' : '');
+          btn.type = 'button';
+          btn.dataset.model = opt.value;
+          const dot = document.createElement('span');
+          dot.className = 'opt-dot';
+          btn.appendChild(dot);
+          btn.appendChild(document.createTextNode(opt.value));
+          btn.addEventListener('click', () => {
+            state.model = opt.value;
+            els.modelSelect.value = opt.value;
+            send({ type: 'set_model', model: opt.value });
+            updateEngineBadge(state.engine, opt.value);
+            closePopover();
+          });
+          sec.appendChild(btn);
+        }
+      }
+    }
+  }
+
+  els.engineBadge.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (els.enginePopover.hidden) openPopover(); else closePopover();
+  });
+  // Engine selection from popover
+  els.enginePopover.addEventListener('click', (e) => {
+    const btn = e.target.closest('.popover-opt[data-engine]');
+    if (!btn) return;
+    e.stopPropagation();
+    const eng = btn.dataset.engine;
+    if (eng === state.engine) { closePopover(); return; }
+    state.engine = eng;
+    els.engineSelect.value = eng;
+    send({ type: 'set_engine', engine: eng });
+    syncPopoverState();
+  });
+  // Close popover on outside click
+  document.addEventListener('click', () => {
+    if (!els.enginePopover.hidden) closePopover();
+  });
+  // Close popover on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !els.enginePopover.hidden) closePopover();
+  });
+
   // ---------- Visual viewport (mobile keyboard) ----------
   if (window.visualViewport) {
     const apply = () => {
@@ -2753,36 +3445,15 @@
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
 
-  function populateOpenCodeModels(models) {
-    const select = els.modelSelect;
-    select.innerHTML = '';
-
-    if (!models || !models.length) {
-      select.innerHTML = '<option value="deepseek-v4-flash/qwen3.7-max">qwen3.7-max (default)</option>';
-      return;
-    }
-
-    models.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.name;
-      select.appendChild(opt);
-    });
-
-    if (models.length > 0) {
-      state.model = models[0].id;
-      select.value = models[0].id;
-    }
-  }
-
   function updateEngineBadge(engine, model) {
     const badge = document.getElementById('engine-badge');
     if (!badge) return;
     badge.className = 'engine-badge ' + engine;
     const label = badge.querySelector('.engine-label');
     const modelSpan = document.getElementById('engine-model-label');
-    if (label) label.textContent = engine === 'claude' ? 'Claude Code' : 'OpenCode';
+    if (label) label.textContent = engine === 'oi' ? 'Open Interpreter' : 'Claude Code';
     if (modelSpan) modelSpan.textContent = model || '';
+    if (els.enginePopover && !els.enginePopover.hidden) syncPopoverState();
   }
 
   // ---------- Theme ----------
