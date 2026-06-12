@@ -604,14 +604,19 @@ app.post('/api/mkdir', (req, res) => {
 });
 
 app.post('/api/file', (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
   const rawParent = req.body?.path ? String(req.body.path) : null;
   const name = req.body?.name ? String(req.body.name).trim() : null;
   if (!rawParent || !name) return res.status(400).json({ error: 'path and name required' });
   if (/[/\\<>:"|?*]/.test(name) || name === '.' || name === '..' || name.length > 255) {
     return res.status(400).json({ error: 'Invalid file name' });
   }
+  const BASE = path.resolve(os.homedir());
   let parent;
   try { parent = path.resolve(rawParent); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+  if (!parent.startsWith(BASE + path.sep) && parent !== BASE) {
+    return res.status(400).json({ error: 'Access denied' });
+  }
   const newPath = path.join(parent, name);
   if (!newPath.startsWith(parent + path.sep)) return res.status(400).json({ error: 'Invalid path' });
   try {
@@ -625,6 +630,7 @@ app.post('/api/file', (req, res) => {
 });
 
 app.post('/api/rename', (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
   const from = req.body?.from ? String(req.body.from) : null;
   const to = req.body?.to ? String(req.body.to) : null;
   if (!from || !to) return res.status(400).json({ error: 'from and to required' });
