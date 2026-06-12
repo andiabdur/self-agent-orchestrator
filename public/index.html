@@ -67,6 +67,78 @@
     --link:        #0043ce;
     --user-bubble-text: #ffffff;
   }
+  /* ─── Synthwave theme ─────────────────────────────────── */
+  :root[data-theme="synthwave"] {
+    --bg:          #0d0b1e;
+    --bg-2:        #14102d;
+    --bg-3:        #1d1840;
+    --border:      #2d1f60;
+    --text:        #e0d4f7;
+    --text-strong: #f4eeff;
+    --text-em:     #b8a8d8;
+    --muted:       #6655aa;
+    --accent:      #c840fa;
+    --accent-2:    #a020d0;
+    --tool:        #ff6ac1;
+    --tool-bg:     rgba(255,106,193,.07);
+    --tool-border: rgba(255,106,193,.25);
+    --code-bg:     #10082a;
+    --code-fg:     #ff9de2;
+    --success:     #3dfc9c;
+    --error:       #ff3366;
+    --diff-add:    #3dfc9c;
+    --diff-del:    #ff3366;
+    --link:        #00e5ff;
+    --user-bubble-text: #f4eeff;
+  }
+  /* ─── Forest theme ────────────────────────────────────── */
+  :root[data-theme="forest"] {
+    --bg:          #0b1a0e;
+    --bg-2:        #122018;
+    --bg-3:        #1a2d20;
+    --border:      #28402e;
+    --text:        #c4d8c0;
+    --text-strong: #dcecd8;
+    --text-em:     #a0b89c;
+    --muted:       #527854;
+    --accent:      #56c45a;
+    --accent-2:    #3da040;
+    --tool:        #c8a030;
+    --tool-bg:     rgba(200,160,48,.07);
+    --tool-border: rgba(200,160,48,.22);
+    --code-bg:     #091408;
+    --code-fg:     #b8e070;
+    --success:     #56c45a;
+    --error:       #e05050;
+    --diff-add:    #56c45a;
+    --diff-del:    #e05050;
+    --link:        #e8c060;
+    --user-bubble-text: #dcecd8;
+  }
+  /* ─── Arctic theme ────────────────────────────────────── */
+  :root[data-theme="arctic"] {
+    --bg:          #060e1a;
+    --bg-2:        #0d1825;
+    --bg-3:        #152232;
+    --border:      #1e3348;
+    --text:        #b0cce0;
+    --text-strong: #d0e8f8;
+    --text-em:     #88aac8;
+    --muted:       #3a6080;
+    --accent:      #38bdf8;
+    --accent-2:    #0ea5e9;
+    --tool:        #818cf8;
+    --tool-bg:     rgba(129,140,248,.07);
+    --tool-border: rgba(129,140,248,.22);
+    --code-bg:     #04101e;
+    --code-fg:     #7dd3fc;
+    --success:     #34d399;
+    --error:       #f87171;
+    --diff-add:    #34d399;
+    --diff-del:    #f87171;
+    --link:        #34d399;
+    --user-bubble-text: #d0e8f8;
+  }
 
   /* ─── Reset & base ────────────────────────────────────── */
   * { box-sizing: border-box; }
@@ -1032,13 +1104,7 @@
     color: var(--text-strong);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  #viewer-raw-btn {
-    background: none; border: 1px solid var(--border); border-radius: 2px;
-    color: var(--muted); cursor: pointer; padding: 3px 9px;
-    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
-    transition: background .12s, color .12s; white-space: nowrap; flex: 0 0 auto;
-  }
-  #viewer-raw-btn:hover { background: var(--bg-3); color: var(--text); }
+  #viewer-raw-btn { /* now uses .viewer-toolbar-btn */ }
   #viewer-close {
     background: none; border: none; color: var(--muted);
     font-size: 20px; cursor: pointer; line-height: 1;
@@ -1115,6 +1181,59 @@
   }
   #btn-pin:hover { background: var(--bg-3); color: var(--text); }
   #btn-pin.pinned { color: var(--accent); border-color: var(--accent); }
+
+  /* ─── Viewer toolbar buttons ──────────────────────────── */
+  .viewer-toolbar-btn {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); cursor: pointer; padding: 3px 8px;
+    font-size: 11.5px; font-family: 'IBM Plex Sans', sans-serif;
+    transition: background .12s, color .12s, border-color .12s; line-height: 1.4; flex: 0 0 auto; white-space: nowrap;
+  }
+  .viewer-toolbar-btn:hover { background: var(--bg-3); color: var(--text); }
+  .viewer-toolbar-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(0,0,0,.04); }
+  .viewer-toolbar-btn.danger { color: var(--error); border-color: var(--error); }
+  .viewer-toolbar-btn.primary { color: var(--accent); border-color: var(--accent); }
+  .viewer-toolbar-btn.primary:hover { background: var(--accent); color: #fff; }
+
+  /* ─── Viewer edit mode ────────────────────────────────── */
+  #viewer-editor {
+    flex: 1; width: 100%; min-height: 0;
+    background: var(--bg); color: var(--text);
+    border: none; outline: none; resize: none;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6;
+    padding: 14px 16px;
+    tab-size: 2;
+  }
+  #viewer-editor:focus { background: var(--bg-2); }
+  #viewer-body.editing { display: none; }
+
+  /* ─── Viewer HTML preview ─────────────────────────────── */
+  #viewer-iframe {
+    flex: 1; width: 100%; border: none; background: #fff;
+  }
+
+  /* ─── Session running indicator ──────────────────────── */
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+  .session-running-dot {
+    display: inline-block; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--success);
+    flex-shrink: 0; margin-right: 4px;
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+  .session-title-row { display: flex; align-items: center; gap: 0; }
+
+  /* ─── File manager hidden toggle ─────────────────────── */
+  #btn-show-hidden {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); cursor: pointer; padding: 2px 7px; font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    transition: color .12s, border-color .12s; flex-shrink: 0;
+  }
+  #btn-show-hidden:hover { color: var(--text); }
+  #btn-show-hidden.active { color: var(--accent); border-color: var(--accent); }
+
   .msg-text code.file-link {
     cursor: pointer;
     text-decoration: underline; text-decoration-style: dotted;
@@ -1356,6 +1475,7 @@
   <div id="file-view" class="sidebar-view">
     <div class="file-path-row">
       <div class="file-path-label">Current directory</div>
+      <button type="button" id="btn-show-hidden" title="Show hidden files">.*</button>
       <button type="button" id="btn-newfile" class="file-action-btn" title="Create new file">+ New</button>
       <div class="file-path-value" id="file-path-text"></div>
     </div>
@@ -1376,10 +1496,17 @@
   <div id="viewer-header">
     <span id="viewer-filename"></span>
     <button id="btn-pin" type="button" title="Pin viewer">📌</button>
-    <button id="viewer-raw-btn" type="button">Raw</button>
+    <button id="viewer-copy-btn" class="viewer-toolbar-btn" type="button" title="Copy all text" style="display:none">Copy</button>
+    <button id="viewer-html-btn" class="viewer-toolbar-btn" type="button" style="display:none">Preview</button>
+    <button id="viewer-raw-btn" class="viewer-toolbar-btn" type="button" style="display:none">Raw</button>
+    <button id="viewer-edit-btn" class="viewer-toolbar-btn" type="button" style="display:none">Edit</button>
+    <button id="viewer-save-btn" class="viewer-toolbar-btn primary" type="button" style="display:none">Save</button>
+    <button id="viewer-cancel-btn" class="viewer-toolbar-btn" type="button" style="display:none">Cancel</button>
     <button id="viewer-close" type="button">×</button>
   </div>
   <div id="viewer-body"></div>
+  <textarea id="viewer-editor" style="display:none" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+  <iframe id="viewer-iframe" style="display:none" sandbox="allow-scripts allow-same-origin" title="HTML preview"></iframe>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked@13.0.3/marked.min.js"></script>
@@ -1435,6 +1562,14 @@
     popoverModelSection: $('#popover-model-section'),
     btnSettingsToggle: $('#btn-settings-toggle'),
     settingsContent: $('#settings-content'),
+    viewerCopyBtn: $('#viewer-copy-btn'),
+    viewerHtmlBtn: $('#viewer-html-btn'),
+    viewerEditBtn: $('#viewer-edit-btn'),
+    viewerSaveBtn: $('#viewer-save-btn'),
+    viewerCancelBtn: $('#viewer-cancel-btn'),
+    viewerEditor: $('#viewer-editor'),
+    viewerIframe: $('#viewer-iframe'),
+    btnShowHidden: $('#btn-show-hidden'),
   };
 
   const state = {
@@ -1461,6 +1596,8 @@
     currentNodeId: 'local',
     currentNodeName: 'This machine',
     nodeConnecting: false,
+    activeSessions: new Set(),
+    showHiddenFiles: false,
   };
 
   const PERM_WARNINGS = {
@@ -1704,6 +1841,7 @@
         break;
       case 'turn_start':
         state.inTurn = true; updateSendButton();
+        if (state.sessionId) { state.activeSessions.add(state.sessionId); renderSessions(); }
         ensureAssistantBubble();
         break;
       case 'assistant_text':
@@ -1745,6 +1883,7 @@
         state.inTurn = false;
         state.aborting = false;
         state.lastAssistantBubble = null;
+        if (state.sessionId) { state.activeSessions.delete(state.sessionId); renderSessions(); }
         updateSendButton();
         break;
       case 'error':
@@ -2154,21 +2293,55 @@
   }
 
   let viewerRaw = false;
+  let viewerHtmlPreview = false;
+  let viewerEditMode = false;
   let viewerFile = { path: '', content: '', ext: '' };
   const viewerEl = document.getElementById('viewer');
   const viewerBody = document.getElementById('viewer-body');
   const viewerFilename = document.getElementById('viewer-filename');
   const viewerRawBtn = document.getElementById('viewer-raw-btn');
 
+  function updateViewerToolbar() {
+    const { ext, path: fp } = viewerFile;
+    const isImg = isImageFile(fp);
+    const isHtml = ext === '.html';
+    const isText = !isImg;
+    // Copy: only for text
+    els.viewerCopyBtn.style.display = isText ? '' : 'none';
+    // HTML preview toggle
+    els.viewerHtmlBtn.style.display = isHtml ? '' : 'none';
+    els.viewerHtmlBtn.textContent = viewerHtmlPreview ? 'Source' : 'Preview';
+    els.viewerHtmlBtn.classList.toggle('active', viewerHtmlPreview);
+    // Raw toggle: only for md/csv (and not while editing or html preview)
+    const showRaw = (ext === '.md' || ext === '.csv') && !viewerEditMode && !viewerHtmlPreview;
+    viewerRawBtn.style.display = showRaw ? '' : 'none';
+    viewerRawBtn.textContent = viewerRaw ? 'Rendered' : 'Raw';
+    viewerRawBtn.classList.toggle('active', viewerRaw);
+    // Edit / Save / Cancel
+    const canEdit = isText && !viewerHtmlPreview;
+    els.viewerEditBtn.style.display = canEdit && !viewerEditMode ? '' : 'none';
+    els.viewerSaveBtn.style.display = viewerEditMode ? '' : 'none';
+    els.viewerCancelBtn.style.display = viewerEditMode ? '' : 'none';
+  }
+
+  function showViewerPanels() {
+    const { path: fp } = viewerFile;
+    const isImg = isImageFile(fp);
+    const showIframe = viewerHtmlPreview;
+    const showEditor = viewerEditMode && !isImg;
+    viewerBody.style.display = showEditor ? 'none' : '';
+    els.viewerEditor.style.display = showEditor ? '' : 'none';
+    els.viewerIframe.style.display = showIframe ? '' : 'none';
+    if (showIframe) viewerBody.style.display = 'none';
+  }
+
   async function openFileViewer(filePath, cachedContent) {
     const ext = fileExt(filePath);
-    // Images: render directly, no API call needed
+    viewerEditMode = false;
+    viewerRaw = false;
+    viewerHtmlPreview = false;
     if (isImageFile(filePath)) {
       viewerFile = { path: filePath, content: '', ext };
-      viewerRaw = false;
-      viewerRawBtn.style.display = 'none';
-      viewerFilename.textContent = filePath.split(/[/\\]/).pop();
-      viewerFilename.title = filePath;
     } else {
       let content = cachedContent;
       if (content == null) {
@@ -2180,13 +2353,12 @@
         } catch (e) { renderError('Cannot read file: ' + e.message); return; }
       }
       viewerFile = { path: filePath, content, ext };
-      viewerRaw = false;
-      viewerRawBtn.textContent = 'Raw';
-      viewerRawBtn.style.display = (ext === '.md' || ext === '.csv') ? '' : 'none';
     }
     viewerFilename.textContent = filePath.split(/[/\\]/).pop();
     viewerFilename.title = filePath;
+    updateViewerToolbar();
     renderViewerBody();
+    showViewerPanels();
     viewerEl.classList.add('open');
     document.getElementById('app').classList.add('viewer-open');
     const vw = (viewerEl.offsetWidth || parseInt(viewerEl.style.width) || 520);
@@ -2202,7 +2374,11 @@
       viewerBody.innerHTML = `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(fp.split(/[/\\]/).pop())}" />`;
       return;
     }
-    if (viewerRaw || (ext !== '.md' && ext !== '.csv')) {
+    if (viewerHtmlPreview) {
+      els.viewerIframe.srcdoc = content || '';
+      return;
+    }
+    if (viewerRaw || (ext !== '.md' && ext !== '.csv' && ext !== '.html')) {
       viewerBody.className = 'raw';
       viewerBody.textContent = content;
       return;
@@ -2214,6 +2390,9 @@
     } else if (ext === '.csv') {
       viewerBody.className = 'csv';
       viewerBody.innerHTML = renderCsvTable(content);
+    } else if (ext === '.html') {
+      viewerBody.className = 'raw';
+      viewerBody.textContent = content;
     }
   }
 
@@ -2252,6 +2431,72 @@
     document.documentElement.style.removeProperty('--viewer-w');
   }
   document.getElementById('viewer-close').addEventListener('click', closeViewer);
+
+  // ── Viewer toolbar handlers ──────────────────────────────
+  viewerRawBtn.addEventListener('click', () => {
+    viewerRaw = !viewerRaw;
+    updateViewerToolbar();
+    renderViewerBody();
+    showViewerPanels();
+  });
+
+  els.viewerHtmlBtn.addEventListener('click', () => {
+    viewerHtmlPreview = !viewerHtmlPreview;
+    updateViewerToolbar();
+    renderViewerBody();
+    showViewerPanels();
+  });
+
+  els.viewerCopyBtn.addEventListener('click', async () => {
+    const text = viewerEditMode ? els.viewerEditor.value : viewerFile.content;
+    try {
+      await navigator.clipboard.writeText(text || '');
+      const orig = els.viewerCopyBtn.textContent;
+      els.viewerCopyBtn.textContent = 'Copied!';
+      els.viewerCopyBtn.classList.add('active');
+      setTimeout(() => { els.viewerCopyBtn.textContent = orig; els.viewerCopyBtn.classList.remove('active'); }, 1500);
+    } catch { /* clipboard denied */ }
+  });
+
+  els.viewerEditBtn.addEventListener('click', () => {
+    viewerEditMode = true;
+    els.viewerEditor.value = viewerFile.content;
+    updateViewerToolbar();
+    showViewerPanels();
+    els.viewerEditor.focus();
+  });
+
+  els.viewerCancelBtn.addEventListener('click', () => {
+    viewerEditMode = false;
+    updateViewerToolbar();
+    renderViewerBody();
+    showViewerPanels();
+  });
+
+  els.viewerSaveBtn.addEventListener('click', async () => {
+    const newContent = els.viewerEditor.value;
+    els.viewerSaveBtn.textContent = 'Saving…';
+    els.viewerSaveBtn.disabled = true;
+    try {
+      const res = await fetch('/api/file', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: viewerFile.path, content: newContent }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert('Save failed: ' + (data.error || 'unknown error')); return; }
+      viewerFile = { ...viewerFile, content: newContent };
+      viewerEditMode = false;
+      updateViewerToolbar();
+      renderViewerBody();
+      showViewerPanels();
+    } catch (e) {
+      alert('Save failed: ' + e.message);
+    } finally {
+      els.viewerSaveBtn.textContent = 'Save';
+      els.viewerSaveBtn.disabled = false;
+    }
+  });
 
   // ── Viewer pin toggle (default: pinned) ─────────────────
   let viewerPinned = true;
@@ -2360,6 +2605,11 @@
    function hideCreateFileRow() {
      fileCreateRow.style.display = 'none';
    }
+   els.btnShowHidden.addEventListener('click', () => {
+     state.showHiddenFiles = !state.showHiddenFiles;
+     els.btnShowHidden.classList.toggle('active', state.showHiddenFiles);
+     loadFileList(fileListPath || els.cwdInput.value || state.cwd);
+   });
    btnNewFile.addEventListener('click', showCreateFileRow);
    fileCreateCancel.addEventListener('click', hideCreateFileRow);
    fileCreateConfirm.addEventListener('click', async () => {
@@ -2422,7 +2672,8 @@
     filePathText.textContent = dirPath;
     fileListEl.innerHTML = '<div class="file-loading"><span class="spinner"></span>Loading files…</div>';
     try {
-      const res = await fetch('/api/files?path=' + encodeURIComponent(dirPath));
+      const hiddenParam = state.showHiddenFiles ? '&hidden=1' : '';
+      const res = await fetch('/api/files?path=' + encodeURIComponent(dirPath) + hiddenParam);
       const data = await res.json();
       if (!res.ok) { fileListEl.innerHTML = '<div class="file-empty">Error: ' + escapeHtml(data.error || 'failed') + '</div>'; return; }
       renderFileEntries(data);
@@ -2696,8 +2947,10 @@
       ? '$' + s.totalCostUsd.toFixed(s.totalCostUsd < 0.1 ? 4 : 2)
       : '';
     const weight = [costLabel, tkLabel].filter(Boolean).join(' · ');
+    const isRunning = state.activeSessions.has(s.id);
+    const runningDot = isRunning ? '<span class="session-running-dot" title="Running…"></span>' : '';
     text.innerHTML = `
-      <div class="session-title-row">${escapeHtml(s.title || 'Untitled')}</div>
+      <div class="session-title-row">${runningDot}${escapeHtml(s.title || 'Untitled')}</div>
       <div class="session-meta">${timeAgo(s.last_used_at)} · ${shortCwd(s.cwd)}</div>
       ${weight ? `<div class="session-weight ${heavy}">${weight}</div>` : ''}
     `;
@@ -3457,22 +3710,41 @@
   }
 
   // ---------- Theme ----------
-  const ICON_SUN = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+  const ICON_SUN  = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
   const ICON_MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  // Synthwave icon: lightning bolt
+  const ICON_BOLT = '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>';
+  // Forest icon: leaf/tree
+  const ICON_TREE = '<path d="M17 8C8 10 5.9 16.17 3.82 22h3.28L9 18c.94.11 1.96.17 3 .17C21 18.17 21 4 17 8z"/>';
+  // Arctic icon: snowflake
+  const ICON_SNOW = '<line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/><line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/>';
+
+  const THEME_CYCLE = ['dark', 'light', 'synthwave', 'forest', 'arctic'];
+  const THEME_META  = {
+    dark:      { bg: '#111111', icon: ICON_SUN,  title: 'Dark' },
+    light:     { bg: '#f8f8f8', icon: ICON_MOON, title: 'Light' },
+    synthwave: { bg: '#0d0b1e', icon: ICON_BOLT, title: 'Synthwave' },
+    forest:    { bg: '#0b1a0e', icon: ICON_TREE, title: 'Forest' },
+    arctic:    { bg: '#060e1a', icon: ICON_SNOW, title: 'Arctic' },
+  };
+
   function setTheme(theme) {
-    const t = theme === 'light' ? 'light' : 'dark';
+    const t = THEME_META[theme] ? theme : 'dark';
     document.documentElement.dataset.theme = t;
     try { localStorage.setItem('theme', t); } catch {}
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', t === 'light' ? '#f8f8f8' : '#111111');
-    els.themeIcon.innerHTML = t === 'light' ? ICON_MOON : ICON_SUN;
+    if (meta) meta.setAttribute('content', THEME_META[t].bg);
+    const m = THEME_META[t];
+    els.themeIcon.innerHTML = m.icon;
+    els.themeToggle.title = 'Theme: ' + m.title + ' (click to cycle)';
   }
-  let savedTheme = 'light';
-  try { savedTheme = localStorage.getItem('theme') || 'light'; } catch {}
+  let savedTheme = 'dark';
+  try { savedTheme = localStorage.getItem('theme') || 'dark'; } catch {}
   setTheme(savedTheme);
   els.themeToggle.addEventListener('click', () => {
-    const cur = document.documentElement.dataset.theme || 'light';
-    setTheme(cur === 'dark' ? 'light' : 'dark');
+    const cur = document.documentElement.dataset.theme || 'dark';
+    const idx = THEME_CYCLE.indexOf(cur);
+    setTheme(THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]);
   });
 
   // ---------- Service Worker (PWA) ----------

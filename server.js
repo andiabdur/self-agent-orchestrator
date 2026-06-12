@@ -535,9 +535,10 @@ app.get('/api/dirs', (req, res) => {
 app.get('/api/files', (req, res) => {
   let target;
   try { target = path.resolve(req.query.path ? String(req.query.path) : os.homedir()); } catch { return res.status(400).json({ error: 'invalid path' }); }
+  const showHidden = req.query.hidden === '1';
   let entries;
   try {
-    entries = fs.readdirSync(target, { withFileTypes: true }).filter(e => !e.name.startsWith('.')).map(e => {
+    entries = fs.readdirSync(target, { withFileTypes: true }).filter(e => showHidden || !e.name.startsWith('.')).map(e => {
       try {
         const full = path.join(target, e.name);
         const stat = fs.statSync(full);
@@ -697,6 +698,30 @@ app.get('/api/file', (req, res) => {
     res.json({ content, ext, name: path.basename(realPath) });
   } catch (err) {
     if (err.code === 'ENOENT') return res.status(404).json({ error: 'File not found' });
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/file', (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const rawPath = req.body?.path ? String(req.body.path) : null;
+  const content = req.body?.content;
+  if (!rawPath || content === undefined) return res.status(400).json({ error: 'path and content required' });
+  const BASE = path.resolve(os.homedir());
+  let filePath;
+  try { filePath = path.resolve(rawPath); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+  let realPath, realBase;
+  try {
+    realBase = fs.realpathSync(BASE);
+    realPath = fs.realpathSync(filePath);
+  } catch { return res.status(404).json({ error: 'File not found' }); }
+  if (!realPath.startsWith(realBase + path.sep)) return res.status(403).json({ error: 'Access denied' });
+  const MAX_BYTES = 4 * 1024 * 1024; // 4 MB write limit
+  if (Buffer.byteLength(String(content)) > MAX_BYTES) return res.status(400).json({ error: 'Content too large (max 4 MB)' });
+  try {
+    fs.writeFileSync(realPath, String(content), 'utf8');
+    res.json({ ok: true });
+  } catch (err) {
     return res.status(400).json({ error: err.message });
   }
 });
