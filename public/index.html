@@ -1334,6 +1334,7 @@
   }
   .engine-badge.claude { border-color: var(--accent); color: var(--accent); }
   .engine-badge.oi { border-color: #fb923c; color: #fb923c; }
+  .engine-badge.qwen { border-color: #3b82f6; color: #3b82f6; }
   .engine-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
   .engine-label { text-transform: capitalize; white-space: nowrap; }
   .engine-model { opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
@@ -1387,6 +1388,9 @@
           </button>
           <button class="popover-opt" data-engine="oi" type="button">
             <span class="opt-dot"></span>Open Interpreter
+          </button>
+          <button class="popover-opt" data-engine="qwen" type="button">
+            <span class="opt-dot"></span>Qwen Code
           </button>
         </div>
         <div class="popover-section" id="popover-model-section">
@@ -1526,6 +1530,7 @@
           <select id="engine-select" class="settings-select">
             <option value="claude">Claude Code</option>
             <option value="oi">Open Interpreter</option>
+            <option value="qwen">Qwen Code</option>
           </select>
         </div>
         <div class="settings-row">
@@ -1894,9 +1899,24 @@
         els.engineSelect.value = m.engine;
         if (m.engine === 'claude') {
           els.modelSelect.innerHTML = '<option value="sonnet">Sonnet — balanced (default)</option><option value="opus">Opus — most capable</option><option value="haiku">Haiku — fast &amp; cheap</option>';
-          els.modelSelect.value = state.model || 'sonnet';
+          if (state.model && els.modelSelect.querySelector(`option[value="${CSS.escape(state.model)}"]`)) {
+            els.modelSelect.value = state.model;
+          } else {
+            els.modelSelect.value = 'sonnet';
+          }
+          state.model = els.modelSelect.value;
+          send({ type: 'set_model', model: state.model });
         } else if (m.engine === 'oi') {
           els.modelSelect.innerHTML = '<option value="">— fetching models… —</option>';
+        } else if (m.engine === 'qwen') {
+          els.modelSelect.innerHTML = '<option value="default">Default Model (use config)</option><option value="qwen2.5-coder:32b">Qwen 2.5 Coder 32B</option><option value="qwen2.5-coder:14b">Qwen 2.5 Coder 14B</option><option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</option><option value="qwen2.5-coder:1.5b">Qwen 2.5 Coder 1.5B</option>';
+          if (state.model && els.modelSelect.querySelector(`option[value="${CSS.escape(state.model)}"]`)) {
+            els.modelSelect.value = state.model;
+          } else {
+            els.modelSelect.value = 'default';
+          }
+          state.model = els.modelSelect.value;
+          send({ type: 'set_model', model: state.model });
         }
         updateEngineBadge(m.engine, state.model);
         break;
@@ -2984,6 +3004,9 @@
           els.modelSelect.value = state.model;
         }
       }
+    } else if (state.engine === 'qwen') {
+      els.modelSelect.innerHTML = '<option value="default">Default Model (use config)</option><option value="qwen2.5-coder:32b">Qwen 2.5 Coder 32B</option><option value="qwen2.5-coder:14b">Qwen 2.5 Coder 14B</option><option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</option><option value="qwen2.5-coder:1.5b">Qwen 2.5 Coder 1.5B</option>';
+      els.modelSelect.value = state.model || 'default';
     } else {
       els.modelSelect.innerHTML = '<option value="sonnet">Sonnet — balanced (default)</option><option value="opus">Opus — most capable</option><option value="haiku">Haiku — fast &amp; cheap</option>';
       els.modelSelect.value = state.model || 'sonnet';
@@ -3728,6 +3751,32 @@
         });
         sec.appendChild(btn);
       }
+    } else if (state.engine === 'qwen') {
+      const models = [
+        { id: 'default', label: 'Default — use config' },
+        { id: 'qwen2.5-coder:32b', label: 'Qwen 2.5 Coder 32B' },
+        { id: 'qwen2.5-coder:14b', label: 'Qwen 2.5 Coder 14B' },
+        { id: 'qwen2.5-coder:7b', label: 'Qwen 2.5 Coder 7B' },
+        { id: 'qwen2.5-coder:1.5b', label: 'Qwen 2.5 Coder 1.5B' },
+      ];
+      for (const m of models) {
+        const btn = document.createElement('button');
+        btn.className = 'popover-opt' + (state.model === m.id ? ' active' : '');
+        btn.type = 'button';
+        btn.dataset.model = m.id;
+        const dot = document.createElement('span');
+        dot.className = 'opt-dot';
+        btn.appendChild(dot);
+        btn.appendChild(document.createTextNode(m.label));
+        btn.addEventListener('click', () => {
+          state.model = m.id;
+          els.modelSelect.value = m.id;
+          send({ type: 'set_model', model: m.id });
+          updateEngineBadge(state.engine, m.id);
+          closePopover();
+        });
+        sec.appendChild(btn);
+      }
     } else {
       const opts = Array.from(els.modelSelect.options).filter(o => o.value);
       if (!opts.length) {
@@ -3805,8 +3854,14 @@
     badge.className = 'engine-badge ' + engine;
     const label = badge.querySelector('.engine-label');
     const modelSpan = document.getElementById('engine-model-label');
-    if (label) label.textContent = engine === 'oi' ? 'Open Interpreter' : 'Claude Code';
-    if (modelSpan) modelSpan.textContent = model || '';
+    if (label) {
+      if (engine === 'oi') label.textContent = 'Open Interpreter';
+      else if (engine === 'qwen') label.textContent = 'Qwen Code';
+      else label.textContent = 'Claude Code';
+    }
+    if (modelSpan) {
+      modelSpan.textContent = model === 'default' ? 'default' : (model || '');
+    }
     if (els.enginePopover && !els.enginePopover.hidden) syncPopoverState();
   }
 

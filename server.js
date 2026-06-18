@@ -65,13 +65,44 @@ function resolveClaudeBin() {
   }
 }
 const CLAUDE_BIN = resolveClaudeBin();
+
+// Resolve QWEN_BIN dynamically
+const rawQwenBin = process.env.QWEN_BIN || '/Users/andi/.local/bin/qwen';
+function resolveQwenBin() {
+  if (rawQwenBin && fs.existsSync(rawQwenBin)) {
+    return rawQwenBin;
+  }
+  if (isWin) {
+    if (process.env.APPDATA) {
+      const globalNpmPath = path.join(process.env.APPDATA, 'npm', 'qwen.cmd');
+      if (fs.existsSync(globalNpmPath)) {
+        return globalNpmPath;
+      }
+    }
+    return 'qwen';
+  } else {
+    const userLocalBin = path.join(os.homedir(), '.local', 'bin', 'qwen');
+    if (fs.existsSync(userLocalBin)) {
+      return userLocalBin;
+    }
+    if (fs.existsSync('/usr/local/bin/qwen')) {
+      return '/usr/local/bin/qwen';
+    }
+    if (fs.existsSync('/opt/homebrew/bin/qwen')) {
+      return '/opt/homebrew/bin/qwen';
+    }
+    return 'qwen';
+  }
+}
+const QWEN_BIN = resolveQwenBin();
+
 const DEFAULT_CWD = process.env.AGENT_CWD || os.homedir();
 const DEFAULT_PERM = process.env.PERMISSION_MODE || 'bypassPermissions';
 const VALID_PERMS = new Set(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'dontAsk', 'plan']);
 const DEFAULT_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
 const VALID_MODELS = new Set(['sonnet', 'opus', 'haiku']);
 const DEFAULT_ENGINE = process.env.ENGINE || 'claude';
-const VALID_ENGINES = new Set(['claude', 'oi']);
+const VALID_ENGINES = new Set(['claude', 'oi', 'qwen']);
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'http://localhost:20128/v1').replace(/\/$/, '');
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'local';
 const OPENAI_DEFAULT_MODEL = process.env.OPENAI_MODEL || '';
@@ -954,6 +985,126 @@ async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, 
   return { key: initialKey, sessionId: currentSessionId };
 }
 
+async function sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, onSessionId) {
+  const args = ['-p', '--output-format', 'stream-json', '--verbose'];
+  args.push('--permission-mode', currentPerm);
+  if (currentPerm === 'bypassPermissions') args.push('--allow-dangerously-skip-permissions');
+  if (currentModel) args.push('--model', currentModel);
+  if (currentSessionId) args.push('--resume', currentSessionId);
+
+  let proc;
+  try {
+    proc = spawn(QWEN_BIN, args, {
+      cwd: currentCwd,
+      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      detached: !isWin,
+      shell: isWin,
+    });
+  } catch (err) {
+    return { error: `Failed to spawn qwen: ${err.message}` };
+  }
+
+  const tempKey = '__pending_qwen_' + Math.random().toString(36).slice(2, 10);
+  const initialKey = currentSessionId || tempKey;
+
+  const userEvent = {
+    kind: 'user_message',
+    text,
+    timestamp: Date.now(),
+    ...(savedImages.length > 0 ? {
+      images: savedImages.map(s => ({
+        filename: s.filename, name: s.name, mime: s.mime, thumbData: s.thumbData,
+      })),
+    } : {}),
+  };
+
+  let promptForQwen = text;
+  if (savedImages.length > 0) {
+    const paths = savedImages.map(s => `- ${s.path}`).join('\n');
+    promptForQwen = text.trim()
+      ? `${text}\n\n---\nGambar terlampir (gunakan Read tool untuk melihatnya):\n${paths}`
+      : `Tolong lihat gambar berikut menggunakan Read tool dan jelaskan:\n${paths}`;
+  }
+
+  const run = {
+    proc, status: 'running', cwd: currentCwd, perm: currentPerm,
+    model: currentModel, promptText: text, sessionId: currentSessionId, isNew,
+    bufferedEvents: [userEvent], subscribers: new Set([ws]), completedAt: null,
+  };
+  activeRuns.set(initialKey, run);
+
+  if (currentSessionId) {
+    appendSessionEvent(currentSessionId, userEvent);
+    run.bufferedEvents = [];
+  }
+  broadcast(initialKey, userEvent);
+
+  proc.stdin.write(promptForQwen);
+  proc.stdin.end();
+
+  let stderrBuf = '';
+  let buffer = '';
+  proc.stdout.on('data', chunk => {
+    buffer += chunk.toString();
+    let idx;
+    while ((idx = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 1);
+      if (!line.trim()) continue;
+      let evt;
+      try { evt = JSON.parse(line); } catch { console.error('parse fail qwen:', line.slice(0, 200)); continue; }
+
+      // First time we see session_id: re-key the activeRuns map
+      if (evt.session_id && !run.sessionId) {
+        run.sessionId = evt.session_id;
+        if (onSessionId) onSessionId(evt.session_id);
+        activeRuns.delete(initialKey);
+        activeRuns.set(run.sessionId, run);
+        for (const e of run.bufferedEvents) appendSessionEvent(run.sessionId, e);
+        run.bufferedEvents = [];
+        const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
+        upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: 'qwen', model: run.model, ...(title ? { title } : {}) });
+        broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
+      }
+
+      const normalized = normalizeEvent(evt);
+      const key = run.sessionId || initialKey;
+      for (const n of normalized) {
+        if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
+          const prev = (loadIndex().find(s => s.id === run.sessionId)?.totalCostUsd) || 0;
+          upsertSessionMeta(run.sessionId, { totalCostUsd: prev + n.cost_usd });
+        }
+        if (run.sessionId) appendSessionEvent(run.sessionId, n);
+        else run.bufferedEvents.push(n);
+        broadcast(key, n);
+      }
+    }
+  });
+
+  proc.stderr.on('data', d => { stderrBuf += d.toString(); });
+
+  proc.on('error', err => {
+    broadcast(run.sessionId || initialKey, { kind: 'error', message: `qwen process error: ${err.message}` });
+  });
+
+  proc.on('exit', (code) => {
+    run.status = 'done';
+    run.completedAt = Date.now();
+    const key = run.sessionId || initialKey;
+    if (code !== 0 && code !== null) {
+      broadcast(key, { kind: 'error', message: `qwen exited with code ${code}${stderrBuf ? ': ' + stderrBuf.slice(0, 500) : ''}` });
+    }
+    if (run.sessionId) {
+      upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: 'qwen', model: run.model });
+      broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
+    }
+    broadcast(key, { kind: 'turn_end' });
+  });
+
+  return { key: initialKey, sessionId: currentSessionId };
+}
+
 wss.on('connection', (ws) => {
   let currentSessionId = null;
   let currentCwd = DEFAULT_CWD;
@@ -1112,7 +1263,8 @@ wss.on('connection', (ws) => {
       attach(null);
       currentCwd = m.cwd || DEFAULT_CWD;
       if (m.permissionMode && VALID_PERMS.has(m.permissionMode)) currentPerm = m.permissionMode;
-      if (m.model && VALID_MODELS.has(m.model)) currentModel = m.model;
+      const modelOk = VALID_MODELS.has(m.model) || (['oi', 'qwen'].includes(currentEngine) && typeof m.model === 'string' && m.model.length > 0);
+      if (modelOk) currentModel = m.model;
       send({ kind: 'session_loaded', sessionId: null, cwd: currentCwd, permissionMode: currentPerm, model: currentModel, engine: currentEngine, events: [], active: false });
       return;
     }
@@ -1131,7 +1283,7 @@ wss.on('connection', (ws) => {
     }
 
     if (m.type === 'set_model') {
-      const modelOk = VALID_MODELS.has(m.model) || (currentEngine === 'oi' && typeof m.model === 'string' && m.model.length > 0);
+      const modelOk = VALID_MODELS.has(m.model) || (['oi', 'qwen'].includes(currentEngine) && typeof m.model === 'string' && m.model.length > 0);
       if (modelOk) {
         currentModel = m.model;
         if (currentSessionId) upsertSessionMeta(currentSessionId, { model: currentModel });
@@ -1219,6 +1371,11 @@ wss.on('connection', (ws) => {
 
       if (currentEngine === 'oi') {
         const result = await sendPromptOI(ws, text, savedImages, currentSessionId, currentModel, currentCwd);
+        if (result?.error) { send({ kind: 'error', message: result.error }); return; }
+        if (result?.key) attachedKey = result.key;
+        if (result?.sessionId) currentSessionId = result.sessionId;
+      } else if (currentEngine === 'qwen') {
+        const result = await sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, (sid) => { currentSessionId = sid; });
         if (result?.error) { send({ kind: 'error', message: result.error }); return; }
         if (result?.key) attachedKey = result.key;
         if (result?.sessionId) currentSessionId = result.sessionId;
