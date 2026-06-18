@@ -7,6 +7,9 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,7 +28,9 @@ try {
         if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
           val = val.slice(1, -1);
         }
-        process.env[key] = val;
+        // Real environment variables take precedence over the .env file
+        // (standard dotenv behavior) so callers can override per-run.
+        if (process.env[key] === undefined) process.env[key] = val;
       }
     });
   }
@@ -100,7 +105,14 @@ const DEFAULT_CWD = process.env.AGENT_CWD || os.homedir();
 const DEFAULT_PERM = process.env.PERMISSION_MODE || 'bypassPermissions';
 const VALID_PERMS = new Set(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'dontAsk', 'plan']);
 const DEFAULT_MODEL = process.env.CLAUDE_MODEL || 'sonnet';
-const VALID_MODELS = new Set(['sonnet', 'opus', 'haiku']);
+// Single source of truth for Claude model labels. `id` is the alias passed to
+// the CLI (`--model <id>`); `label` is the friendly name shown in the UI.
+const CLAUDE_MODELS = [
+  { id: 'opus',   label: 'Claude Opus 4.8' },
+  { id: 'sonnet', label: 'Claude Sonnet 4.6' },
+  { id: 'haiku',  label: 'Claude Haiku 4.5' },
+];
+const VALID_MODELS = new Set(CLAUDE_MODELS.map(m => m.id));
 const DEFAULT_ENGINE = process.env.ENGINE || 'claude';
 const VALID_ENGINES = new Set(['claude', 'oi', 'qwen']);
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'http://localhost:20128/v1').replace(/\/$/, '');
@@ -235,6 +247,11 @@ async function sendPromptOI(ws, text, savedImages, currentSessionId, currentMode
   let codeBuf = '';
   let inCode = false;
   let finalAssistantText = '';
+  let lastCodeId = null;
+
+  const stripAnsi = (str) => {
+    return String(str || '').replace(/[][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><~]/g, '');
+  };
 
   proc.stderr.on('data', d => { stderrBuf += d.toString(); });
 
@@ -278,7 +295,8 @@ async function sendPromptOI(ws, text, savedImages, currentSessionId, currentMode
         if (evt.end) {
           inCode = false;
           const lang = evt.format || 'bash';
-          broadcast(sessionId, { kind: 'tool_use', name: lang, input: codeBuf });
+          lastCodeId = randomBytes(8).toString('hex');
+          broadcast(sessionId, { kind: 'tool_start', id: lastCodeId, name: lang, input: { code: codeBuf, language: lang } });
           return;
         }
       }
@@ -286,7 +304,9 @@ async function sendPromptOI(ws, text, savedImages, currentSessionId, currentMode
       if (evt.type === 'console') {
         if (evt.start || !evt.content) return;
         if (evt.format === 'active_line') return; // skip line highlights
-        broadcast(sessionId, { kind: 'tool_result', name: 'console', output: String(evt.content) });
+        const cleaned = stripAnsi(evt.content);
+        if (!cleaned.trim()) return; // skip empty lines after stripping
+        broadcast(sessionId, { kind: 'tool_result', tool_use_id: lastCodeId, content: cleaned, is_error: false });
       }
     }
   });
@@ -784,14 +804,95 @@ app.use(express.static(path.join(__dirname, 'public'), {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
+// ─── Terminal (PTY) ───────────────────────────────────────────────────────
+// A real interactive terminal over a dedicated WS path (`/term`), behind the
+// same auth as `/ws`. Lazily loads node-pty so the rest of the server still
+// runs if the optional native module is unavailable.
+const termWss = new WebSocketServer({ noServer: true });
+let ptyLib = null;
+let ptyLoadError = null;
+function loadPty() {
+  if (ptyLib || ptyLoadError) return ptyLib;
+  try {
+    // The prebuilt `spawn-helper` (darwin/linux) can be extracted without the
+    // execute bit, which makes pty.spawn fail with "posix_spawnp failed".
+    // Defensively chmod it executable before first use.
+    if (process.platform !== 'win32') {
+      const plat = `${process.platform}-${process.arch}`;
+      const helper = path.join(__dirname, 'node_modules', 'node-pty', 'prebuilds', plat, 'spawn-helper');
+      try { if (fs.existsSync(helper)) fs.chmodSync(helper, 0o755); } catch {}
+    }
+    ptyLib = require('node-pty');
+  } catch (err) {
+    ptyLoadError = err;
+    console.warn('[term] node-pty unavailable, terminal disabled:', err.message);
+  }
+  return ptyLib;
+}
+
+function defaultShell() {
+  if (process.platform === 'win32') return process.env.COMSPEC || 'powershell.exe';
+  return process.env.SHELL || '/bin/zsh';
+}
+
+termWss.on('connection', (ws) => {
+  const pty = loadPty();
+  if (!pty) {
+    try { ws.send(JSON.stringify({ t: 'o', d: '\r\n\x1b[31mTerminal unavailable: node-pty failed to load.\x1b[0m\r\n' })); } catch {}
+    ws.close();
+    return;
+  }
+  let term;
+  try {
+    term = pty.spawn(defaultShell(), [], {
+      name: 'xterm-color',
+      cols: 80,
+      rows: 24,
+      cwd: DEFAULT_CWD,
+      env: { ...process.env, TERM: 'xterm-256color' },
+    });
+  } catch (err) {
+    try { ws.send(JSON.stringify({ t: 'o', d: `\r\n\x1b[31mFailed to start shell: ${err.message}\x1b[0m\r\n` })); } catch {}
+    ws.close();
+    return;
+  }
+
+  const sendOut = (d) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ t: 'o', d })); };
+  term.onData(sendOut);
+  term.onExit(({ exitCode }) => {
+    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ t: 'x', code: exitCode }));
+    try { ws.close(); } catch {}
+  });
+
+  ws.on('message', (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
+    if (msg.t === 'i' && typeof msg.d === 'string') {
+      term.write(msg.d);
+    } else if (msg.t === 'r' && Number.isInteger(msg.cols) && Number.isInteger(msg.rows)) {
+      try { term.resize(Math.max(1, msg.cols), Math.max(1, msg.rows)); } catch {}
+    }
+  });
+
+  ws.on('close', () => { try { term.kill(); } catch {} });
+  ws.on('error', () => { try { term.kill(); } catch {} });
+});
+
 server.on('upgrade', (req, socket, head) => {
   const pathname = req.url ? req.url.split('?')[0] : '';
-  if (pathname !== '/ws' || !isAuthenticated(req)) {
+  if (!isAuthenticated(req)) {
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
     return;
   }
-  wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
+  if (pathname === '/ws') {
+    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
+  } else if (pathname === '/term') {
+    termWss.handleUpgrade(req, socket, head, ws => termWss.emit('connection', ws, req));
+  } else {
+    socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+    socket.destroy();
+  }
 });
 
 function normalizeEvent(evt) {
@@ -825,11 +926,16 @@ function normalizeEvent(evt) {
     return out;
   }
   if (evt.type === 'result') {
+    const u = evt.usage || {};
     return [{
       kind: 'turn_complete',
       cost_usd: evt.total_cost_usd,
       duration_ms: evt.duration_ms,
       num_turns: evt.num_turns,
+      input_tokens: u.input_tokens,
+      output_tokens: u.output_tokens,
+      cache_read_tokens: u.cache_read_input_tokens,
+      cache_creation_tokens: u.cache_creation_input_tokens,
       is_error: !!evt.is_error,
       session_id: evt.session_id,
     }];
@@ -986,10 +1092,14 @@ async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, 
 }
 
 async function sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, onSessionId) {
-  const args = ['-p', '--output-format', 'stream-json', '--verbose'];
-  args.push('--permission-mode', currentPerm);
-  if (currentPerm === 'bypassPermissions') args.push('--allow-dangerously-skip-permissions');
-  if (currentModel) args.push('--model', currentModel);
+  const args = ['-p', '--output-format', 'stream-json'];
+  let approvalMode = 'default';
+  if (currentPerm === 'plan') approvalMode = 'plan';
+  else if (currentPerm === 'acceptEdits') approvalMode = 'auto-edit';
+  else if (currentPerm === 'bypassPermissions') approvalMode = 'yolo';
+  args.push('--approval-mode', approvalMode);
+  if (currentPerm === 'bypassPermissions') args.push('-y');
+  if (currentModel && currentModel !== 'default') args.push('--model', currentModel);
   if (currentSessionId) args.push('--resume', currentSessionId);
 
   let proc;
@@ -1126,6 +1236,7 @@ wss.on('connection', (ws) => {
       defaultPerm: DEFAULT_PERM,
       defaultModel: DEFAULT_MODEL,
       defaultEngine: DEFAULT_ENGINE,
+      claudeModels: CLAUDE_MODELS,
       sessions: loadIndexEnriched(),
       nodes: ALL_NODES.map(({ id, name }) => ({ id, name })),
       nodeId: 'local',
