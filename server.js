@@ -1098,7 +1098,6 @@ async function sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, cu
   else if (currentPerm === 'acceptEdits') approvalMode = 'auto-edit';
   else if (currentPerm === 'bypassPermissions') approvalMode = 'yolo';
   args.push('--approval-mode', approvalMode);
-  if (currentPerm === 'bypassPermissions') args.push('-y');
   if (currentModel && currentModel !== 'default') args.push('--model', currentModel);
   if (currentSessionId) args.push('--resume', currentSessionId);
 
