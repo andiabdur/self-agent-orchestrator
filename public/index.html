@@ -1416,7 +1416,6 @@
     overflow: hidden;
   }
   .engine-badge.claude { border-color: var(--accent); color: var(--accent); }
-  .engine-badge.oi { border-color: #fb923c; color: #fb923c; }
   .engine-badge.qwen { border-color: #3b82f6; color: #3b82f6; }
   .engine-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
   .engine-label { text-transform: capitalize; white-space: nowrap; }
@@ -1471,9 +1470,6 @@
           <div class="popover-label">Engine</div>
           <button class="popover-opt active" data-engine="claude" type="button">
             <span class="opt-dot"></span>Claude Code
-          </button>
-          <button class="popover-opt" data-engine="oi" type="button">
-            <span class="opt-dot"></span>Open Interpreter
           </button>
           <button class="popover-opt" data-engine="qwen" type="button">
             <span class="opt-dot"></span>Qwen Code
@@ -1629,7 +1625,6 @@
           </span>
           <select id="engine-select" class="settings-select">
             <option value="claude">Claude Code</option>
-            <option value="oi">Open Interpreter</option>
             <option value="qwen">Qwen Code</option>
           </select>
         </div>
@@ -2036,8 +2031,6 @@
           }
           state.model = els.modelSelect.value;
           send({ type: 'set_model', model: state.model });
-        } else if (m.engine === 'oi') {
-          els.modelSelect.innerHTML = '<option value="">— fetching models… —</option>';
         } else if (m.engine === 'qwen') {
           els.modelSelect.innerHTML = '<option value="default">Default Model (use config)</option><option value="qwen2.5-coder:32b">Qwen 2.5 Coder 32B</option><option value="qwen2.5-coder:14b">Qwen 2.5 Coder 14B</option><option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</option><option value="qwen2.5-coder:1.5b">Qwen 2.5 Coder 1.5B</option>';
           if (state.model && els.modelSelect.querySelector(`option[value="${CSS.escape(state.model)}"]`)) {
@@ -2049,32 +2042,6 @@
           send({ type: 'set_model', model: state.model });
         }
         updateEngineBadge(m.engine, state.model);
-        break;
-
-      case 'oi_models':
-        els.modelSelect.innerHTML = '';
-        if (m.models && m.models.length > 0) {
-          for (const mdl of m.models) {
-            const id = typeof mdl === 'string' ? mdl : mdl.id;
-            const opt = document.createElement('option');
-            opt.value = id;
-            opt.textContent = id;
-            els.modelSelect.appendChild(opt);
-          }
-          const preferred = state.model || m.defaultModel || '';
-          if (preferred && els.modelSelect.querySelector(`option[value="${CSS.escape(preferred)}"]`)) {
-            els.modelSelect.value = preferred;
-          }
-          state.model = els.modelSelect.value;
-          send({ type: 'set_model', model: state.model });
-        } else {
-          const opt = document.createElement('option');
-          opt.value = '';
-          opt.textContent = '— no models found —';
-          els.modelSelect.appendChild(opt);
-        }
-        updateEngineBadge(state.engine, state.model);
-        if (els.enginePopover && !els.enginePopover.hidden) buildPopoverModels();
         break;
 
       case 'user_message':
@@ -2104,11 +2071,11 @@
         break;
       case 'tool_start':
         hideAndCancelThinking();      // tool card has its own spinner — no overlap
-        if (state.engine !== 'oi') renderToolStart(m);  // OI tool cards are hidden (raw output is too messy)
+        renderToolStart(m);
         break;
       case 'tool_result':
         hideAndCancelThinking();
-        if (state.engine !== 'oi') renderToolResult(m); // OI tool output hidden; only assistant text is shown
+        renderToolResult(m);
         scheduleThinkingIndicator();  // claude reads result, decides next step
         break;
       case 'thinking':
@@ -2331,8 +2298,6 @@
     if (name === 'Grep') return input.pattern || '';
     if (name === 'WebFetch') return input.url || '';
     if (name === 'WebSearch') return input.query || '';
-    // Open Interpreter code tools
-    if (input && typeof input === 'object' && input.code != null) return String(input.code).slice(0, 100);
     if (typeof input === 'object') {
       const k = Object.keys(input)[0];
       const v = input[k];
@@ -2365,8 +2330,6 @@
 
     bubble.appendChild(el);
     state.toolsById.set(m.id, el);
-    // Auto-expand tool cards for OI (names not in TOOL_ICONS like 'python','bash','javascript')
-    if (!TOOL_ICONS[m.name]) el.classList.add('expanded');
     // Store file path for View button; cache Write content so viewer works instantly
     const fp = m.input?.file_path || '';
     if (fp) el.dataset.toolFile = fp;
@@ -2417,19 +2380,6 @@
       const pre = document.createElement('pre');
       pre.className = 'wrap';
       pre.textContent = '$ ' + input.command;
-      wrap.appendChild(pre);
-      return wrap;
-    }
-
-    // Open Interpreter code block (input = { code, language })
-    if (input && typeof input === 'object' && input.code != null) {
-      const label = document.createElement('div');
-      label.className = 'tool-section-label';
-      label.textContent = (input.language || name) + ' · run';
-      wrap.appendChild(label);
-      const pre = document.createElement('pre');
-      pre.className = 'wrap';
-      pre.textContent = input.code;
       wrap.appendChild(pre);
       return wrap;
     }
@@ -3173,23 +3123,11 @@
     state.cwd = cwd || state.cwd;
     if (permissionMode) state.permissionMode = permissionMode;
     if (model) state.model = model;
-    const prevEngine = state.engine;
     if (engine) state.engine = engine;
     els.cwdInput.value = state.cwd;
     els.permSelect.value = state.permissionMode;
     if (els.engineSelect) els.engineSelect.value = state.engine;
-    if (state.engine === 'oi') {
-      if (engine !== prevEngine) {
-        // Engine changed — fetch fresh model list
-        els.modelSelect.innerHTML = '<option value="">— fetching models… —</option>';
-        send({ type: 'set_engine', engine: 'oi' });
-      } else {
-        // Same engine, just restore selected model if already populated
-        if (state.model && els.modelSelect.querySelector(`option[value="${CSS.escape(state.model)}"]`)) {
-          els.modelSelect.value = state.model;
-        }
-      }
-    } else if (state.engine === 'qwen') {
+    if (state.engine === 'qwen') {
       els.modelSelect.innerHTML = '<option value="default">Default Model (use config)</option><option value="qwen2.5-coder:32b">Qwen 2.5 Coder 32B</option><option value="qwen2.5-coder:14b">Qwen 2.5 Coder 14B</option><option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</option><option value="qwen2.5-coder:1.5b">Qwen 2.5 Coder 1.5B</option>';
       els.modelSelect.value = state.model || 'default';
     } else {
@@ -3924,6 +3862,12 @@
         dot.className = 'opt-dot';
         btn.appendChild(dot);
         btn.appendChild(document.createTextNode(m.label));
+        if (m.custom) {
+          const tag = document.createElement('span');
+          tag.style.cssText = 'margin-left:6px;font-size:9px;padding:1px 5px;border-radius:3px;background:var(--accent,#7c3aed);color:#fff;vertical-align:middle;';
+          tag.textContent = 'custom';
+          btn.appendChild(tag);
+        }
         btn.addEventListener('click', () => {
           state.model = m.id;
           els.modelSelect.value = m.id;
@@ -3958,33 +3902,6 @@
           closePopover();
         });
         sec.appendChild(btn);
-      }
-    } else {
-      const opts = Array.from(els.modelSelect.options).filter(o => o.value);
-      if (!opts.length) {
-        const hint = document.createElement('div');
-        hint.style.cssText = 'padding:7px 12px;font-size:11.5px;color:var(--muted);font-family:\'IBM Plex Mono\',monospace;';
-        hint.textContent = 'Fetching models…';
-        sec.appendChild(hint);
-      } else {
-        for (const opt of opts) {
-          const btn = document.createElement('button');
-          btn.className = 'popover-opt' + (state.model === opt.value ? ' active' : '');
-          btn.type = 'button';
-          btn.dataset.model = opt.value;
-          const dot = document.createElement('span');
-          dot.className = 'opt-dot';
-          btn.appendChild(dot);
-          btn.appendChild(document.createTextNode(opt.value));
-          btn.addEventListener('click', () => {
-            state.model = opt.value;
-            els.modelSelect.value = opt.value;
-            send({ type: 'set_model', model: opt.value });
-            updateEngineBadge(state.engine, opt.value);
-            closePopover();
-          });
-          sec.appendChild(btn);
-        }
       }
     }
   }
@@ -4153,7 +4070,7 @@
   }
   function claudeModelOptionsHtml(selected) {
     return (state.claudeModels || []).map(m =>
-      `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}</option>`).join('');
+      `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}${m.custom ? ' ⚡' : ''}</option>`).join('');
   }
 
   function updateEngineBadge(engine, model) {
@@ -4163,8 +4080,7 @@
     const label = badge.querySelector('.engine-label');
     const modelSpan = document.getElementById('engine-model-label');
     if (label) {
-      if (engine === 'oi') label.textContent = 'Open Interpreter';
-      else if (engine === 'qwen') label.textContent = 'Qwen Code';
+      if (engine === 'qwen') label.textContent = 'Qwen Code';
       else label.textContent = 'Claude Code';
     }
     if (modelSpan) {

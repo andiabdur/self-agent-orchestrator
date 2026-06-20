@@ -112,14 +112,28 @@ const CLAUDE_MODELS = [
   { id: 'sonnet', label: 'Claude Sonnet 4.6' },
   { id: 'haiku',  label: 'Claude Haiku 4.5' },
 ];
+
+// Load custom models from ~/.claude/settings.json env entries
+(function loadCustomModels() {
+  try {
+    const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    const env = settings.env || {};
+    for (const [key, value] of Object.entries(env)) {
+      if (/^CUSTOM_MODEL\d*$/i.test(key) && typeof value === 'string' && value.trim()) {
+        const modelId = value.trim();
+        if (!CLAUDE_MODELS.some(m => m.id === modelId)) {
+          const shortLabel = modelId.includes('/') ? modelId.split('/').pop() : modelId;
+          CLAUDE_MODELS.push({ id: modelId, label: shortLabel, custom: true });
+        }
+      }
+    }
+  } catch (_) { /* settings.json missing or malformed — ignore */ }
+})();
+
 const VALID_MODELS = new Set(CLAUDE_MODELS.map(m => m.id));
 const DEFAULT_ENGINE = process.env.ENGINE || 'claude';
-const VALID_ENGINES = new Set(['claude', 'oi', 'qwen']);
-const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'http://localhost:20128/v1').replace(/\/$/, '');
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'local';
-const OPENAI_DEFAULT_MODEL = process.env.OPENAI_MODEL || '';
-const OI_BRIDGE = path.join(__dirname, 'oi_bridge.py');
-const OI_PYTHON = process.env.OI_PYTHON || 'python3';
+const VALID_ENGINES = new Set(['claude', 'qwen']);
 
 // ─── Multi-node ────────────────────────────────────────────────────────────────
 const NODE_NAME = process.env.NODE_NAME || os.hostname();
@@ -157,175 +171,6 @@ const REMOTE_NODES = (() => {
   }
 })();
 const ALL_NODES = [{ id: 'local', name: NODE_NAME }, ...REMOTE_NODES];
-
-// ─── Open Interpreter Engine state ───────────────────────────────────────
-const oiHistories = new Map(); // sessionId -> OI messages[]
-
-async function fetchOIModels() {
-  try {
-    const res = await fetch(`${OPENAI_BASE_URL}/models`, {
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data.data || []).map(m => ({ id: m.id, name: m.id }));
-  } catch {
-    return [];
-  }
-}
-
-// ─── Open Interpreter Engine ──────────────────────────────────────────────────
-async function sendPromptOI(ws, text, savedImages, currentSessionId, currentModel, currentCwd) {
-  const isExisting = !!(currentSessionId && currentSessionId.startsWith('oi_'));
-  const sessionId = isExisting ? currentSessionId : 'oi_' + randomBytes(12).toString('hex');
-
-  const history = oiHistories.get(sessionId) || [];
-
-  let promptText = text;
-  if (savedImages && savedImages.length > 0) {
-    const paths = savedImages.map(s => `- ${s.path}`).join('\n');
-    promptText = text && text.trim()
-      ? `${text}\n\nAttached images:\n${paths}`
-      : `Please examine these images:\n${paths}`;
-  }
-
-  const userEvent = {
-    kind: 'user_message', text, timestamp: Date.now(),
-    ...(savedImages && savedImages.length > 0 ? {
-      images: savedImages.map(s => ({ filename: s.filename, name: s.name, mime: s.mime, thumbData: s.thumbData })),
-    } : {}),
-  };
-
-  const run = {
-    proc: null, status: 'running', cwd: currentCwd, perm: 'oi',
-    model: currentModel, promptText: text, sessionId,
-    bufferedEvents: [], subscribers: new Set([ws]), completedAt: null,
-  };
-  activeRuns.set(sessionId, run);
-  broadcast(sessionId, { kind: 'turn_start' });
-
-  appendSessionEvent(sessionId, userEvent);
-  broadcast(sessionId, userEvent);
-
-  if (!isExisting) {
-    const title = text.split('\n')[0].slice(0, 60);
-    upsertSessionMeta(sessionId, { cwd: currentCwd, permissionMode: DEFAULT_PERM, engine: 'oi', model: currentModel || OPENAI_DEFAULT_MODEL, title });
-    broadcast(sessionId, { kind: 'session_persisted', sessionId, sessions: loadIndexEnriched() });
-  }
-
-  const config = JSON.stringify({
-    prompt: promptText,
-    model: currentModel || OPENAI_DEFAULT_MODEL,
-    api_base: OPENAI_BASE_URL,
-    api_key: OPENAI_API_KEY,
-    cwd: currentCwd,
-    history,
-  });
-
-  let proc;
-  try {
-    proc = spawn(OI_PYTHON, [OI_BRIDGE], {
-      cwd: currentCwd,
-      env: { ...process.env, PYTHONUNBUFFERED: '1' },
-      stdio: ['pipe', 'pipe', 'pipe'],
-      detached: !isWin,
-    });
-    run.proc = proc;
-  } catch (err) {
-    run.status = 'done';
-    broadcast(sessionId, { kind: 'error', message: `Failed to spawn OI: ${err.message}` });
-    broadcast(sessionId, { kind: 'turn_end' });
-    return { key: sessionId, sessionId };
-  }
-
-  proc.stdin.write(config + '\n');
-  proc.stdin.end();
-
-  let stderrBuf = '';
-  let lineBuf = '';
-  let assistantBuf = '';
-  let codeBuf = '';
-  let inCode = false;
-  let finalAssistantText = '';
-  let lastCodeId = null;
-
-  const stripAnsi = (str) => {
-    return String(str || '').replace(/[][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><~]/g, '');
-  };
-
-  proc.stderr.on('data', d => { stderrBuf += d.toString(); });
-
-  proc.stdout.on('data', chunk => {
-    lineBuf += chunk.toString();
-    let idx;
-    while ((idx = lineBuf.indexOf('\n')) >= 0) {
-      const line = lineBuf.slice(0, idx).trim();
-      lineBuf = lineBuf.slice(idx + 1);
-      if (!line) continue;
-      let evt;
-      try { evt = JSON.parse(line); } catch { continue; }
-
-      if (evt.type === '__error__') {
-        broadcast(sessionId, { kind: 'error', message: evt.content || 'OI error' });
-        return;
-      }
-
-      if (evt.type === '__history__') {
-        if (Array.isArray(evt.messages)) oiHistories.set(sessionId, evt.messages);
-        return;
-      }
-
-      // Translate OI chunk format → our event format
-      if (evt.type === 'message' && evt.role === 'assistant') {
-        if (evt.start) { assistantBuf = ''; return; }
-        if (evt.content) {
-          assistantBuf += evt.content;
-          broadcast(sessionId, { kind: 'assistant_delta', text: evt.content });
-          return;
-        }
-        if (evt.end) {
-          finalAssistantText += assistantBuf;
-          return;
-        }
-      }
-
-      if (evt.type === 'code') {
-        if (evt.start) { codeBuf = ''; inCode = true; return; }
-        if (evt.content) { codeBuf += evt.content; return; }
-        if (evt.end) {
-          inCode = false;
-          const lang = evt.format || 'bash';
-          lastCodeId = randomBytes(8).toString('hex');
-          broadcast(sessionId, { kind: 'tool_start', id: lastCodeId, name: lang, input: { code: codeBuf, language: lang } });
-          return;
-        }
-      }
-
-      if (evt.type === 'console') {
-        if (evt.start || !evt.content) return;
-        if (evt.format === 'active_line') return; // skip line highlights
-        const cleaned = stripAnsi(evt.content);
-        if (!cleaned.trim()) return; // skip empty lines after stripping
-        broadcast(sessionId, { kind: 'tool_result', tool_use_id: lastCodeId, content: cleaned, is_error: false });
-      }
-    }
-  });
-
-  await new Promise(resolve => proc.on('close', resolve));
-
-  if (finalAssistantText) {
-    appendSessionEvent(sessionId, { kind: 'assistant_text', text: finalAssistantText });
-  }
-  const completeEvt = { kind: 'turn_complete' };
-  appendSessionEvent(sessionId, completeEvt);
-  broadcast(sessionId, completeEvt);
-
-  run.status = 'done';
-  run.completedAt = Date.now();
-  broadcast(sessionId, { kind: 'turn_end' });
-
-  return { key: sessionId, sessionId };
-}
 
 const STATE_DIR = process.env.STATE_DIR || path.join(os.homedir(), '.self-agent-orchestrator');
 const SESSIONS_DIR = path.join(STATE_DIR, 'sessions');
@@ -1358,7 +1203,7 @@ wss.on('connection', (ws) => {
           currentEngine = meta.engine;
         } else if (currentSessionId) {
           // Fallback for sessions created before engine field was added
-          currentEngine = currentSessionId.startsWith('oi_') ? 'oi' : 'claude';
+          currentEngine = 'claude';
         }
       }
       const events = currentSessionId ? loadSessionEvents(currentSessionId) : [];
@@ -1373,7 +1218,7 @@ wss.on('connection', (ws) => {
       attach(null);
       currentCwd = m.cwd || DEFAULT_CWD;
       if (m.permissionMode && VALID_PERMS.has(m.permissionMode)) currentPerm = m.permissionMode;
-      const modelOk = VALID_MODELS.has(m.model) || (['oi', 'qwen'].includes(currentEngine) && typeof m.model === 'string' && m.model.length > 0);
+      const modelOk = VALID_MODELS.has(m.model) || (currentEngine === 'qwen' && typeof m.model === 'string' && m.model.length > 0);
       if (modelOk) currentModel = m.model;
       send({ kind: 'session_loaded', sessionId: null, cwd: currentCwd, permissionMode: currentPerm, model: currentModel, engine: currentEngine, events: [], active: false });
       return;
@@ -1382,18 +1227,13 @@ wss.on('connection', (ws) => {
     if (m.type === 'set_engine') {
       if (VALID_ENGINES.has(m.engine)) {
         currentEngine = m.engine;
-        if (m.engine === 'oi') {
-          fetchOIModels().then(models => {
-            send({ kind: 'oi_models', models, defaultModel: OPENAI_DEFAULT_MODEL });
-          }).catch(() => {});
-        }
         send({ kind: 'engine_set', engine: currentEngine });
       }
       return;
     }
 
     if (m.type === 'set_model') {
-      const modelOk = VALID_MODELS.has(m.model) || (['oi', 'qwen'].includes(currentEngine) && typeof m.model === 'string' && m.model.length > 0);
+      const modelOk = VALID_MODELS.has(m.model) || (currentEngine === 'qwen' && typeof m.model === 'string' && m.model.length > 0);
       if (modelOk) {
         currentModel = m.model;
         if (currentSessionId) upsertSessionMeta(currentSessionId, { model: currentModel });
@@ -1479,12 +1319,7 @@ wss.on('connection', (ws) => {
 
       const isNew = !currentSessionId;
 
-      if (currentEngine === 'oi') {
-        const result = await sendPromptOI(ws, text, savedImages, currentSessionId, currentModel, currentCwd);
-        if (result?.error) { send({ kind: 'error', message: result.error }); return; }
-        if (result?.key) attachedKey = result.key;
-        if (result?.sessionId) currentSessionId = result.sessionId;
-      } else if (currentEngine === 'qwen') {
+      if (currentEngine === 'qwen') {
         const result = await sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, (sid) => { currentSessionId = sid; });
         if (result?.error) { send({ kind: 'error', message: result.error }); return; }
         if (result?.key) attachedKey = result.key;
