@@ -13,7 +13,7 @@ const require = createRequire(import.meta.url);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Load .env file manually if it exists
+// Load .env file manually if it exists (Antigravity demo modification)
 try {
   const envPath = path.join(__dirname, '.env');
   if (fs.existsSync(envPath)) {
@@ -634,6 +634,284 @@ app.get('/api/uploads/:filename', (req, res) => {
   });
 });
 
+// ─── Git panel (read-only) ────────────────────────────────────────────────
+// Shells out to `git` (via the existing spawn import) to report the state of the
+// active workload's cwd. Read-only: status + per-file numstat + unified diff.
+
+// Resolve a request-provided cwd and confine it to the user's home directory,
+// matching the containment rule used by /api/file and /api/download.
+function resolveContainedDir(raw) {
+  if (!raw) return { error: 'cwd required', status: 400 };
+  const BASE = path.resolve(os.homedir());
+  let dir;
+  try { dir = path.resolve(String(raw)); } catch { return { error: 'Invalid path', status: 400 }; }
+  let real, realBase;
+  try { realBase = fs.realpathSync(BASE); real = fs.realpathSync(dir); }
+  catch { return { error: 'Directory not found', status: 404 }; }
+  if (real !== realBase && !real.startsWith(realBase + path.sep)) {
+    return { error: 'Access denied', status: 403 };
+  }
+  if (!fs.statSync(real).isDirectory()) return { error: 'Not a directory', status: 400 };
+  return { dir: real };
+}
+
+// Promise wrapper around `git` with a timeout and bounded output buffer.
+function runGit(cwd, args) {
+  return new Promise((resolve) => {
+    let proc;
+    try {
+      proc = spawn('git', args, { cwd, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } });
+    } catch (err) {
+      return resolve({ code: -1, stdout: '', stderr: err.message, spawnError: true });
+    }
+    const MAX = 4 * 1024 * 1024; // 4 MB cap
+    let out = '', errBuf = '', truncated = false, done = false;
+    const finish = (code) => { if (done) return; done = true; resolve({ code, stdout: out, stderr: errBuf, truncated }); };
+    const timer = setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} finish(-2); }, 10000);
+    proc.stdout.on('data', (d) => { if (out.length < MAX) out += d; else truncated = true; });
+    proc.stderr.on('data', (d) => { if (errBuf.length < MAX) errBuf += d; });
+    proc.on('error', (err) => { clearTimeout(timer); if (!errBuf) errBuf = err.message; proc.spawnError = true; finish(-1); });
+    proc.on('close', (code) => { clearTimeout(timer); finish(code); });
+  });
+}
+
+// Parse `git diff --numstat` output into { path: { insertions, deletions } }.
+// numstat uses tab-separated "ins<TAB>del<TAB>path"; binary files report "-".
+function parseNumstat(text) {
+  const map = new Map();
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue;
+    const parts = line.split('\t');
+    if (parts.length < 3) continue;
+    const ins = parts[0] === '-' ? null : parseInt(parts[0], 10);
+    const del = parts[1] === '-' ? null : parseInt(parts[1], 10);
+    // Renames appear as "old => new" or with path[1] holding the new path.
+    let p = parts.slice(2).join('\t');
+    const arrow = p.indexOf(' => ');
+    if (arrow >= 0) {
+      // Handle both "{a => b}/file" and "a => b" forms — take the new side.
+      p = p.replace(/\{[^}]*=> ([^}]*)\}/g, '$1');
+      const idx = p.indexOf(' => ');
+      if (idx >= 0) p = p.slice(idx + 4);
+    }
+    map.set(p, { insertions: ins, deletions: del });
+  }
+  return map;
+}
+
+app.get('/api/git/status', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.query.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+
+  const inside = await runGit(cwd, ['rev-parse', '--is-inside-work-tree']);
+  if (inside.code !== 0 || inside.stdout.trim() !== 'true') {
+    return res.json({ isRepo: false });
+  }
+
+  const branchRes = await runGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  let branch = branchRes.stdout.trim();
+  if (branch === 'HEAD') {
+    const sha = await runGit(cwd, ['rev-parse', '--short', 'HEAD']);
+    branch = sha.stdout.trim() ? `(detached ${sha.stdout.trim()})` : '(detached)';
+  }
+
+  const [porcelain, unstaged, staged] = await Promise.all([
+    runGit(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
+    runGit(cwd, ['diff', '--numstat']),
+    runGit(cwd, ['diff', '--cached', '--numstat']),
+  ]);
+  const unstagedStats = parseNumstat(unstaged.stdout);
+  const stagedStats = parseNumstat(staged.stdout);
+
+  // `-z` separates entries with NUL; rename entries consume an extra NUL token.
+  const tokens = porcelain.stdout.split('\0');
+  const files = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const entry = tokens[i];
+    if (!entry) continue;
+    const x = entry[0], y = entry[1];
+    let p = entry.slice(3);
+    let renamedFrom = null;
+    if (x === 'R' || x === 'C') { renamedFrom = tokens[++i] || null; }
+    const untracked = x === '?' && y === '?';
+    const isStaged = !untracked && x !== ' ' && x !== '?';
+    const hasUnstaged = y !== ' ' && y !== '?';
+    // Primary single-letter status for the badge.
+    let status = untracked ? '?' : (x !== ' ' ? x : y);
+    let stat = stagedStats.get(p) || unstagedStats.get(p) || null;
+    if (untracked) {
+      // Count lines in the new file as insertions (text only; binary → null).
+      try {
+        const full = path.join(cwd, p);
+        const buf = fs.readFileSync(full);
+        if (buf.includes(0)) stat = { insertions: null, deletions: 0 };
+        else {
+          const txt = buf.toString('utf8');
+          const lines = txt.length === 0 ? 0 : txt.split('\n').length - (txt.endsWith('\n') ? 1 : 0);
+          stat = { insertions: lines, deletions: 0 };
+        }
+      } catch { stat = { insertions: null, deletions: 0 }; }
+    }
+    files.push({
+      path: p,
+      status,
+      staged: isStaged,
+      unstaged: hasUnstaged || untracked,
+      untracked,
+      renamedFrom,
+      insertions: stat ? stat.insertions : null,
+      deletions: stat ? stat.deletions : null,
+    });
+  }
+
+  res.json({ isRepo: true, branch, files });
+});
+
+app.get('/api/git/last-turn', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.query.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const sessionId = req.query.sessionId ? String(req.query.sessionId) : null;
+  if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
+
+  const inside = await runGit(cwd, ['rev-parse', '--is-inside-work-tree']);
+  if (inside.code !== 0 || inside.stdout.trim() !== 'true') {
+    return res.json({ isRepo: false });
+  }
+
+  // Load session events
+  const fPath = path.join(SESSIONS_DIR, `${sessionId}.jsonl`);
+  if (!fs.existsSync(fPath)) {
+    return res.json({ isRepo: true, files: [] });
+  }
+
+  let events = [];
+  try {
+    events = fs.readFileSync(fPath, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map(line => JSON.parse(line));
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to read session events: ' + err.message });
+  }
+
+  // Find index of the last turn_start
+  let lastTurnStartIndex = -1;
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].kind === 'turn_start') {
+      lastTurnStartIndex = i;
+      break;
+    }
+  }
+
+  if (lastTurnStartIndex === -1) {
+    return res.json({ isRepo: true, files: [] });
+  }
+
+  // Gather edited files after the last turn_start
+  const editedFilesSet = new Set();
+  for (let i = lastTurnStartIndex; i < events.length; i++) {
+    const e = events[i];
+    if (e.kind === 'tool_start' && (e.name === 'Write' || e.name === 'Edit' || e.name === 'NotebookEdit')) {
+      const absPath = e.input?.file_path || e.input?.notebook_path;
+      if (absPath) {
+        try {
+          const resolvedAbs = path.resolve(absPath);
+          if (resolvedAbs === cwd || resolvedAbs.startsWith(cwd + path.sep)) {
+            const relPath = path.relative(cwd, resolvedAbs);
+            editedFilesSet.add(relPath);
+          }
+        } catch {}
+      }
+    }
+  }
+
+  // Now, get standard git status
+  const [porcelain, unstaged, staged] = await Promise.all([
+    runGit(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
+    runGit(cwd, ['diff', '--numstat']),
+    runGit(cwd, ['diff', '--cached', '--numstat']),
+  ]);
+  const unstagedStats = parseNumstat(unstaged.stdout);
+  const stagedStats = parseNumstat(staged.stdout);
+
+  const tokens = porcelain.stdout.split('\0');
+  const files = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const entry = tokens[i];
+    if (!entry) continue;
+    const x = entry[0], y = entry[1];
+    let p = entry.slice(3);
+    let renamedFrom = null;
+    if (x === 'R' || x === 'C') { renamedFrom = tokens[++i] || null; }
+
+    // Check if this changed file was edited in the last turn
+    if (!editedFilesSet.has(p)) continue;
+
+    const untracked = x === '?' && y === '?';
+    const isStaged = !untracked && x !== ' ' && x !== '?';
+    const hasUnstaged = y !== ' ' && y !== '?';
+    let status = untracked ? '?' : (x !== ' ' ? x : y);
+    let stat = stagedStats.get(p) || unstagedStats.get(p) || null;
+    if (untracked) {
+      try {
+        const full = path.join(cwd, p);
+        const buf = fs.readFileSync(full);
+        if (buf.includes(0)) stat = { insertions: null, deletions: 0 };
+        else {
+          const txt = buf.toString('utf8');
+          const lines = txt.length === 0 ? 0 : txt.split('\n').length - (txt.endsWith('\n') ? 1 : 0);
+          stat = { insertions: lines, deletions: 0 };
+        }
+      } catch { stat = { insertions: null, deletions: 0 }; }
+    }
+    files.push({
+      path: p,
+      status,
+      staged: isStaged,
+      unstaged: hasUnstaged || untracked,
+      untracked,
+      renamedFrom,
+      insertions: stat ? stat.insertions : null,
+      deletions: stat ? stat.deletions : null,
+    });
+  }
+
+  res.json({ isRepo: true, files });
+});
+
+app.get('/api/git/diff', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.query.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const rel = req.query.path ? String(req.query.path) : null;
+  if (!rel) return res.status(400).json({ error: 'path required' });
+  // The file must resolve inside cwd (no traversal out of the workload).
+  let target;
+  try { target = path.resolve(cwd, rel); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+  if (target !== cwd && !target.startsWith(cwd + path.sep)) return res.status(403).json({ error: 'Access denied' });
+
+  const staged = req.query.staged === '1';
+  const untracked = req.query.untracked === '1';
+  let result;
+  if (untracked) {
+    result = await runGit(cwd, ['diff', '--no-index', '--', '/dev/null', target]);
+    // --no-index exits 1 when files differ (expected); only -1/-2 are real errors.
+    if (result.spawnError || result.code < 0) return res.status(400).json({ error: result.stderr || 'git diff failed' });
+  } else {
+    const args = ['diff'];
+    if (staged) args.push('--cached');
+    args.push('--', rel);
+    result = await runGit(cwd, args);
+    if (result.code !== 0 && result.code < 0) return res.status(400).json({ error: result.stderr || 'git diff failed' });
+  }
+  res.json({ diff: result.stdout, truncated: !!result.truncated });
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   // For HTML and SW: always revalidate (no stale shell when we ship updates).
   // Other assets (icons, manifest) can be cached normally.
@@ -795,11 +1073,25 @@ const activeRuns = new Map();
 
 function broadcast(key, msg) {
   const run = activeRuns.get(key);
-  if (!run) return;
+  if (!run) {
+    console.warn(`[broadcast] No active run found for key: ${key} (dropped event kind: ${msg.kind})`);
+    return;
+  }
   const data = JSON.stringify(msg);
+  if (run.subscribers.size === 0) {
+    console.warn(`[broadcast] Run ${key} has no subscribers. Buffering event kind: ${msg.kind}`);
+  } else {
+    console.log(`[broadcast] Sending event to run ${key}: kind=${msg.kind}, subscribers=${run.subscribers.size}`);
+  }
   for (const ws of run.subscribers) {
     if (ws.readyState === ws.OPEN) {
-      try { ws.send(data); } catch {}
+      try {
+        ws.send(data);
+      } catch (err) {
+        console.error(`[broadcast] Failed to send event to ws for run ${key}:`, err.message);
+      }
+    } else {
+      console.warn(`[broadcast] Subscriber WebSocket not open (readyState=${ws.readyState}) for run ${key}`);
     }
   }
 }
@@ -816,7 +1108,7 @@ setInterval(() => {
 
 // ─── Engine implementations ──────────────────────────────────────────────
 
-async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, onSessionId) {
+async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, tempSessionId, onSessionId) {
   const args = ['-p', '--output-format', 'stream-json', '--verbose'];
   args.push('--permission-mode', currentPerm);
   if (currentPerm === 'bypassPermissions') args.push('--allow-dangerously-skip-permissions');
@@ -836,7 +1128,7 @@ async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, 
     return { error: `Failed to spawn claude: ${err.message}` };
   }
 
-  const tempKey = '__pending_' + Math.random().toString(36).slice(2, 10);
+  const tempKey = tempSessionId || ('__pending_' + Math.random().toString(36).slice(2, 10));
   const initialKey = currentSessionId || tempKey;
 
   const userEvent = {
@@ -876,40 +1168,58 @@ async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, 
 
   let stderrBuf = '';
   let buffer = '';
+
+  const processLine = (line) => {
+    if (!line.trim()) return;
+    let evt;
+    try {
+      evt = JSON.parse(line);
+    } catch (err) {
+      console.error('[stdout] JSON parse fail for line:', line.slice(0, 200), err.message);
+      return;
+    }
+
+    // First time we see session_id: re-key the activeRuns map
+    if (evt.session_id && !run.sessionId) {
+      run.sessionId = evt.session_id;
+      if (onSessionId) onSessionId(evt.session_id);
+      activeRuns.delete(initialKey);
+      activeRuns.set(run.sessionId, run);
+      for (const e of run.bufferedEvents) appendSessionEvent(run.sessionId, e);
+      run.bufferedEvents = [];
+      const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
+      upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: 'claude', model: run.model, ...(title ? { title } : {}) });
+      broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
+    }
+
+    const normalized = normalizeEvent(evt);
+    const key = run.sessionId || initialKey;
+    for (const n of normalized) {
+      if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
+        const prev = (loadIndex().find(s => s.id === run.sessionId)?.totalCostUsd) || 0;
+        upsertSessionMeta(run.sessionId, { totalCostUsd: prev + n.cost_usd });
+      }
+      if (run.sessionId) appendSessionEvent(run.sessionId, n);
+      else run.bufferedEvents.push(n);
+      broadcast(key, n);
+    }
+  };
+
   proc.stdout.on('data', chunk => {
     buffer += chunk.toString();
     let idx;
     while ((idx = buffer.indexOf('\n')) >= 0) {
       const line = buffer.slice(0, idx);
       buffer = buffer.slice(idx + 1);
-      if (!line.trim()) continue;
-      let evt;
-      try { evt = JSON.parse(line); } catch { console.error('parse fail:', line.slice(0, 200)); continue; }
+      processLine(line);
+    }
+  });
 
-      // First time we see session_id: re-key the activeRuns map
-      if (evt.session_id && !run.sessionId) {
-        run.sessionId = evt.session_id;
-        if (onSessionId) onSessionId(evt.session_id);
-        activeRuns.delete(initialKey);
-        activeRuns.set(run.sessionId, run);
-        for (const e of run.bufferedEvents) appendSessionEvent(run.sessionId, e);
-        run.bufferedEvents = [];
-        const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
-        upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: 'claude', model: run.model, ...(title ? { title } : {}) });
-        broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
-      }
-
-      const normalized = normalizeEvent(evt);
-      const key = run.sessionId || initialKey;
-      for (const n of normalized) {
-        if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
-          const prev = (loadIndex().find(s => s.id === run.sessionId)?.totalCostUsd) || 0;
-          upsertSessionMeta(run.sessionId, { totalCostUsd: prev + n.cost_usd });
-        }
-        if (run.sessionId) appendSessionEvent(run.sessionId, n);
-        else run.bufferedEvents.push(n);
-        broadcast(key, n);
-      }
+  proc.stdout.on('end', () => {
+    if (buffer.trim()) {
+      console.log('[stdout] end: processing remaining buffered data:', buffer.slice(0, 200));
+      processLine(buffer);
+      buffer = '';
     }
   });
 
@@ -936,7 +1246,7 @@ async function sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, 
   return { key: initialKey, sessionId: currentSessionId };
 }
 
-async function sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, onSessionId) {
+async function sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, tempSessionId, onSessionId) {
   const args = ['-p', '--output-format', 'stream-json'];
   let approvalMode = 'default';
   if (currentPerm === 'plan') approvalMode = 'plan';
@@ -959,7 +1269,7 @@ async function sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, cu
     return { error: `Failed to spawn qwen: ${err.message}` };
   }
 
-  const tempKey = '__pending_qwen_' + Math.random().toString(36).slice(2, 10);
+  const tempKey = tempSessionId || ('__pending_qwen_' + Math.random().toString(36).slice(2, 10));
   const initialKey = currentSessionId || tempKey;
 
   const userEvent = {
@@ -999,40 +1309,58 @@ async function sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, cu
 
   let stderrBuf = '';
   let buffer = '';
+
+  const processLine = (line) => {
+    if (!line.trim()) return;
+    let evt;
+    try {
+      evt = JSON.parse(line);
+    } catch (err) {
+      console.error('[stdout qwen] JSON parse fail for line:', line.slice(0, 200), err.message);
+      return;
+    }
+
+    // First time we see session_id: re-key the activeRuns map
+    if (evt.session_id && !run.sessionId) {
+      run.sessionId = evt.session_id;
+      if (onSessionId) onSessionId(evt.session_id);
+      activeRuns.delete(initialKey);
+      activeRuns.set(run.sessionId, run);
+      for (const e of run.bufferedEvents) appendSessionEvent(run.sessionId, e);
+      run.bufferedEvents = [];
+      const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
+      upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: 'qwen', model: run.model, ...(title ? { title } : {}) });
+      broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
+    }
+
+    const normalized = normalizeEvent(evt);
+    const key = run.sessionId || initialKey;
+    for (const n of normalized) {
+      if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
+        const prev = (loadIndex().find(s => s.id === run.sessionId)?.totalCostUsd) || 0;
+        upsertSessionMeta(run.sessionId, { totalCostUsd: prev + n.cost_usd });
+      }
+      if (run.sessionId) appendSessionEvent(run.sessionId, n);
+      else run.bufferedEvents.push(n);
+      broadcast(key, n);
+    }
+  };
+
   proc.stdout.on('data', chunk => {
     buffer += chunk.toString();
     let idx;
     while ((idx = buffer.indexOf('\n')) >= 0) {
       const line = buffer.slice(0, idx);
       buffer = buffer.slice(idx + 1);
-      if (!line.trim()) continue;
-      let evt;
-      try { evt = JSON.parse(line); } catch { console.error('parse fail qwen:', line.slice(0, 200)); continue; }
+      processLine(line);
+    }
+  });
 
-      // First time we see session_id: re-key the activeRuns map
-      if (evt.session_id && !run.sessionId) {
-        run.sessionId = evt.session_id;
-        if (onSessionId) onSessionId(evt.session_id);
-        activeRuns.delete(initialKey);
-        activeRuns.set(run.sessionId, run);
-        for (const e of run.bufferedEvents) appendSessionEvent(run.sessionId, e);
-        run.bufferedEvents = [];
-        const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
-        upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: 'qwen', model: run.model, ...(title ? { title } : {}) });
-        broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
-      }
-
-      const normalized = normalizeEvent(evt);
-      const key = run.sessionId || initialKey;
-      for (const n of normalized) {
-        if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
-          const prev = (loadIndex().find(s => s.id === run.sessionId)?.totalCostUsd) || 0;
-          upsertSessionMeta(run.sessionId, { totalCostUsd: prev + n.cost_usd });
-        }
-        if (run.sessionId) appendSessionEvent(run.sessionId, n);
-        else run.bufferedEvents.push(n);
-        broadcast(key, n);
-      }
+  proc.stdout.on('end', () => {
+    if (buffer.trim()) {
+      console.log('[stdout qwen] end: processing remaining buffered data:', buffer.slice(0, 200));
+      processLine(buffer);
+      buffer = '';
     }
   });
 
@@ -1194,21 +1522,38 @@ wss.on('connection', (ws) => {
 
     if (m.type === 'load_session') {
       currentSessionId = m.sessionId || null;
-      const meta = loadIndex().find(s => s.id === currentSessionId);
-      if (meta) {
-        currentCwd = meta.cwd || DEFAULT_CWD;
-        currentPerm = meta.permissionMode || DEFAULT_PERM;
-        currentModel = meta.model || DEFAULT_MODEL;
-        if (meta.engine && VALID_ENGINES.has(meta.engine)) {
-          currentEngine = meta.engine;
-        } else if (currentSessionId) {
-          // Fallback for sessions created before engine field was added
-          currentEngine = 'claude';
+      let events = [];
+      let active = false;
+
+      // Handle recovery of temporary session runs if requested
+      if (currentSessionId && currentSessionId.startsWith('temp_')) {
+        const run = activeRuns.get(currentSessionId);
+        if (run) {
+          active = run.status === 'running';
+          events = run.bufferedEvents || [];
+          attach(currentSessionId);
+          currentCwd = run.cwd || DEFAULT_CWD;
+          currentPerm = run.perm || DEFAULT_PERM;
+          currentModel = run.model || DEFAULT_MODEL;
         }
+      } else {
+        const meta = loadIndex().find(s => s.id === currentSessionId);
+        if (meta) {
+          currentCwd = meta.cwd || DEFAULT_CWD;
+          currentPerm = meta.permissionMode || DEFAULT_PERM;
+          currentModel = meta.model || DEFAULT_MODEL;
+          if (meta.engine && VALID_ENGINES.has(meta.engine)) {
+            currentEngine = meta.engine;
+          } else if (currentSessionId) {
+            // Fallback for sessions created before engine field was added
+            currentEngine = 'claude';
+          }
+        }
+        events = currentSessionId ? loadSessionEvents(currentSessionId) : [];
+        const run = currentSessionId ? attach(currentSessionId) : null;
+        active = !!run && run.status === 'running';
       }
-      const events = currentSessionId ? loadSessionEvents(currentSessionId) : [];
-      const run = currentSessionId ? attach(currentSessionId) : null;
-      const active = !!run && run.status === 'running';
+
       send({ kind: 'session_loaded', sessionId: currentSessionId, cwd: currentCwd, permissionMode: currentPerm, model: currentModel, engine: currentEngine, events, active });
       return;
     }
@@ -1298,6 +1643,7 @@ wss.on('connection', (ws) => {
       }
 
       const text = String(m.text || '');
+      const tempSessionId = m.tempSessionId ? String(m.tempSessionId) : null;
       const incomingImages = Array.isArray(m.images) ? m.images.slice(0, MAX_IMAGES_PER_TURN) : [];
       if (!text.trim() && incomingImages.length === 0) return;
 
@@ -1320,12 +1666,12 @@ wss.on('connection', (ws) => {
       const isNew = !currentSessionId;
 
       if (currentEngine === 'qwen') {
-        const result = await sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, (sid) => { currentSessionId = sid; });
+        const result = await sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
         if (result?.error) { send({ kind: 'error', message: result.error }); return; }
         if (result?.key) attachedKey = result.key;
         if (result?.sessionId) currentSessionId = result.sessionId;
       } else {
-        const result = await sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, (sid) => { currentSessionId = sid; });
+        const result = await sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, attachedKey, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
         if (result?.error) { send({ kind: 'error', message: result.error }); return; }
         if (result?.key) attachedKey = result.key;
         if (result?.sessionId) currentSessionId = result.sessionId;

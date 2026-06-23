@@ -173,6 +173,7 @@
     transition: right .25s cubic-bezier(.4,0,.2,1), left .25s cubic-bezier(.4,0,.2,1);
   }
   #app.viewer-open { right: var(--viewer-w, 520px); }
+  #app.git-open { right: var(--git-w, 360px); }
   #app.sidebar-pinned { left: var(--sidebar-w, 272px); }
 
   /* ─── Header ──────────────────────────────────────────── */
@@ -225,6 +226,15 @@
   }
   #btn-terminal:hover { background: var(--bg-3); color: var(--text); }
   #btn-terminal.active { color: var(--accent); }
+  #btn-git {
+    background: none; border: none; color: var(--muted);
+    width: 32px; height: 32px; cursor: pointer; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; border-radius: 3px;
+    transition: background .12s, color .12s;
+  }
+  #btn-git:hover { background: var(--bg-3); color: var(--text); }
+  #btn-git.active { color: var(--accent); }
   #conn-dot {
     width: 6px; height: 6px; border-radius: 50%;
     background: var(--muted); flex: 0 0 auto;
@@ -413,6 +423,51 @@
   .turn-summary .ts-cost { color: var(--accent); font-weight: 600; }
   .turn-summary .ts-cost b { color: var(--accent); }
 
+  /* ─── Changed-files card (end of turn) ────────────────── */
+  .changes-card {
+    align-self: stretch; max-width: 92%; width: 100%;
+    margin: 2px auto 0;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-2); overflow: hidden;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .changes-card-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; font-size: 12px; color: var(--text);
+  }
+  .changes-card-head .cc-count { font-weight: 600; color: var(--text-strong); }
+  .changes-card-head .cc-add { color: #2ea043; font-weight: 600; }
+  .changes-card-head .cc-del { color: #f85149; font-weight: 600; }
+  .changes-card-list { border-top: 1px solid var(--border); }
+  .cc-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
+  }
+  .cc-row:last-child { border-bottom: none; }
+  .cc-row:hover { background: var(--bg-3); }
+  .cc-name {
+    flex: 1; min-width: 0; font-size: 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    direction: rtl; text-align: left; color: var(--muted);
+  }
+  .cc-name bdi { direction: ltr; unicode-bidi: bidi-override; }
+  .cc-name b { color: var(--text-strong); font-weight: 600; }
+  .cc-stat { flex-shrink: 0; font-size: 11px; }
+  .cc-stat .cc-add { color: #2ea043; }
+  .cc-stat .cc-del { color: #f85149; }
+  .cc-chevron { flex-shrink: 0; color: var(--muted); display: flex; }
+  .cc-chevron svg { transition: transform .15s; }
+  .cc-diff {
+    display: none; overflow-x: auto;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    font-size: 11px; line-height: 1.5;
+  }
+  .cc-row.expanded + .cc-diff { display: block; }
+  .cc-diff .git-diff-line { white-space: pre; padding: 0 12px; }
+  .cc-diff-note { padding: 7px 12px; color: var(--muted); font-size: 11px; }
+
   /* ─── Empty state ─────────────────────────────────────── */
   .empty-state {
     flex: 1; display: flex; flex-direction: column;
@@ -599,6 +654,235 @@
   #btn-sidebar-pin svg { display: block; }
   #btn-sidebar-pin:hover { background: var(--bg-3); color: var(--text); }
   #btn-sidebar-pin.pinned { color: var(--accent); border-color: var(--accent); }
+
+  /* ─── Git panel (right) — mirrors #viewer: pushes layout, resizable ── */
+  #git-panel {
+    position: fixed; top: 0; right: calc(-1 * var(--gw, 360px)); bottom: 0;
+    width: var(--gw, min(360px, 60vw));
+    background: var(--bg); border-left: 1px solid var(--border);
+    z-index: 44; display: flex; flex-direction: column;
+    transition: right .25s cubic-bezier(.4,0,.2,1);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #git-panel.open { right: 0; }
+  @media (max-width: 700px) {
+    #git-panel { width: 100%; right: -100vw; }
+    #git-panel.open { right: 0; }
+    #app.git-open { right: 0; }
+    #git-resize { display: none; }
+  }
+  #git-resize {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 6px; cursor: col-resize;
+    background: transparent; transition: background .15s; z-index: 1;
+  }
+  #git-resize:hover, #git-resize.dragging { background: var(--accent); }
+  .git-panel-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .git-panel-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .git-panel-row-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .git-panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .git-select {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-size: 12px;
+    padding: 3px 6px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .git-select:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .git-view-toggles {
+    display: flex;
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .git-pill-btn {
+    background: var(--bg);
+    border: none;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .git-pill-btn:hover:not(:disabled) {
+    background: var(--bg-3);
+    color: var(--text);
+  }
+  .git-pill-btn.active {
+    background: var(--bg-3);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .git-pill-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .git-panel-title {
+    font-size: 11px; font-weight: 600; color: var(--text-strong);
+    text-transform: uppercase; letter-spacing: .08em;
+    font-family: 'IBM Plex Mono', monospace; flex: 1;
+  }
+  .git-panel-btn {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); cursor: pointer; padding: 3px 5px;
+    display: inline-flex; align-items: center;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .git-panel-btn:hover { background: var(--bg-3); color: var(--text); }
+  .git-panel-btn svg { display: block; }
+  .git-panel-btn.spinning svg { animation: git-spin .8s linear infinite; }
+  @keyframes git-spin { to { transform: rotate(360deg); } }
+  #btn-close-git {
+    background: none; border: none; color: var(--muted);
+    font-size: 20px; cursor: pointer; line-height: 1;
+    padding: 4px 6px; border-radius: 2px;
+    transition: background .12s, color .12s;
+  }
+  #btn-close-git:hover { background: var(--bg-3); color: var(--text); }
+  #git-branch-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; font-size: 12px; color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  #git-branch-row svg { color: var(--muted); flex-shrink: 0; }
+  #git-branch-name {
+    font-weight: 600; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #git-branch-cwd {
+    color: var(--muted); font-size: 10px; margin-left: auto;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 45%; text-align: right;
+  }
+  #git-body { flex: 1; overflow-y: auto; min-height: 0; }
+  .git-empty {
+    padding: 28px 16px; text-align: center; color: var(--muted);
+    font-size: 12px; line-height: 1.6;
+  }
+  .git-file {
+    border-bottom: 1px solid var(--border);
+  }
+  .git-file-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; cursor: pointer;
+    transition: background .12s;
+  }
+  .git-file-row:hover { background: var(--bg-2); }
+  .git-file-badge {
+    flex-shrink: 0;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 2px 5px;
+    text-transform: uppercase;
+  }
+  .git-file-badge.badge-added {
+    background: rgba(46, 160, 67, 0.15);
+    color: #2ea043;
+  }
+  .git-file-badge.badge-modified {
+    background: rgba(214, 166, 25, 0.15);
+    color: #d6a619;
+  }
+  .git-file-badge.badge-deleted {
+    background: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+  }
+  .git-file-name {
+    flex: 1; min-width: 0; font-size: 12px; color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    direction: rtl; text-align: left;
+  }
+  .git-file-name bdi { direction: ltr; unicode-bidi: bidi-override; }
+  .git-file-stat {
+    flex-shrink: 0; font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .git-stat-add { color: #2ea043; }
+  .git-stat-del { color: #f85149; }
+  .git-staged-dot {
+    flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%;
+    background: #2ea043;
+  }
+  .git-diff {
+    display: none; overflow-x: auto;
+    background: var(--bg-2); border-top: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    line-height: 1.5;
+  }
+  .git-file.expanded .git-diff { display: block; }
+  .git-diff-line {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    border-bottom: 1px solid transparent;
+  }
+  .git-diff-line .ln-old, .git-diff-line .ln-new {
+    width: 32px;
+    min-width: 32px;
+    text-align: right;
+    padding-right: 6px;
+    color: var(--muted);
+    font-size: 9px;
+    user-select: none;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .git-diff-line .line-code {
+    flex: 1;
+    padding-left: 8px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: flex;
+    align-items: center;
+  }
+  .git-diff-line.add { background: rgba(46,160,67,.1); }
+  .git-diff-line.add .line-code { color: #56d364; }
+  .git-diff-line.add .ln-old, .git-diff-line.add .ln-new { background: rgba(46,160,67,.05); }
+  .git-diff-line.del { background: rgba(248,81,73,.1); }
+  .git-diff-line.del .line-code { color: #f85149; }
+  .git-diff-line.del .ln-old, .git-diff-line.del .ln-new { background: rgba(248,81,73,.05); }
+  .git-diff-line.hunk { background: var(--bg-3); }
+  .git-diff-line.hunk .line-code { color: #58a6ff; font-weight: 600; }
+  .git-diff-line.meta { color: var(--muted); }
+  .git-diff-line.meta .ln-old, .git-diff-line.meta .ln-new { background: transparent; }
+  .git-diff-note { padding: 8px 12px; color: var(--muted); font-size: 11px; }
   .cwd-row {
     padding: 12px;
     border-bottom: 1px solid var(--border);
@@ -1442,6 +1726,9 @@
     <button id="btn-terminal" type="button" title="Terminal" aria-label="Open terminal">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
     </button>
+    <button id="btn-git" type="button" title="Git" aria-label="Open git panel">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+    </button>
     <button id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
       <svg id="theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
     </button>
@@ -1688,6 +1975,46 @@
   <div id="sidebar-footer-row" style="margin-top:auto;padding:8px 12px 4px;flex-shrink:0;"></div>
 </aside>
 
+<aside id="git-panel" aria-hidden="true">
+  <div id="git-resize" title="Drag to resize"></div>
+  <div class="git-panel-header">
+    <div class="git-panel-row-top">
+      <div class="git-panel-title" id="git-panel-title">Review</div>
+      <div class="git-panel-header-actions">
+        <button id="btn-git-card" class="git-panel-btn" type="button" title="Insert changed files card in chat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+        </button>
+        <button id="btn-git-refresh" class="git-panel-btn" type="button" title="Refresh">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+        <button id="btn-close-git" type="button" title="Close">×</button>
+      </div>
+    </div>
+    <div class="git-panel-row-bottom">
+      <select id="git-mode-select" class="git-select">
+        <option value="git">Git changes</option>
+        <option value="last-turn">Last turn changes</option>
+      </select>
+      <div class="git-view-toggles">
+        <button id="btn-git-unified" class="git-pill-btn active" type="button">Unified</button>
+        <button id="btn-git-split" class="git-pill-btn" type="button" disabled title="Split view is disabled in v1">Split</button>
+      </div>
+      <button id="btn-git-expand" class="git-panel-btn" type="button" title="Expand/Collapse all files">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div id="git-branch-row" style="display:none">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+    <span id="git-branch-name">—</span>
+    <span id="git-branch-cwd"></span>
+  </div>
+  <div id="git-body"></div>
+</aside>
+
 <div id="viewer">
   <div id="viewer-resize"></div>
   <div id="viewer-header">
@@ -1755,6 +2082,19 @@
     btnCloseSidebar: $('#btn-close-sidebar'),
     sidebar: $('#sidebar'),
     sidebarBg: $('#sidebar-bg'),
+    btnGit: $('#btn-git'),
+    gitPanel: $('#git-panel'),
+    gitResize: $('#git-resize'),
+    gitPanelTitle: $('#git-panel-title'),
+    gitModeSelect: $('#git-mode-select'),
+    btnGitExpand: $('#btn-git-expand'),
+    btnCloseGit: $('#btn-close-git'),
+    btnGitRefresh: $('#btn-git-refresh'),
+    btnGitCard: $('#btn-git-card'),
+    gitBranchRow: $('#git-branch-row'),
+    gitBranchName: $('#git-branch-name'),
+    gitBranchCwd: $('#git-branch-cwd'),
+    gitBody: $('#git-body'),
     sessionList: $('#session-list'),
     cwdInput: $('#cwd-input'),
     modelSelect: $('#model-select'),
@@ -1795,6 +2135,7 @@
     contentSearchResults: null,
     contentSearchLoading: false,
     cwd: '',
+    git: { open: false, loading: false, cwd: '', branch: '', files: [], isRepo: false, error: '', expanded: new Set(), mode: 'git' },
     permissionMode: 'bypassPermissions',
     model: 'sonnet',
     engine: 'claude',
@@ -1837,6 +2178,7 @@
 
   // ---------- WS ----------
   let reconnectTimer = null;
+  let replayingHistory = false;  // true while replaying stored session events
   function scheduleReconnect(ms) {
     if (reconnectTimer) return;
     reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, ms);
@@ -1848,6 +2190,16 @@
   }
   function setStoredSessionId(nodeId, sid) {
     const key = 'sessionId:' + (nodeId || 'local');
+    try {
+      if (sid) localStorage.setItem(key, sid);
+      else localStorage.removeItem(key);
+    } catch {}
+  }
+  function storedTempSessionId(nodeId) {
+    try { return localStorage.getItem('tempSessionId:' + (nodeId || 'local')); } catch { return null; }
+  }
+  function setStoredTempSessionId(nodeId, sid) {
+    const key = 'tempSessionId:' + (nodeId || 'local');
     try {
       if (sid) localStorage.setItem(key, sid);
       else localStorage.removeItem(key);
@@ -1949,8 +2301,11 @@
         if (!pendingNodeSwitch || pendingNodeSwitch === state.currentNodeId) {
           pendingNodeSwitch = null;
           const sid = storedSessionId(state.currentNodeId);
+          const tempSid = storedTempSessionId(state.currentNodeId);
           if (sid) {
             send({ type: 'load_session', sessionId: sid });
+          } else if (tempSid) {
+            send({ type: 'load_session', sessionId: tempSid });
           } else {
             // No saved session for this node — show clean empty state.
             state.sessionId = null;
@@ -1963,6 +2318,7 @@
           }
         }
         refreshFileList(state.cwd);
+        refreshGit(state.cwd);
         break;
       case 'node_connecting':
         state.currentNodeId = m.nodeId;
@@ -1981,12 +2337,23 @@
         updateNodeBadge();
         break;
       case 'session_loaded':
+        if (m.sessionId && m.sessionId.startsWith('temp_')) {
+          // If it loaded a temp session, make sure state is updated but don't overwrite the stored real session ID yet.
+          state.sessionId = m.sessionId;
+          updateGitHeaderTitle();
+        } else if (m.sessionId) {
+          // If a real session loaded, clear any stored tempSessionId
+          setStoredTempSessionId(state.currentNodeId, null);
+        }
         loadSession(m.sessionId, m.cwd, m.events, m.permissionMode, m.model, m.active, m.engine);
         refreshFileList(m.cwd);
+        refreshGit(m.cwd);
         break;
       case 'session_persisted':
         state.sessionId = m.sessionId;
+        updateGitHeaderTitle();
         setStoredSessionId(state.currentNodeId, m.sessionId);
+        setStoredTempSessionId(state.currentNodeId, null); // Clear temp ID once persisted
         state.sessions = m.sessions || state.sessions;
         renderSessions();
         updateHeaderTitle();
@@ -1994,7 +2361,9 @@
       case 'session_cleared':
         clearMessages();
         state.sessionId = null;
+        updateGitHeaderTitle();
         setStoredSessionId(state.currentNodeId, null);
+        setStoredTempSessionId(state.currentNodeId, null); // Clear temp ID
         state.inTurn = false;
         state.aborting = false;
         state.lastAssistantBubble = null;
@@ -2007,6 +2376,7 @@
         state.cwd = m.cwd; els.cwdInput.value = m.cwd;
         updateSettingsCwd(m.cwd);
         refreshFileList(m.cwd);
+        refreshGit(m.cwd);
         break;
       case 'permission_set':
         state.permissionMode = m.permissionMode;
@@ -2087,6 +2457,7 @@
         hideAndCancelThinking();
         finalizeStreamingText();
         renderTurnSummary(m);
+        if (!replayingHistory) renderChangedFilesCard('last-turn');
         break;
       case 'aborting':
         hideAndCancelThinking();
@@ -2476,6 +2847,94 @@
 
     if (!el.childNodes.length) return;
     els.messages.appendChild(el);
+  }
+
+  // After a turn completes, show a "Changed files" card summarizing the repo's
+  // current uncommitted changes (same data as the git panel). Skipped on
+  // non-repo cwd or when there are no changes. Also refreshes the git panel.
+  async function renderChangedFilesCard(mode) {
+    const dir = state.cwd;
+    if (!dir) return;
+    // Keep the side panel in sync with what just happened.
+    if (state.git.open) refreshGit(dir);
+    let data;
+    try {
+      const activeMode = mode || state.git.mode;
+      let url = '/api/git/status?cwd=' + encodeURIComponent(dir);
+      if (activeMode === 'last-turn') {
+        url = `/api/git/last-turn?cwd=${encodeURIComponent(dir)}&sessionId=${state.sessionId || ''}`;
+      }
+      const res = await fetch(url);
+      data = await res.json();
+      if (!res.ok || !data.isRepo || !Array.isArray(data.files) || !data.files.length) return;
+    } catch { return; }
+
+    let totalAdd = 0, totalDel = 0;
+    for (const f of data.files) { totalAdd += f.insertions || 0; totalDel += f.deletions || 0; }
+
+    const card = document.createElement('div');
+    card.className = 'changes-card';
+    const n = data.files.length;
+    const head = document.createElement('div');
+    head.className = 'changes-card-head';
+    head.innerHTML =
+      '<span class="cc-count">' + n + ' Changed file' + (n === 1 ? '' : 's') + '</span>' +
+      '<span class="cc-add">+' + totalAdd + '</span>' +
+      '<span class="cc-del">−' + totalDel + '</span>';
+    card.appendChild(head);
+
+    const list = document.createElement('div');
+    list.className = 'changes-card-list';
+    for (const f of data.files) {
+      const row = document.createElement('div');
+      row.className = 'cc-row';
+      // Split path into dir prefix (muted) + basename (bold), like the screenshot.
+      const slash = f.path.lastIndexOf('/');
+      const dirPart = slash >= 0 ? f.path.slice(0, slash + 1) : '';
+      const base = slash >= 0 ? f.path.slice(slash + 1) : f.path;
+      const stat = (f.insertions == null && f.deletions == null)
+        ? '<span class="cc-stat" style="color:var(--muted)">bin</span>'
+        : '<span class="cc-stat"><span class="cc-add">+' + (f.insertions || 0) + '</span> <span class="cc-del">−' + (f.deletions || 0) + '</span></span>';
+      row.innerHTML =
+        '<span class="cc-name" title="' + escapeHtml(f.path) + '"><bdi>' + escapeHtml(dirPart) + '<b>' + escapeHtml(base) + '</b></bdi></span>' +
+        stat +
+        '<span class="cc-chevron"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>';
+
+      const diffEl = document.createElement('div');
+      diffEl.className = 'cc-diff';
+      diffEl.dataset.loaded = '0';
+      diffEl.dataset.cwd = dir;
+
+      row.addEventListener('click', () => {
+        const open = row.classList.toggle('expanded');
+        const chev = row.querySelector('.cc-chevron svg');
+        if (chev) chev.style.transform = open ? 'rotate(90deg)' : '';
+        if (open && diffEl.dataset.loaded === '0') loadChangedFileDiff(f, diffEl);
+      });
+      list.appendChild(row);
+      list.appendChild(diffEl);
+    }
+    card.appendChild(list);
+    els.messages.appendChild(card);
+    scrollToBottom();
+  }
+
+  async function loadChangedFileDiff(f, diffEl) {
+    diffEl.dataset.loaded = '1';
+    diffEl.innerHTML = '<div class="cc-diff-note">Loading diff…</div>';
+    try {
+      const params = new URLSearchParams({ cwd: diffEl.dataset.cwd || state.cwd, path: f.path });
+      if (f.staged && !f.unstaged) params.set('staged', '1');
+      if (f.untracked) params.set('untracked', '1');
+      const res = await fetch('/api/git/diff?' + params.toString());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'failed');
+      diffEl.innerHTML = data.diff ? renderDiffHtml(data.diff) : '<div class="cc-diff-note">No textual diff.</div>';
+      if (data.truncated) diffEl.innerHTML += '<div class="cc-diff-note">⚠ diff truncated (too large)</div>';
+    } catch (err) {
+      diffEl.dataset.loaded = '0';
+      diffEl.innerHTML = '<div class="cc-diff-note">Error: ' + escapeHtml(err.message) + '</div>';
+    }
   }
 
   function renderInfoBubble(message) {
@@ -3074,6 +3533,229 @@
     }
   }
 
+  // ---------- Git panel (read-only) ----------
+  function openGitPanel() {
+    state.git.open = true;
+    els.gitPanel.classList.add('open');
+    els.gitPanel.setAttribute('aria-hidden', 'false');
+    els.btnGit.classList.add('active');
+    // Push the chat layout aside (like #viewer) rather than floating over it.
+    const gw = (els.gitPanel.offsetWidth || parseInt(els.gitPanel.style.width) || 360);
+    document.getElementById('app').classList.add('git-open');
+    document.documentElement.style.setProperty('--git-w', gw + 'px');
+
+    // Sync panel title with short sessionId
+    updateGitHeaderTitle();
+
+    // Refresh on open if we have no data for the current cwd yet.
+    if (state.git.cwd !== (state.cwd || '') || (!state.git.files.length && !state.git.error)) {
+      refreshGit(state.cwd);
+    }
+  }
+
+  function updateGitHeaderTitle() {
+    if (els.gitPanelTitle) {
+      const shortId = state.sessionId ? state.sessionId.slice(0, 8) : '';
+      els.gitPanelTitle.textContent = shortId ? 'Review ' + shortId : 'Review';
+    }
+  }
+
+  function closeGitPanel() {
+    state.git.open = false;
+    els.gitPanel.classList.remove('open');
+    els.gitPanel.setAttribute('aria-hidden', 'true');
+    els.btnGit.classList.remove('active');
+    document.getElementById('app').classList.remove('git-open');
+    document.documentElement.style.removeProperty('--git-w');
+  }
+
+  async function refreshGit(cwd) {
+    const dir = cwd || state.cwd;
+    if (!dir) return;
+    state.git.cwd = dir;
+    state.git.loading = true;
+    els.btnGitRefresh.classList.add('spinning');
+    // Only paint a loading state when the panel is actually visible.
+    if (state.git.open && !state.git.files.length) {
+      els.gitBody.innerHTML = '<div class="git-empty"><span class="spinner"></span><div style="margin-top:8px">Loading…</div></div>';
+    }
+    try {
+      let url = '/api/git/status?cwd=' + encodeURIComponent(dir);
+      if (state.git.mode === 'last-turn') {
+        url = `/api/git/last-turn?cwd=${encodeURIComponent(dir)}&sessionId=${state.sessionId || ''}`;
+      }
+      const res = await fetch(url);
+      const data = await res.json();
+      // Ignore stale responses if cwd changed while in flight.
+      if (state.git.cwd !== dir) return;
+      if (!res.ok) throw new Error(data.error || 'failed');
+
+      state.git.isRepo = !!data.isRepo;
+      if (data.branch !== undefined) {
+        state.git.branch = data.branch || '';
+      }
+      state.git.files = data.files || [];
+      state.git.error = '';
+      state.git.expanded = new Set();
+    } catch (err) {
+      if (state.git.cwd !== dir) return;
+      state.git.isRepo = false;
+      state.git.files = [];
+      state.git.error = err.message;
+    } finally {
+      state.git.loading = false;
+      els.btnGitRefresh.classList.remove('spinning');
+      renderGit();
+    }
+  }
+
+  function renderGit() {
+    const g = state.git;
+    // Branch row
+    if (g.isRepo && g.branch) {
+      els.gitBranchRow.style.display = 'flex';
+      els.gitBranchName.textContent = g.branch || '—';
+      els.gitBranchCwd.textContent = shortCwd(g.cwd);
+    } else {
+      els.gitBranchRow.style.display = 'none';
+    }
+    // Body
+    if (g.error) {
+      els.gitBody.innerHTML = '<div class="git-empty">Error: ' + escapeHtml(g.error) + '</div>';
+      return;
+    }
+    if (!g.isRepo) {
+      els.gitBody.innerHTML = '<div class="git-empty">Not a git repository.<br><span style="font-size:11px">' + escapeHtml(shortCwd(g.cwd)) + '</span></div>';
+      return;
+    }
+    if (!g.files.length) {
+      const emptyMsg = state.git.mode === 'last-turn'
+        ? '✓ No changes in last turn<br><span style="font-size:11px">AI hasn\'t touched any files in this step</span>'
+        : '✓ No changes<br><span style="font-size:11px">Working tree clean</span>';
+      els.gitBody.innerHTML = '<div class="git-empty">' + emptyMsg + '</div>';
+      return;
+    }
+    els.gitBody.innerHTML = '';
+    for (const f of g.files) {
+      const fileEl = document.createElement('div');
+      fileEl.className = 'git-file';
+      const key = (f.staged ? 'S:' : 'W:') + f.path;
+      if (g.expanded.has(key)) fileEl.classList.add('expanded');
+
+      const row = document.createElement('div');
+      row.className = 'git-file-row';
+
+      // Determine Added / Modified / Deleted status
+      const statusChar = (f.status || '?').toUpperCase();
+      let statusLabel = 'Modified';
+      let statusClass = 'badge-modified';
+      if (statusChar === 'A' || statusChar === '?') {
+        statusLabel = 'Added';
+        statusClass = 'badge-added';
+      } else if (statusChar === 'D') {
+        statusLabel = 'Deleted';
+        statusClass = 'badge-deleted';
+      }
+
+      const stat = gitStatHtml(f);
+      const stagedDot = f.staged ? '<span class="git-staged-dot" title="staged"></span>' : '';
+      row.innerHTML =
+        '<span class="git-file-badge ' + statusClass + '">' + statusLabel + '</span>' +
+        '<span class="git-file-name" title="' + escapeHtml(f.path) + '"><bdi>' + escapeHtml(f.path) + '</bdi></span>' +
+        stagedDot + stat;
+      row.addEventListener('click', () => toggleGitDiff(f, fileEl, key));
+      fileEl.appendChild(row);
+
+      const diffEl = document.createElement('div');
+      diffEl.className = 'git-diff';
+      diffEl.dataset.loaded = '0';
+      fileEl.appendChild(diffEl);
+
+      els.gitBody.appendChild(fileEl);
+
+      // Re-expand (and reload) if it was open before a re-render.
+      if (g.expanded.has(key)) loadGitDiff(f, diffEl);
+    }
+  }
+
+  function gitStatHtml(f) {
+    if (f.insertions == null && f.deletions == null) return '<span class="git-file-stat" style="color:var(--muted)">bin</span>';
+    const ins = f.insertions || 0, del = f.deletions || 0;
+    return '<span class="git-file-stat"><span class="git-stat-add">+' + ins + '</span> <span class="git-stat-del">-' + del + '</span></span>';
+  }
+
+  function toggleGitDiff(f, fileEl, key) {
+    const diffEl = fileEl.querySelector('.git-diff');
+    if (fileEl.classList.contains('expanded')) {
+      fileEl.classList.remove('expanded');
+      state.git.expanded.delete(key);
+    } else {
+      fileEl.classList.add('expanded');
+      state.git.expanded.add(key);
+      if (diffEl.dataset.loaded === '0') loadGitDiff(f, diffEl);
+    }
+  }
+
+  async function loadGitDiff(f, diffEl) {
+    diffEl.dataset.loaded = '1';
+    diffEl.innerHTML = '<div class="git-diff-note">Loading diff…</div>';
+    try {
+      const params = new URLSearchParams({ cwd: state.git.cwd, path: f.path });
+      if (f.staged && !f.unstaged) params.set('staged', '1');
+      if (f.untracked) params.set('untracked', '1');
+      const res = await fetch('/api/git/diff?' + params.toString());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'failed');
+      diffEl.innerHTML = renderDiffHtml(data.diff || '');
+      if (data.truncated) diffEl.innerHTML += '<div class="git-diff-note">⚠ diff truncated (too large)</div>';
+      if (!data.diff) diffEl.innerHTML = '<div class="git-diff-note">No textual diff.</div>';
+    } catch (err) {
+      diffEl.dataset.loaded = '0';
+      diffEl.innerHTML = '<div class="git-diff-note">Error: ' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  function renderDiffHtml(diff) {
+    const lines = diff.split('\n');
+    let html = '';
+    let oldLine = 0;
+    let newLine = 0;
+    for (const line of lines) {
+      let cls = '';
+      let oldDisplay = '';
+      let newDisplay = '';
+      let codeText = line;
+
+      if (line.startsWith('@@')) {
+        cls = 'hunk';
+        const match = line.match(/^@@\s+-(\d+),?\d*\s+\+(\d+),?\d*\s+@@/);
+        if (match) {
+          oldLine = parseInt(match[1], 10);
+          newLine = parseInt(match[2], 10);
+        }
+      } else if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('new ') || line.startsWith('deleted ') || line.startsWith('rename ') || line.startsWith('similarity ')) {
+        cls = 'meta';
+      } else if (line.startsWith('+')) {
+        cls = 'add';
+        newDisplay = newLine++;
+      } else if (line.startsWith('-')) {
+        cls = 'del';
+        oldDisplay = oldLine++;
+      } else if (line.startsWith(' ') || !line) {
+        cls = 'ctx';
+        oldDisplay = oldLine++;
+        newDisplay = newLine++;
+      }
+
+      html += '<div class="git-diff-line ' + cls + '">' +
+              '<span class="ln-old">' + oldDisplay + '</span>' +
+              '<span class="ln-new">' + newDisplay + '</span>' +
+              '<span class="line-code">' + (escapeHtml(codeText) || '&nbsp;') + '</span>' +
+              '</div>';
+    }
+    return html;
+  }
+
   // ---------- Node selector ----------
   function renderNodeList() {
     if (!els.nodeRow || !els.nodeList) return;
@@ -3119,6 +3801,7 @@
   // ---------- Sessions ----------
   function loadSession(id, cwd, events, permissionMode, model, active, engine) {
     state.sessionId = id;
+    updateGitHeaderTitle();
     setStoredSessionId(state.currentNodeId, id);
     state.cwd = cwd || state.cwd;
     if (permissionMode) state.permissionMode = permissionMode;
@@ -3143,8 +3826,11 @@
       e.textContent = id ? 'Belum ada pesan di session ini.' : 'Mulai chat baru — ketik pesan di bawah.';
       els.messages.appendChild(e);
     } else {
-      // replay normalized events
+      // replay normalized events (suppress live-only side effects like the
+      // changed-files card, which would otherwise fetch current git state).
+      replayingHistory = true;
       for (const evt of events) handle(evt);
+      replayingHistory = false;
       // After replay, linkify all text bubbles — tool_start events that register
       // writtenFiles may come AFTER the assistant_text that mentions them.
       linkifyAllTextBubbles();
@@ -3468,6 +4154,17 @@
     const text = els.input.value;
     if (!text.trim() && pendingImages.length === 0) return;
     const payload = { type: 'prompt', text };
+
+    // Generate/Attach tempSessionId if not in an active session
+    if (!state.sessionId) {
+      let tempSid = storedTempSessionId(state.currentNodeId);
+      if (!tempSid) {
+        tempSid = 'temp_' + Math.random().toString(36).slice(2, 10);
+        setStoredTempSessionId(state.currentNodeId, tempSid);
+      }
+      payload.tempSessionId = tempSid;
+    }
+
     if (pendingImages.length > 0) {
       payload.images = pendingImages.map(img => ({
         name: img.name,
@@ -3560,6 +4257,72 @@
     closeSidebar();
   });
   els.sidebarBg.addEventListener('click', closeSidebar);
+
+  els.btnGit.addEventListener('click', () => {
+    if (state.git.open) closeGitPanel(); else openGitPanel();
+  });
+  els.btnCloseGit.addEventListener('click', closeGitPanel);
+  els.btnGitRefresh.addEventListener('click', () => refreshGit(state.cwd));
+  els.btnGitCard.addEventListener('click', () => renderChangedFilesCard());
+
+  els.gitModeSelect.addEventListener('change', (e) => {
+    state.git.mode = e.target.value;
+    refreshGit(state.cwd);
+  });
+
+  els.btnGitExpand.addEventListener('click', () => {
+    const files = state.git.files;
+    if (!files || !files.length) return;
+    const isAllExpanded = files.every(f => {
+      const key = (f.staged ? 'S:' : 'W:') + f.path;
+      return state.git.expanded.has(key);
+    });
+
+    if (isAllExpanded) {
+      state.git.expanded.clear();
+    } else {
+      files.forEach(f => {
+        const key = (f.staged ? 'S:' : 'W:') + f.path;
+        state.git.expanded.add(key);
+      });
+    }
+    renderGit();
+  });
+
+  // ── Git panel resize (mirrors #viewer; desktop only) ────
+  function setGitWidth(w) {
+    els.gitPanel.style.width = w + 'px';
+    els.gitPanel.style.setProperty('--gw', w + 'px');
+    if (state.git.open) document.documentElement.style.setProperty('--git-w', w + 'px');
+  }
+  try {
+    const savedGw = localStorage.getItem('git-panel-width');
+    if (savedGw) { const w = parseInt(savedGw); if (w >= 240 && w <= 760) setGitWidth(w); }
+  } catch {}
+  let gitResizing = false, gitStartX = 0, gitStartW = 0;
+  function gitResizeStart(clientX) {
+    gitResizing = true; gitStartX = clientX; gitStartW = els.gitPanel.offsetWidth;
+    els.gitResize.classList.add('dragging');
+    document.body.style.userSelect = 'none'; document.body.style.cursor = 'col-resize';
+  }
+  function gitResizeMove(clientX) {
+    if (!gitResizing) return;
+    const w = Math.min(760, Math.max(240, gitStartW + (gitStartX - clientX)));
+    setGitWidth(w);
+  }
+  function gitResizeEnd() {
+    if (!gitResizing) return;
+    gitResizing = false;
+    els.gitResize.classList.remove('dragging');
+    document.body.style.userSelect = ''; document.body.style.cursor = '';
+    try { localStorage.setItem('git-panel-width', els.gitPanel.offsetWidth + 'px'); } catch {}
+  }
+  els.gitResize.addEventListener('mousedown', (e) => { gitResizeStart(e.clientX); e.preventDefault(); });
+  document.addEventListener('mousemove', (e) => gitResizeMove(e.clientX));
+  document.addEventListener('mouseup', gitResizeEnd);
+  els.gitResize.addEventListener('touchstart', (e) => { gitResizeStart(e.touches[0].clientX); e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (gitResizing) gitResizeMove(e.touches[0].clientX); }, { passive: false });
+  document.addEventListener('touchend', gitResizeEnd);
 
   els.btnNew.addEventListener('click', () => {
     send({
