@@ -110,6 +110,13 @@ const QWEN_ENGINE = {
 };
 
 async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, onSessionId) {
+  if (currentSessionId && !/^[a-zA-Z0-9_.-]+$/.test(currentSessionId)) {
+    return { error: 'Invalid session ID format' };
+  }
+  if (currentModel && currentModel !== 'default' && !/^[a-zA-Z0-9_.-]+$/.test(currentModel)) {
+    return { error: 'Invalid model format' };
+  }
+
   const args = engine.buildArgs(currentPerm, currentModel, currentSessionId);
 
   let proc;

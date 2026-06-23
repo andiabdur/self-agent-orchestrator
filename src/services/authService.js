@@ -6,14 +6,6 @@ export function getSessionToken(req) {
   const cookieHeader = req.headers?.cookie || '';
   const match = cookieHeader.match(/session_token=([^;]+)/);
   if (match) return match[1];
-  
-  if (req.url) {
-    try {
-      const url = new URL(req.url, 'http://localhost');
-      const token = url.searchParams.get('token');
-      if (token) return token;
-    } catch {}
-  }
   return null;
 }
 

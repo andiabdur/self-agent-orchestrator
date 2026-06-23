@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { USERNAME, PASSWORD } from '../config.js';
 import { activeSessions, isAuthenticated, getSessionToken } from '../services/authService.js';
 
@@ -10,7 +11,7 @@ router.post('/api/login', (req, res) => {
     return res.status(400).json({ error: 'Username dan password wajib diisi' });
   }
   if (username === USERNAME && password === PASSWORD) {
-    const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    const token = crypto.randomBytes(32).toString('hex');
     activeSessions.add(token);
     res.setHeader('Set-Cookie', `session_token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000`);
     return res.json({ ok: true });
