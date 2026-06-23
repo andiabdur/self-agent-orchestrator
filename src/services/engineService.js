@@ -113,7 +113,7 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
   if (currentSessionId && !/^[a-zA-Z0-9_.-]+$/.test(currentSessionId)) {
     return { error: 'Invalid session ID format' };
   }
-  if (currentModel && currentModel !== 'default' && !/^[a-zA-Z0-9_.-]+$/.test(currentModel)) {
+  if (currentModel && currentModel !== 'default' && !/^[a-zA-Z0-9_.\-/:@]+$/.test(currentModel)) {
     return { error: 'Invalid model format' };
   }
 
