@@ -95,6 +95,25 @@ function resolveQwenBin() {
 }
 export const QWEN_BIN = resolveQwenBin();
 
+// Resolve CODEX_BIN dynamically
+const rawCodexBin = process.env.CODEX_BIN || path.join(os.homedir(), '.local', 'bin', 'codex');
+function resolveCodexBin() {
+  if (rawCodexBin && fs.existsSync(rawCodexBin)) return rawCodexBin;
+  if (isWin) {
+    if (process.env.APPDATA) {
+      const p = path.join(process.env.APPDATA, 'npm', 'codex.cmd');
+      if (fs.existsSync(p)) return p;
+    }
+    return 'codex';
+  }
+  const userLocalBin = path.join(os.homedir(), '.local', 'bin', 'codex');
+  if (fs.existsSync(userLocalBin)) return userLocalBin;
+  if (fs.existsSync('/usr/local/bin/codex')) return '/usr/local/bin/codex';
+  if (fs.existsSync('/opt/homebrew/bin/codex')) return '/opt/homebrew/bin/codex';
+  return 'codex';
+}
+export const CODEX_BIN = resolveCodexBin();
+
 export const DEFAULT_CWD = process.env.AGENT_CWD || os.homedir();
 export const DEFAULT_PERM = process.env.PERMISSION_MODE || 'bypassPermissions';
 export const VALID_PERMS = new Set(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'dontAsk', 'plan']);
@@ -126,7 +145,13 @@ export const CLAUDE_MODELS = [
 
 export const VALID_MODELS = new Set(CLAUDE_MODELS.map(m => m.id));
 export const DEFAULT_ENGINE = process.env.ENGINE || 'claude';
-export const VALID_ENGINES = new Set(['claude', 'qwen']);
+export const VALID_ENGINES = new Set(['claude', 'qwen', 'codex']);
+
+export const CODEX_MODELS = [
+  { id: 'gpt-5-codex',  label: 'GPT-5 Codex' },
+  { id: 'gpt-5',        label: 'GPT-5' },
+  { id: 'o4-mini',      label: 'o4-mini' },
+];
 
 export const NODE_NAME = process.env.NODE_NAME || os.hostname();
 export const REMOTE_NODES = (() => {

@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { isWin, CLAUDE_BIN, QWEN_BIN } from '../config.js';
+import { isWin, CLAUDE_BIN, QWEN_BIN, CODEX_BIN } from '../config.js';
 import { appendSessionEvent, loadIndex, upsertSessionMeta, loadIndexEnriched } from './sessionStore.js';
 
 export const activeRuns = new Map();
@@ -38,7 +38,7 @@ setInterval(() => {
   }
 }, 60_000).unref();
 
-function normalizeEvent(evt) {
+function normalizeClaudeEvent(evt) {
   if (evt.type === 'system' && evt.subtype === 'init') {
     return [{ kind: 'turn_start', session_id: evt.session_id, cwd: evt.cwd, model: evt.model }];
   }
@@ -73,6 +73,95 @@ function normalizeEvent(evt) {
   return [];
 }
 
+// Codex (OpenAI) memakai event-stream sendiri. Kita map ke vocabulary internal yang
+// sama dengan Claude/Qwen agar UI tidak perlu tahu engine mana.
+//
+// Untuk command_execution & mcp_tool_call kita pakai dua event: tool_start (saat
+// item.started) dan tool_result (saat item.completed), memakai item.id sebagai
+// id/tool_use_id supaya UI memasangkannya seperti pasangan tool_use/tool_result Claude.
+function normalizeCodexEvent(evt) {
+  switch (evt.type) {
+    case 'thread.started':
+      // session_id ditangani di processLine via evt.session_id (lihat 3.4);
+      // emit turn_start agar UI menandai awal turn.
+      return [{ kind: 'turn_start', session_id: evt.thread_id }];
+
+    case 'turn.started':
+      return []; // tidak ada padanan; turn_start sudah dari thread.started
+
+    case 'item.started': {
+      const it = evt.item || {};
+      if (it.type === 'command_execution') {
+        return [{ kind: 'tool_start', id: it.id, name: 'shell',
+                  input: { command: it.command } }];
+      }
+      if (it.type === 'mcp_tool_call') {
+        return [{ kind: 'tool_start', id: it.id, name: `${it.server}:${it.tool}`,
+                  input: it.arguments }];
+      }
+      return []; // agent_message/reasoning/file_change hanya dipakai saat completed
+    }
+
+    case 'item.completed': {
+      const it = evt.item || {};
+      if (it.type === 'agent_message') {
+        return [{ kind: 'assistant_text', text: it.text || '' }];
+      }
+      if (it.type === 'reasoning') {
+        return [{ kind: 'thinking', text: it.text || '' }];
+      }
+      if (it.type === 'command_execution') {
+        return [{ kind: 'tool_result', tool_use_id: it.id,
+                  content: String(it.aggregated_output || ''),
+                  is_error: it.status === 'failed' || (it.exit_code && it.exit_code !== 0) }];
+      }
+      if (it.type === 'mcp_tool_call') {
+        const body = it.error ? String(it.error)
+                              : (typeof it.result === 'string' ? it.result : JSON.stringify(it.result ?? ''));
+        return [{ kind: 'tool_result', tool_use_id: it.id, content: body,
+                  is_error: !!it.error || it.status === 'failed' }];
+      }
+      if (it.type === 'file_change') {
+        // Tidak ada item.started untuk file_change → emit tool_start + tool_result
+        // sekaligus agar UI tetap menampilkan kartu.
+        const summary = (it.changes || [])
+          .map(c => `${c.kind}: ${c.path}`).join('\n');
+        return [
+          { kind: 'tool_start',  id: it.id, name: 'apply_patch', input: { changes: it.changes } },
+          { kind: 'tool_result', tool_use_id: it.id, content: summary, is_error: false },
+        ];
+      }
+      return [];
+    }
+
+    case 'turn.completed': {
+      const u = evt.usage || {};
+      return [{
+        kind: 'turn_complete',
+        cost_usd: undefined,            // Codex tidak mengirim cost
+        duration_ms: undefined,
+        num_turns: undefined,
+        input_tokens: u.input_tokens,
+        output_tokens: u.output_tokens,
+        cache_read_tokens: u.cached_input_tokens,
+        cache_creation_tokens: undefined,
+        is_error: false,
+      }];
+    }
+
+    case 'turn.failed':
+      return [{ kind: 'turn_complete', is_error: true,
+                cost_usd: undefined }];
+
+    case 'error':
+      // biar konsisten dgn jalur error lain, lempar sebagai tool-less error text
+      return [{ kind: 'assistant_text', text: `⚠️ Codex error: ${evt.message || 'unknown'}` }];
+
+    default:
+      return [];
+  }
+}
+
 // ─── Engine definitions ───────────────────────────────────────────────────
 // Claude and Qwen share the same run lifecycle (spawn → stream stdout JSONL →
 // persist + broadcast). They differ only in the binary, the CLI args, the
@@ -82,6 +171,7 @@ const CLAUDE_ENGINE = {
   bin: CLAUDE_BIN,
   keyPrefix: '__pending_',
   logParseErrors: true,
+  normalize: normalizeClaudeEvent,
   buildArgs(perm, model, sessionId) {
     const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', perm];
     if (perm === 'bypassPermissions') args.push('--allow-dangerously-skip-permissions');
@@ -96,6 +186,7 @@ const QWEN_ENGINE = {
   bin: QWEN_BIN,
   keyPrefix: '__pending_qwen_',
   logParseErrors: false,
+  normalize: normalizeClaudeEvent,
   buildArgs(perm, model, sessionId) {
     const args = ['-p', '--output-format', 'stream-json'];
     let approvalMode = 'default';
@@ -105,6 +196,38 @@ const QWEN_ENGINE = {
     args.push('--approval-mode', approvalMode);
     if (model && model !== 'default') args.push('--model', model);
     if (sessionId) args.push('--resume', sessionId);
+    return args;
+  },
+};
+
+const CODEX_ENGINE = {
+  name: 'codex',
+  bin: CODEX_BIN,
+  keyPrefix: '__pending_codex_',
+  logParseErrors: true,
+  normalize: normalizeCodexEvent,
+  // Codex CLI: `codex exec --json [--model M] "<prompt>"`
+  // resume: `codex exec resume <SESSION_ID> --json "<prompt>"`
+  buildArgs(perm, model, sessionId) {
+    const args = ['exec', '--json'];
+    // Pemetaan permission → sandbox Codex.
+    // bypassPermissions → full akses; selain itu workspace-write.
+    if (perm === 'bypassPermissions') {
+      args.push('--dangerously-bypass-approvals-and-sandbox');
+    } else {
+      args.push('-c', 'approval_policy="never"');
+      args.push('-c', 'sandbox_mode="workspace-write"');
+    }
+    if (model && model !== 'default') args.push('--model', model);
+    if (sessionId) {
+      // resume berada SETELAH 'exec': bentuknya `codex exec resume <id> --json ...`
+      // Jadi sisipkan subcommand resume di awal args alih-alih flag --resume.
+      return ['exec', 'resume', sessionId, '--json',
+              ...(model && model !== 'default' ? ['--model', model] : []),
+              ...(perm === 'bypassPermissions'
+                  ? ['--dangerously-bypass-approvals-and-sandbox']
+                  : ['-c', 'approval_policy="never"', '-c', 'sandbox_mode="workspace-write"'])];
+    }
     return args;
   },
 };
@@ -150,9 +273,10 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
     let evt;
     try { evt = JSON.parse(line); } catch (err) { if (engine.logParseErrors) console.error('[stdout] JSON parse fail:', err.message); return; }
 
-    if (evt.session_id && !run.sessionId) {
-      run.sessionId = evt.session_id;
-      if (onSessionId) onSessionId(evt.session_id);
+    const incomingSessionId = evt.session_id || evt.thread_id;
+    if (incomingSessionId && !run.sessionId) {
+      run.sessionId = incomingSessionId;
+      if (onSessionId) onSessionId(incomingSessionId);
       activeRuns.delete(initialKey);
       activeRuns.set(run.sessionId, run);
       for (const e of run.bufferedEvents) appendSessionEvent(run.sessionId, e);
@@ -162,7 +286,7 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
       broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
     }
 
-    const normalized = normalizeEvent(evt);
+    const normalized = engine.normalize(evt);
     const key = run.sessionId || initialKey;
     for (const n of normalized) {
       if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
@@ -200,4 +324,8 @@ export function sendPromptClaude(ws, text, savedImages, cwd, perm, model, sessio
 
 export function sendPromptQwen(ws, text, savedImages, cwd, perm, model, sessionId, isNew, tempSessionId, onSessionId) {
   return runEngine(QWEN_ENGINE, ws, text, savedImages, cwd, perm, model, sessionId, isNew, tempSessionId, onSessionId);
+}
+
+export function sendPromptCodex(ws, text, savedImages, cwd, perm, model, sessionId, isNew, tempSessionId, onSessionId) {
+  return runEngine(CODEX_ENGINE, ws, text, savedImages, cwd, perm, model, sessionId, isNew, tempSessionId, onSessionId);
 }

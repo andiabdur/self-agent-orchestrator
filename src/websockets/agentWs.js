@@ -7,9 +7,15 @@ import {
 } from '../config.js';
 import { loadIndexEnriched, loadSessionEvents, loadIndex, upsertSessionMeta } from '../services/sessionStore.js';
 import { saveUploadedImage, MAX_IMAGES_PER_TURN } from '../utils/helpers.js';
-import { activeRuns, sendPromptClaude, sendPromptQwen, broadcast } from '../services/engineService.js';
+import { activeRuns, sendPromptClaude, sendPromptQwen, sendPromptCodex, broadcast } from '../services/engineService.js';
 
 export const wss = new WebSocketServer({ noServer: true });
+
+function modelAllowed(engine, model) {
+  if (VALID_MODELS.has(model)) return true;
+  if ((engine === 'qwen' || engine === 'codex') && typeof model === 'string' && model.length > 0) return true;
+  return false;
+}
 
 wss.on('connection', (ws) => {
   let currentSessionId = null;
@@ -182,7 +188,7 @@ wss.on('connection', (ws) => {
       attach(null);
       currentCwd = m.cwd || DEFAULT_CWD;
       if (m.permissionMode && VALID_PERMS.has(m.permissionMode)) currentPerm = m.permissionMode;
-      const modelOk = VALID_MODELS.has(m.model) || (currentEngine === 'qwen' && typeof m.model === 'string' && m.model.length > 0);
+      const modelOk = modelAllowed(currentEngine, m.model);
       if (modelOk) currentModel = m.model;
       send({ kind: 'session_loaded', sessionId: null, cwd: currentCwd, permissionMode: currentPerm, model: currentModel, engine: currentEngine, events: [], active: false });
       return;
@@ -197,7 +203,7 @@ wss.on('connection', (ws) => {
     }
 
     if (m.type === 'set_model') {
-      const modelOk = VALID_MODELS.has(m.model) || (currentEngine === 'qwen' && typeof m.model === 'string' && m.model.length > 0);
+      const modelOk = modelAllowed(currentEngine, m.model);
       if (modelOk) {
         currentModel = m.model;
         if (currentSessionId) upsertSessionMeta(currentSessionId, { model: currentModel });
@@ -280,17 +286,18 @@ wss.on('connection', (ws) => {
 
       const isNew = !currentSessionId;
 
+      let result;
       if (currentEngine === 'qwen') {
-        const result = await sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
-        if (result?.error) { send({ kind: 'error', message: result.error }); return; }
-        if (result?.key) attachedKey = result.key;
-        if (result?.sessionId) currentSessionId = result.sessionId;
+        result = await sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
+      } else if (currentEngine === 'codex') {
+        result = await sendPromptCodex(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
       } else {
-        const result = await sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
-        if (result?.error) { send({ kind: 'error', message: result.error }); return; }
-        if (result?.key) attachedKey = result.key;
-        if (result?.sessionId) currentSessionId = result.sessionId;
+        result = await sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
       }
+      if (result?.error) { send({ kind: 'error', message: result.error }); return; }
+      if (result?.key) attachedKey = result.key;
+      if (result?.sessionId) currentSessionId = result.sessionId;
+
       return;
     }
   });
