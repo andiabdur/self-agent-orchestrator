@@ -7,13 +7,13 @@ import {
 } from '../config.js';
 import { loadIndexEnriched, loadSessionEvents, loadIndex, upsertSessionMeta } from '../services/sessionStore.js';
 import { saveUploadedImage, MAX_IMAGES_PER_TURN } from '../utils/helpers.js';
-import { activeRuns, sendPromptClaude, sendPromptQwen, sendPromptCodex, broadcast } from '../services/engineService.js';
+import { activeRuns, sendPromptClaude, sendPromptQwen, sendPromptCodex, sendPromptKilo, broadcast } from '../services/engineService.js';
 
 export const wss = new WebSocketServer({ noServer: true });
 
 function modelAllowed(engine, model) {
   if (VALID_MODELS.has(model)) return true;
-  if ((engine === 'qwen' || engine === 'codex') && typeof model === 'string' && model.length > 0) return true;
+  if ((engine === 'qwen' || engine === 'codex' || engine === 'kilo') && typeof model === 'string' && model.length > 0) return true;
   return false;
 }
 
@@ -291,6 +291,8 @@ wss.on('connection', (ws) => {
         result = await sendPromptQwen(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
       } else if (currentEngine === 'codex') {
         result = await sendPromptCodex(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
+      } else if (currentEngine === 'kilo') {
+        result = await sendPromptKilo(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
       } else {
         result = await sendPromptClaude(ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, (sid) => { currentSessionId = sid; });
       }

@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { isWin, CLAUDE_BIN, QWEN_BIN, CODEX_BIN } from '../config.js';
+import { isWin, CLAUDE_BIN, QWEN_BIN, CODEX_BIN, KILO_BIN } from '../config.js';
 import { appendSessionEvent, loadIndex, upsertSessionMeta, loadIndexEnriched } from './sessionStore.js';
 
 export const activeRuns = new Map();
@@ -162,6 +162,88 @@ function normalizeCodexEvent(evt) {
   }
 }
 
+function normalizeKiloEvent(evt, run) {
+  const type = evt.type;
+
+  // ── Session lifecycle ──────────────────────────────────────────────
+  if (type === 'session.created' || type === 'session.updated') {
+    // session_id ditangani di processLine (lihat §3.5); emit turn_start sekali.
+    const sid = evt.properties?.info?.id || evt.properties?.sessionID || evt.sessionID;
+    return [{ kind: 'turn_start', session_id: sid }];
+  }
+  if (type === 'session.turn.open') {
+    return []; // turn_start sudah dari session.created/updated
+  }
+
+  // ── Streaming / message parts ──────────────────────────────────────
+  if (type === 'message.part.updated' || type === 'message.part.delta') {
+    const part = evt.properties?.part || evt.part || {};
+    if (part.type === 'text') {
+      return []; // andalkan message.updated final (di bawah) dan DROP delta
+    }
+    if (part.type === 'reasoning') {
+      return part.text ? [{ kind: 'thinking', text: part.text }] : [];
+    }
+    if (part.type === 'tool') {
+      const st = part.state || {};
+      const id = part.callID || part.id;
+      if (st.status === 'completed' || st.status === 'error') {
+        const out = typeof st.output === 'string' ? st.output : JSON.stringify(st.output ?? '');
+        return [{ kind: 'tool_result', tool_use_id: id, content: String(out),
+                  is_error: st.status === 'error' }];
+      }
+      if (st.status === 'running' || st.status === 'pending') {
+        run._kiloToolStarted = run._kiloToolStarted || new Set();
+        if (!run._kiloToolStarted.has(id)) {
+          run._kiloToolStarted.add(id);
+          return [{ kind: 'tool_start', id, name: part.tool || 'tool', input: st.input || {} }];
+        }
+      }
+      return [];
+    }
+    return []; // step-start, snapshot, dll → drop
+  }
+
+  // ── Pesan asisten final (blok) ─────────────────────────────────────
+  if (type === 'message.updated') {
+    const info = evt.properties?.info || {};
+    if (info.role === 'assistant' && Array.isArray(info.parts)) {
+      const out = [];
+      for (const p of info.parts) {
+        if (p.type === 'text' && p.text) out.push({ kind: 'assistant_text', text: p.text });
+      }
+      return out;
+    }
+    return [];
+  }
+
+  // ── Turn selesai → ringkasan token/cost ────────────────────────────
+  if (type === 'session.turn.close') {
+    const props = evt.properties || {};
+    const tok = props.tokens || props.usage || {};
+    return [{
+      kind: 'turn_complete',
+      cost_usd: typeof props.cost === 'number' ? props.cost : undefined,
+      duration_ms: undefined,
+      input_tokens: tok.input,
+      output_tokens: tok.output,
+      cache_read_tokens: tok.cache?.read ?? tok.cacheRead,
+      cache_creation_tokens: tok.cache?.write ?? tok.cacheWrite,
+      is_error: false,
+    }];
+  }
+
+  // ── Error ──────────────────────────────────────────────────────────
+  if (type === 'session.error' || type === 'error') {
+    let msg = evt.error?.data?.message || evt.properties?.error?.message || evt.message || evt.error;
+    if (typeof msg === 'object' && msg !== null) msg = JSON.stringify(msg);
+    if (!msg) msg = JSON.stringify(evt);
+    return [{ kind: 'assistant_text', text: `⚠️ Kilo error: ${msg}` }];
+  }
+
+  return []; // session.status, session.diff, permission.asked, dll → drop
+}
+
 // ─── Engine definitions ───────────────────────────────────────────────────
 // Claude and Qwen share the same run lifecycle (spawn → stream stdout JSONL →
 // persist + broadcast). They differ only in the binary, the CLI args, the
@@ -232,6 +314,23 @@ const CODEX_ENGINE = {
   },
 };
 
+const KILO_ENGINE = {
+  name: 'kilo',
+  bin: KILO_BIN,
+  keyPrefix: '__pending_kilo_',
+  logParseErrors: true,
+  normalize: normalizeKiloEvent,
+  promptViaArg: true,
+  buildArgs(perm, model, sessionId, prompt) {
+    const args = ['run', prompt, '--format', 'json'];
+    if (perm === 'bypassPermissions') args.push('--auto');
+    else args.push('--dangerously-skip-permissions');
+    if (model && model !== 'default') args.push('--model', model);
+    if (sessionId) args.push('--session', sessionId);
+    return args;
+  },
+};
+
 async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm, currentModel, currentSessionId, isNew, tempSessionId, onSessionId) {
   if (currentSessionId && !/^[a-zA-Z0-9_.-]+$/.test(currentSessionId)) {
     return { error: 'Invalid session ID format' };
@@ -240,7 +339,13 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
     return { error: 'Invalid model format' };
   }
 
-  const args = engine.buildArgs(currentPerm, currentModel, currentSessionId);
+  let promptForEngine = text;
+  if (savedImages.length > 0) {
+    const paths = savedImages.map(s => `- ${s.path}`).join('\n');
+    promptForEngine = text.trim() ? `${text}\n\n---\nGambar terlampir (gunakan Read tool untuk melihatnya):\n${paths}` : `Tolong lihat gambar berikut menggunakan Read tool dan jelaskan:\n${paths}`;
+  }
+
+  const args = engine.buildArgs(currentPerm, currentModel, currentSessionId, promptForEngine);
 
   let proc;
   try {
@@ -252,20 +357,18 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
 
   const userEvent = { kind: 'user_message', text, timestamp: Date.now(), ...(savedImages.length > 0 ? { images: savedImages.map(s => ({ filename: s.filename, name: s.name, mime: s.mime, thumbData: s.thumbData })) } : {}) };
 
-  let promptForEngine = text;
-  if (savedImages.length > 0) {
-    const paths = savedImages.map(s => `- ${s.path}`).join('\n');
-    promptForEngine = text.trim() ? `${text}\n\n---\nGambar terlampir (gunakan Read tool untuk melihatnya):\n${paths}` : `Tolong lihat gambar berikut menggunakan Read tool dan jelaskan:\n${paths}`;
-  }
-
   const run = { proc, status: 'running', cwd: currentCwd, perm: currentPerm, model: currentModel, promptText: text, sessionId: currentSessionId, isNew, bufferedEvents: [userEvent], subscribers: new Set([ws]), completedAt: null };
   activeRuns.set(initialKey, run);
 
   if (currentSessionId) { appendSessionEvent(currentSessionId, userEvent); run.bufferedEvents = []; }
   broadcast(initialKey, userEvent);
 
-  proc.stdin.write(promptForEngine);
-  proc.stdin.end();
+  if (engine.promptViaArg) {
+    proc.stdin.end();
+  } else {
+    proc.stdin.write(promptForEngine);
+    proc.stdin.end();
+  }
 
   let stderrBuf = '', buffer = '';
   const processLine = (line) => {
@@ -273,7 +376,7 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
     let evt;
     try { evt = JSON.parse(line); } catch (err) { if (engine.logParseErrors) console.error('[stdout] JSON parse fail:', err.message); return; }
 
-    const incomingSessionId = evt.session_id || evt.thread_id;
+    const incomingSessionId = evt.session_id || evt.thread_id || evt.properties?.info?.id || evt.properties?.sessionID || evt.sessionID;
     if (incomingSessionId && !run.sessionId) {
       run.sessionId = incomingSessionId;
       if (onSessionId) onSessionId(incomingSessionId);
@@ -286,7 +389,7 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
       broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
     }
 
-    const normalized = engine.normalize(evt);
+    const normalized = engine.normalize(evt, run);
     const key = run.sessionId || initialKey;
     for (const n of normalized) {
       if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
@@ -328,4 +431,8 @@ export function sendPromptQwen(ws, text, savedImages, cwd, perm, model, sessionI
 
 export function sendPromptCodex(ws, text, savedImages, cwd, perm, model, sessionId, isNew, tempSessionId, onSessionId) {
   return runEngine(CODEX_ENGINE, ws, text, savedImages, cwd, perm, model, sessionId, isNew, tempSessionId, onSessionId);
+}
+
+export function sendPromptKilo(ws, text, savedImages, cwd, perm, model, sessionId, isNew, tempSessionId, onSessionId) {
+  return runEngine(KILO_ENGINE, ws, text, savedImages, cwd, perm, model, sessionId, isNew, tempSessionId, onSessionId);
 }

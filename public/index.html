@@ -1702,6 +1702,7 @@
   .engine-badge.claude { border-color: var(--accent); color: var(--accent); }
   .engine-badge.qwen { border-color: #3b82f6; color: #3b82f6; }
   .engine-badge.codex { border-color: #10a37f; color: #10a37f; } /* OpenAI green */
+  .engine-badge.kilo { border-color: #f59e0b; color: #f59e0b; } /* amber */
   .engine-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
   .engine-label { text-transform: capitalize; white-space: nowrap; }
   .engine-model { opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
@@ -1764,6 +1765,9 @@
           </button>
           <button class="popover-opt" data-engine="codex" type="button">
             <span class="opt-dot"></span>Codex
+          </button>
+          <button class="popover-opt" data-engine="kilo" type="button">
+            <span class="opt-dot"></span>Kilo Code
           </button>
         </div>
         <div class="popover-section" id="popover-model-section">
@@ -1918,6 +1922,7 @@
             <option value="claude">Claude Code</option>
             <option value="qwen">Qwen Code</option>
             <option value="codex">Codex</option>
+            <option value="kilo">Kilo Code</option>
           </select>
         </div>
         <div class="settings-row col">
@@ -2282,6 +2287,7 @@
         els.cwdInput.value = state.cwd;
         els.permSelect.value = state.permissionMode;
         if (state.engine === 'codex') els.modelSelect.innerHTML = codexModelOptionsHtml(state.model || 'gpt-5-codex');
+        else if (state.engine === 'kilo') els.modelSelect.innerHTML = kiloModelOptionsHtml(state.model || 'kilo/kilo-auto/free');
         else if (state.engine === 'qwen') els.modelSelect.innerHTML = '<option value="default">Default Model (use config)</option><option value="qwen2.5-coder:32b">Qwen 2.5 Coder 32B</option><option value="qwen2.5-coder:14b">Qwen 2.5 Coder 14B</option><option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</option><option value="qwen2.5-coder:1.5b">Qwen 2.5 Coder 1.5B</option>';
         else els.modelSelect.innerHTML = claudeModelOptionsHtml(state.model);
         els.modelSelect.value = state.model;
@@ -2414,6 +2420,15 @@
             els.modelSelect.value = state.model;
           } else {
             els.modelSelect.value = 'gpt-5-codex';
+          }
+          state.model = els.modelSelect.value;
+          send({ type: 'set_model', model: state.model });
+        } else if (m.engine === 'kilo') {
+          els.modelSelect.innerHTML = kiloModelOptionsHtml(state.model || 'kilo/kilo-auto/free');
+          if (state.model && els.modelSelect.querySelector(`option[value="${CSS.escape(state.model)}"]`)) {
+            els.modelSelect.value = state.model;
+          } else {
+            els.modelSelect.value = 'kilo/kilo-auto/free';
           }
           state.model = els.modelSelect.value;
           send({ type: 'set_model', model: state.model });
@@ -3829,6 +3844,9 @@
     if (state.engine === 'codex') {
       els.modelSelect.innerHTML = codexModelOptionsHtml(state.model || 'gpt-5-codex');
       els.modelSelect.value = state.model || 'gpt-5-codex';
+    } else if (state.engine === 'kilo') {
+      els.modelSelect.innerHTML = kiloModelOptionsHtml(state.model || 'kilo/kilo-auto/free');
+      els.modelSelect.value = state.model || 'kilo/kilo-auto/free';
     } else if (state.engine === 'qwen') {
       els.modelSelect.innerHTML = '<option value="default">Default Model (use config)</option><option value="qwen2.5-coder:32b">Qwen 2.5 Coder 32B</option><option value="qwen2.5-coder:14b">Qwen 2.5 Coder 14B</option><option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</option><option value="qwen2.5-coder:1.5b">Qwen 2.5 Coder 1.5B</option>';
       els.modelSelect.value = state.model || 'default';
@@ -4678,6 +4696,25 @@
         });
         sec.appendChild(btn);
       }
+    } else if (state.engine === 'kilo') {
+      for (const m of KILO_MODELS_UI) {
+        const btn = document.createElement('button');
+        btn.className = 'popover-opt' + (state.model === m.id ? ' active' : '');
+        btn.type = 'button';
+        btn.dataset.model = m.id;
+        const dot = document.createElement('span');
+        dot.className = 'opt-dot';
+        btn.appendChild(dot);
+        btn.appendChild(document.createTextNode(m.label));
+        btn.addEventListener('click', () => {
+          state.model = m.id;
+          els.modelSelect.value = m.id;
+          send({ type: 'set_model', model: m.id });
+          updateEngineBadge(state.engine, m.id);
+          closePopover();
+        });
+        sec.appendChild(btn);
+      }
     } else if (state.engine === 'qwen') {
       const models = [
         { id: 'default', label: 'Default — use config' },
@@ -4879,6 +4916,19 @@
       `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}</option>`).join('');
   }
 
+  const KILO_MODELS_UI = [
+    { id: 'kilo/kilo-auto/free',                         label: 'Kilo Auto (Free)' },
+    { id: 'kilo/poolside/laguna-m.1:free',               label: 'Laguna M.1 (Free)' },
+    { id: 'kilo/stepfun/step-3.7-flash:free',            label: 'Step 3.7 Flash (Free)' },
+    { id: 'kilo/nvidia/nemotron-3.5-content-safety:free',label: 'Nemotron 3.5 Safety (Free)' },
+    { id: 'kilo/cohere/north-mini-code:free',            label: 'North Mini Code (Free)' },
+    { id: 'kilo/nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra (Free)' },
+  ];
+  function kiloModelOptionsHtml(selected) {
+    return KILO_MODELS_UI.map(m =>
+      `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}</option>`).join('');
+  }
+
   function claudeModelOptionsHtml(selected) {
     return (state.claudeModels || []).map(m =>
       `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}${m.custom ? ' ⚡' : ''}</option>`).join('');
@@ -4893,6 +4943,7 @@
     if (label) {
       if (engine === 'qwen') label.textContent = 'Qwen Code';
       else if (engine === 'codex') label.textContent = 'Codex';
+      else if (engine === 'kilo') label.textContent = 'Kilo Code';
       else label.textContent = 'Claude Code';
     }
     if (modelSpan) {
@@ -4900,6 +4951,9 @@
         modelSpan.textContent = claudeModelLabel(model);
       } else if (engine === 'codex') {
         const found = CODEX_MODELS_UI.find(x => x.id === model);
+        modelSpan.textContent = found ? found.label : (model || '');
+      } else if (engine === 'kilo') {
+        const found = KILO_MODELS_UI.find(x => x.id === model);
         modelSpan.textContent = found ? found.label : (model || '');
       } else {
         modelSpan.textContent = model === 'default' ? 'default' : (model || '');

@@ -114,6 +114,25 @@ function resolveCodexBin() {
 }
 export const CODEX_BIN = resolveCodexBin();
 
+// Resolve KILO_BIN dynamically
+const rawKiloBin = process.env.KILO_BIN || path.join(os.homedir(), '.local', 'bin', 'kilo');
+function resolveKiloBin() {
+  if (rawKiloBin && fs.existsSync(rawKiloBin)) return rawKiloBin;
+  if (isWin) {
+    if (process.env.APPDATA) {
+      const p = path.join(process.env.APPDATA, 'npm', 'kilo.cmd');
+      if (fs.existsSync(p)) return p;
+    }
+    return 'kilo';
+  }
+  const userLocalBin = path.join(os.homedir(), '.local', 'bin', 'kilo');
+  if (fs.existsSync(userLocalBin)) return userLocalBin;
+  if (fs.existsSync('/usr/local/bin/kilo')) return '/usr/local/bin/kilo';
+  if (fs.existsSync('/opt/homebrew/bin/kilo')) return '/opt/homebrew/bin/kilo';
+  return 'kilo';
+}
+export const KILO_BIN = resolveKiloBin();
+
 export const DEFAULT_CWD = process.env.AGENT_CWD || os.homedir();
 export const DEFAULT_PERM = process.env.PERMISSION_MODE || 'bypassPermissions';
 export const VALID_PERMS = new Set(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'dontAsk', 'plan']);
@@ -145,12 +164,21 @@ export const CLAUDE_MODELS = [
 
 export const VALID_MODELS = new Set(CLAUDE_MODELS.map(m => m.id));
 export const DEFAULT_ENGINE = process.env.ENGINE || 'claude';
-export const VALID_ENGINES = new Set(['claude', 'qwen', 'codex']);
+export const VALID_ENGINES = new Set(['claude', 'qwen', 'codex', 'kilo']);
 
 export const CODEX_MODELS = [
   { id: 'gpt-5-codex',  label: 'GPT-5 Codex' },
   { id: 'gpt-5',        label: 'GPT-5' },
   { id: 'o4-mini',      label: 'o4-mini' },
+];
+
+export const KILO_MODELS = [
+  { id: 'kilo/kilo-auto/free',                         label: 'Kilo Auto (Free)' },
+  { id: 'kilo/poolside/laguna-m.1:free',               label: 'Laguna M.1 (Free)' },
+  { id: 'kilo/stepfun/step-3.7-flash:free',            label: 'Step 3.7 Flash (Free)' },
+  { id: 'kilo/nvidia/nemotron-3.5-content-safety:free',label: 'Nemotron 3.5 Safety (Free)' },
+  { id: 'kilo/cohere/north-mini-code:free',            label: 'North Mini Code (Free)' },
+  { id: 'kilo/nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra (Free)' },
 ];
 
 export const NODE_NAME = process.env.NODE_NAME || os.hostname();
