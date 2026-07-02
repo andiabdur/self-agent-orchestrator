@@ -776,10 +776,12 @@
     font-family: 'IBM Plex Mono', monospace;
   }
   #git-branch-row svg { color: var(--muted); flex-shrink: 0; }
-  #git-branch-name {
-    font-weight: 600; white-space: nowrap; overflow: hidden;
-    text-overflow: ellipsis;
+  #git-branch-select {
+    flex: 1; min-width: 0; background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 3px; color: var(--text); font-size: 12px; padding: 4px 6px;
+    cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: 600;
   }
+  #git-branch-select:focus { border-color: var(--accent); outline: none; }
   #git-branch-cwd {
     color: var(--muted); font-size: 10px; margin-left: auto;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -858,16 +860,10 @@
     font-size: 12px; font-weight: 600; cursor: pointer;
     font-family: 'IBM Plex Sans', sans-serif;
     transition: background .12s, opacity .12s;
-  }
-  .git-commit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .git-btn-commit {
     background: var(--accent); color: var(--on-accent);
   }
-  .git-btn-commit:hover:not(:disabled) { filter: brightness(1.1); }
-  .git-btn-push {
-    background: var(--bg-3); color: var(--text); border: 1px solid var(--border);
-  }
-  .git-btn-push:hover:not(:disabled) { background: var(--border); }
+  .git-commit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .git-commit-btn:hover:not(:disabled) { filter: brightness(1.1); }
   .git-commit-status {
     font-size: 11px; line-height: 1.4; padding: 0 2px;
     max-height: 60px; overflow-y: auto; word-break: break-word;
@@ -2081,14 +2077,13 @@
   </div>
   <div id="git-branch-row" style="display:none">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-    <span id="git-branch-name">—</span>
+    <select id="git-branch-select"><option>—</option></select>
     <span id="git-branch-cwd"></span>
   </div>
   <div id="git-commit-area" class="git-commit-area" style="display:none">
     <textarea id="git-commit-input" class="git-commit-input" placeholder="Commit message…" rows="2"></textarea>
     <div class="git-commit-actions">
-      <button id="btn-git-commit" class="git-commit-btn git-btn-commit" type="button" disabled>Commit</button>
-      <button id="btn-git-push" class="git-commit-btn git-btn-push" type="button">Push</button>
+      <button id="btn-git-commit-push" class="git-commit-btn" type="button" disabled>Commit & Push</button>
     </div>
     <div id="git-commit-status" class="git-commit-status" style="display:none"></div>
   </div>
@@ -2172,13 +2167,12 @@
     btnGitRefresh: $('#btn-git-refresh'),
     btnGitCard: $('#btn-git-card'),
     gitBranchRow: $('#git-branch-row'),
-    gitBranchName: $('#git-branch-name'),
+    gitBranchSelect: $('#git-branch-select'),
     gitBranchCwd: $('#git-branch-cwd'),
     gitBody: $('#git-body'),
     gitCommitArea: $('#git-commit-area'),
     gitCommitInput: $('#git-commit-input'),
-    btnGitCommit: $('#btn-git-commit'),
-    btnGitPush: $('#btn-git-push'),
+    btnGitCommitPush: $('#btn-git-commit-push'),
     gitCommitStatus: $('#git-commit-status'),
     sessionList: $('#session-list'),
     cwdInput: $('#cwd-input'),
@@ -3719,8 +3713,8 @@
     const g = state.git;
     if (g.isRepo && g.branch) {
       els.gitBranchRow.style.display = 'flex';
-      els.gitBranchName.textContent = g.branch || '—';
       els.gitBranchCwd.textContent = shortCwd(g.cwd);
+      loadGitBranches();
     } else {
       els.gitBranchRow.style.display = 'none';
     }
@@ -3832,7 +3826,7 @@
   function updateCommitBtnState() {
     const hasStagedFiles = state.git.files.some(f => f.staged && !f.unstaged);
     const hasMessage = els.gitCommitInput.value.trim().length > 0;
-    els.btnGitCommit.disabled = !hasStagedFiles || !hasMessage;
+    els.btnGitCommitPush.disabled = !hasStagedFiles || !hasMessage;
   }
 
   async function gitStageFiles(files, stage) {
@@ -3851,47 +3845,70 @@
     }
   }
 
-  async function gitCommit() {
+  async function gitCommitPush() {
     const message = els.gitCommitInput.value.trim();
     if (!message) return;
-    els.btnGitCommit.disabled = true;
-    els.btnGitCommit.textContent = 'Committing…';
+    els.btnGitCommitPush.disabled = true;
+    els.btnGitCommitPush.textContent = 'Committing…';
     try {
-      const res = await fetch('/api/git/commit', {
+      const res = await fetch('/api/git/commit-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cwd: state.git.cwd, message }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'commit failed');
+      if (!res.ok) throw new Error(data.error || 'failed');
       els.gitCommitInput.value = '';
-      showGitCommitStatus('Committed successfully', false);
+      if (data.pushed) {
+        showGitCommitStatus('Committed & pushed to origin/' + data.branch, false);
+      } else {
+        showGitCommitStatus('Committed, but push failed: ' + (data.error || 'unknown'), true);
+      }
       await refreshGit(state.git.cwd);
     } catch (err) {
       showGitCommitStatus(err.message, true);
     } finally {
-      els.btnGitCommit.textContent = 'Commit';
+      els.btnGitCommitPush.textContent = 'Commit & Push';
       updateCommitBtnState();
     }
   }
 
-  async function gitPush() {
-    els.btnGitPush.disabled = true;
-    els.btnGitPush.textContent = 'Pushing…';
+  let _branchesLoaded = '';
+  async function loadGitBranches() {
+    const cwd = state.git.cwd;
+    if (_branchesLoaded === cwd + ':' + state.git.branch) return;
     try {
-      const res = await fetch('/api/git/push', {
+      const res = await fetch('/api/git/branches?cwd=' + encodeURIComponent(cwd));
+      const data = await res.json();
+      if (!res.ok) return;
+      els.gitBranchSelect.innerHTML = '';
+      for (const b of data.branches) {
+        const opt = document.createElement('option');
+        opt.value = b;
+        opt.textContent = b;
+        if (b === state.git.branch) opt.selected = true;
+        els.gitBranchSelect.appendChild(opt);
+      }
+      _branchesLoaded = cwd + ':' + state.git.branch;
+    } catch {}
+  }
+
+  async function gitCheckout(branch) {
+    if (branch === state.git.branch) return;
+    try {
+      const res = await fetch('/api/git/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cwd: state.git.cwd }),
+        body: JSON.stringify({ cwd: state.git.cwd, branch }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'push failed');
-      showGitCommitStatus('Pushed to origin/' + (state.git.branch || 'branch'), false);
+      if (!res.ok) throw new Error(data.error || 'checkout failed');
+      _branchesLoaded = '';
+      await refreshGit(state.git.cwd);
+      showGitCommitStatus('Switched to ' + branch, false);
     } catch (err) {
       showGitCommitStatus(err.message, true);
-    } finally {
-      els.btnGitPush.disabled = false;
-      els.btnGitPush.textContent = 'Push';
+      els.gitBranchSelect.value = state.git.branch;
     }
   }
 
@@ -4504,8 +4521,8 @@
   });
 
   els.gitCommitInput.addEventListener('input', () => updateCommitBtnState());
-  els.btnGitCommit.addEventListener('click', () => gitCommit());
-  els.btnGitPush.addEventListener('click', () => gitPush());
+  els.btnGitCommitPush.addEventListener('click', () => gitCommitPush());
+  els.gitBranchSelect.addEventListener('change', (e) => gitCheckout(e.target.value));
 
   els.btnGitExpand.addEventListener('click', () => {
     const files = state.git.files;

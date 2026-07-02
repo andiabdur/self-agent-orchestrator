@@ -151,7 +151,7 @@ router.post('/api/git/unstage', async (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/api/git/commit', async (req, res) => {
+router.post('/api/git/commit-push', async (req, res) => {
   if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
   const c = resolveContainedDir(req.body.cwd);
   if (c.error) return res.status(c.status).json({ error: c.error });
@@ -160,24 +160,56 @@ router.post('/api/git/commit', async (req, res) => {
   if (!message || typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'commit message required' });
   }
-  const result = await runGit(cwd, ['commit', '-m', message.trim()]);
-  if (result.code !== 0) return res.status(400).json({ error: result.stderr || 'git commit failed' });
-  res.json({ ok: true, output: result.stdout });
+  const commitResult = await runGit(cwd, ['commit', '-m', message.trim()]);
+  if (commitResult.code !== 0) {
+    return res.status(400).json({ error: commitResult.stderr || 'git commit failed', step: 'commit' });
+  }
+  const branchRes = await runGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  const branch = branchRes.stdout.trim();
+  if (!branch || branch === 'HEAD') {
+    return res.json({ ok: true, committed: true, pushed: false, error: 'Cannot push from detached HEAD' });
+  }
+  const pushResult = await runGit(cwd, ['push', '-u', 'origin', branch], { timeout: 60000 });
+  if (pushResult.code !== 0) {
+    return res.json({ ok: true, committed: true, pushed: false, error: pushResult.stderr || 'git push failed' });
+  }
+  res.json({ ok: true, committed: true, pushed: true, branch });
 });
 
-router.post('/api/git/push', async (req, res) => {
+router.get('/api/git/branches', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.query.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const result = await runGit(cwd, ['branch', '--format=%(refname:short)\t%(HEAD)']);
+  if (result.code !== 0) return res.status(400).json({ error: result.stderr || 'git branch failed' });
+  const branches = [];
+  let current = '';
+  for (const line of result.stdout.split('\n')) {
+    if (!line.trim()) continue;
+    const [name, head] = line.split('\t');
+    branches.push(name);
+    if (head === '*') current = name;
+  }
+  res.json({ branches, current });
+});
+
+router.post('/api/git/checkout', async (req, res) => {
   if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
   const c = resolveContainedDir(req.body.cwd);
   if (c.error) return res.status(c.status).json({ error: c.error });
   const cwd = c.dir;
-  const branchRes = await runGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
-  const branch = branchRes.stdout.trim();
-  if (!branch || branch === 'HEAD') {
-    return res.status(400).json({ error: 'Cannot push from detached HEAD' });
+  const branch = req.body.branch;
+  if (!branch || typeof branch !== 'string' || !branch.trim()) {
+    return res.status(400).json({ error: 'branch name required' });
   }
-  const result = await runGit(cwd, ['push', 'origin', branch], { timeout: 60000 });
-  if (result.code !== 0) return res.status(400).json({ error: result.stderr || 'git push failed' });
-  res.json({ ok: true, output: result.stdout || result.stderr });
+  const sanitized = branch.trim();
+  if (/[;&|`$(){}]/.test(sanitized)) {
+    return res.status(400).json({ error: 'Invalid branch name' });
+  }
+  const result = await runGit(cwd, ['checkout', sanitized]);
+  if (result.code !== 0) return res.status(400).json({ error: result.stderr || 'git checkout failed' });
+  res.json({ ok: true, branch: sanitized });
 });
 
 export default router;
