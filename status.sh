@@ -1,5 +1,5 @@
 #!/bin/bash
-# Check status of self-agent-orchestrator server
+# Check status of self-agent-orchestrator server test aja
 
 PID_FILE="$HOME/.self-agent-orchestrator/server.pid"
 
