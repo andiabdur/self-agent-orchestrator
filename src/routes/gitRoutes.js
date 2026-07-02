@@ -115,4 +115,69 @@ router.get('/api/git/diff', async (req, res) => {
   res.json({ diff: result.stdout, truncated: !!result.truncated });
 });
 
+router.post('/api/git/stage', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.body.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const files = req.body.files;
+  if (!Array.isArray(files) || !files.length) return res.status(400).json({ error: 'files required' });
+  for (const f of files) {
+    if (typeof f !== 'string') return res.status(400).json({ error: 'files must be strings' });
+    let target;
+    try { target = path.resolve(cwd, f); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+    if (target !== cwd && !target.startsWith(cwd + path.sep)) return res.status(403).json({ error: 'Access denied' });
+  }
+  const result = await runGit(cwd, ['add', '--', ...files]);
+  if (result.code !== 0) return res.status(400).json({ error: result.stderr || 'git add failed' });
+  res.json({ ok: true });
+});
+
+router.post('/api/git/unstage', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.body.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const files = req.body.files;
+  if (!Array.isArray(files) || !files.length) return res.status(400).json({ error: 'files required' });
+  for (const f of files) {
+    if (typeof f !== 'string') return res.status(400).json({ error: 'files must be strings' });
+    let target;
+    try { target = path.resolve(cwd, f); } catch { return res.status(400).json({ error: 'Invalid path' }); }
+    if (target !== cwd && !target.startsWith(cwd + path.sep)) return res.status(403).json({ error: 'Access denied' });
+  }
+  const result = await runGit(cwd, ['reset', 'HEAD', '--', ...files]);
+  if (result.code !== 0) return res.status(400).json({ error: result.stderr || 'git reset failed' });
+  res.json({ ok: true });
+});
+
+router.post('/api/git/commit', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.body.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const message = req.body.message;
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'commit message required' });
+  }
+  const result = await runGit(cwd, ['commit', '-m', message.trim()]);
+  if (result.code !== 0) return res.status(400).json({ error: result.stderr || 'git commit failed' });
+  res.json({ ok: true, output: result.stdout });
+});
+
+router.post('/api/git/push', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.body.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const branchRes = await runGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  const branch = branchRes.stdout.trim();
+  if (!branch || branch === 'HEAD') {
+    return res.status(400).json({ error: 'Cannot push from detached HEAD' });
+  }
+  const result = await runGit(cwd, ['push', 'origin', branch], { timeout: 60000 });
+  if (result.code !== 0) return res.status(400).json({ error: result.stderr || 'git push failed' });
+  res.json({ ok: true, output: result.stdout || result.stderr });
+});
+
 export default router;

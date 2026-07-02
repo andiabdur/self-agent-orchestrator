@@ -838,6 +838,68 @@
     flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%;
     background: #2ea043;
   }
+  .git-commit-area {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;
+  }
+  .git-commit-input {
+    width: 100%; box-sizing: border-box; min-height: 60px; max-height: 120px;
+    resize: vertical; background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px; padding: 8px 10px; line-height: 1.4;
+  }
+  .git-commit-input::placeholder { color: var(--muted); }
+  .git-commit-input:focus { border-color: var(--accent); outline: none; }
+  .git-commit-actions {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .git-commit-btn {
+    flex: 1; padding: 6px 12px; border: none; border-radius: 4px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: background .12s, opacity .12s;
+  }
+  .git-commit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .git-btn-commit {
+    background: var(--accent); color: var(--on-accent);
+  }
+  .git-btn-commit:hover:not(:disabled) { filter: brightness(1.1); }
+  .git-btn-push {
+    background: var(--bg-3); color: var(--text); border: 1px solid var(--border);
+  }
+  .git-btn-push:hover:not(:disabled) { background: var(--border); }
+  .git-commit-status {
+    font-size: 11px; line-height: 1.4; padding: 0 2px;
+    max-height: 60px; overflow-y: auto; word-break: break-word;
+  }
+  .git-commit-status.success { color: var(--success); }
+  .git-commit-status.error { color: var(--error); }
+  .git-stage-cb {
+    flex-shrink: 0; width: 14px; height: 14px; cursor: pointer;
+    accent-color: var(--accent);
+  }
+  .git-stage-actions {
+    display: flex; align-items: center; gap: 4px; margin-left: auto;
+    padding-right: 2px;
+  }
+  .git-stage-btn {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); cursor: pointer; padding: 1px 4px;
+    font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    transition: background .12s, color .12s;
+  }
+  .git-stage-btn:hover { background: var(--bg-3); color: var(--text); }
+  .git-section-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .git-section-count {
+    background: var(--bg-3); border-radius: 8px; padding: 1px 6px;
+    font-size: 9px; min-width: 16px; text-align: center;
+  }
   .git-diff {
     display: none; overflow-x: auto;
     background: var(--bg-2); border-top: 1px solid var(--border);
@@ -2022,6 +2084,14 @@
     <span id="git-branch-name">—</span>
     <span id="git-branch-cwd"></span>
   </div>
+  <div id="git-commit-area" class="git-commit-area" style="display:none">
+    <textarea id="git-commit-input" class="git-commit-input" placeholder="Commit message…" rows="2"></textarea>
+    <div class="git-commit-actions">
+      <button id="btn-git-commit" class="git-commit-btn git-btn-commit" type="button" disabled>Commit</button>
+      <button id="btn-git-push" class="git-commit-btn git-btn-push" type="button">Push</button>
+    </div>
+    <div id="git-commit-status" class="git-commit-status" style="display:none"></div>
+  </div>
   <div id="git-body"></div>
 </aside>
 
@@ -2105,6 +2175,11 @@
     gitBranchName: $('#git-branch-name'),
     gitBranchCwd: $('#git-branch-cwd'),
     gitBody: $('#git-body'),
+    gitCommitArea: $('#git-commit-area'),
+    gitCommitInput: $('#git-commit-input'),
+    btnGitCommit: $('#btn-git-commit'),
+    btnGitPush: $('#btn-git-push'),
+    gitCommitStatus: $('#git-commit-status'),
     sessionList: $('#session-list'),
     cwdInput: $('#cwd-input'),
     modelSelect: $('#model-select'),
@@ -3642,7 +3717,6 @@
 
   function renderGit() {
     const g = state.git;
-    // Branch row
     if (g.isRepo && g.branch) {
       els.gitBranchRow.style.display = 'flex';
       els.gitBranchName.textContent = g.branch || '—';
@@ -3650,7 +3724,8 @@
     } else {
       els.gitBranchRow.style.display = 'none';
     }
-    // Body
+    const showCommitArea = g.isRepo && g.files.length > 0 && g.mode === 'git';
+    els.gitCommitArea.style.display = showCommitArea ? '' : 'none';
     if (g.error) {
       els.gitBody.innerHTML = '<div class="git-empty">Error: ' + escapeHtml(g.error) + '</div>';
       return;
@@ -3667,46 +3742,167 @@
       return;
     }
     els.gitBody.innerHTML = '';
-    for (const f of g.files) {
-      const fileEl = document.createElement('div');
-      fileEl.className = 'git-file';
-      const key = (f.staged ? 'S:' : 'W:') + f.path;
-      if (g.expanded.has(key)) fileEl.classList.add('expanded');
-
-      const row = document.createElement('div');
-      row.className = 'git-file-row';
-
-      // Determine Added / Modified / Deleted status
-      const statusChar = (f.status || '?').toUpperCase();
-      let statusLabel = 'Modified';
-      let statusClass = 'badge-modified';
-      if (statusChar === 'A' || statusChar === '?') {
-        statusLabel = 'Added';
-        statusClass = 'badge-added';
-      } else if (statusChar === 'D') {
-        statusLabel = 'Deleted';
-        statusClass = 'badge-deleted';
+    const stagedFiles = g.files.filter(f => f.staged && !f.unstaged);
+    const unstagedFiles = g.files.filter(f => !f.staged || f.unstaged);
+    if (g.mode === 'git') {
+      if (stagedFiles.length) {
+        const hdr = document.createElement('div');
+        hdr.className = 'git-section-header';
+        hdr.innerHTML = 'Staged <span class="git-section-count">' + stagedFiles.length + '</span>' +
+          '<span style="margin-left:auto"><button class="git-stage-btn" data-action="unstage-all" type="button" title="Unstage all">− All</button></span>';
+        hdr.querySelector('[data-action="unstage-all"]').addEventListener('click', () => {
+          gitStageFiles(stagedFiles.map(f => f.path), false);
+        });
+        els.gitBody.appendChild(hdr);
+        for (const f of stagedFiles) renderGitFileRow(f, true);
       }
+      if (unstagedFiles.length) {
+        const hdr = document.createElement('div');
+        hdr.className = 'git-section-header';
+        hdr.innerHTML = 'Changes <span class="git-section-count">' + unstagedFiles.length + '</span>' +
+          '<span style="margin-left:auto"><button class="git-stage-btn" data-action="stage-all" type="button" title="Stage all">+ All</button></span>';
+        hdr.querySelector('[data-action="stage-all"]').addEventListener('click', () => {
+          gitStageFiles(unstagedFiles.map(f => f.path), true);
+        });
+        els.gitBody.appendChild(hdr);
+        for (const f of unstagedFiles) renderGitFileRow(f, false);
+      }
+    } else {
+      for (const f of g.files) renderGitFileRow(f, f.staged);
+    }
+    updateCommitBtnState();
+  }
 
-      const stat = gitStatHtml(f);
+  function renderGitFileRow(f, isInStagedSection) {
+    const g = state.git;
+    const fileEl = document.createElement('div');
+    fileEl.className = 'git-file';
+    const key = (isInStagedSection ? 'S:' : 'W:') + f.path;
+    if (g.expanded.has(key)) fileEl.classList.add('expanded');
+
+    const row = document.createElement('div');
+    row.className = 'git-file-row';
+
+    const statusChar = (f.status || '?').toUpperCase();
+    let statusLabel = 'Modified';
+    let statusClass = 'badge-modified';
+    if (statusChar === 'A' || statusChar === '?') {
+      statusLabel = 'Added';
+      statusClass = 'badge-added';
+    } else if (statusChar === 'D') {
+      statusLabel = 'Deleted';
+      statusClass = 'badge-deleted';
+    }
+
+    const stat = gitStatHtml(f);
+    if (g.mode === 'git') {
+      const stageBtn = document.createElement('button');
+      stageBtn.className = 'git-stage-btn';
+      stageBtn.type = 'button';
+      stageBtn.title = isInStagedSection ? 'Unstage' : 'Stage';
+      stageBtn.textContent = isInStagedSection ? '−' : '+';
+      stageBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        gitStageFiles([f.path], !isInStagedSection);
+      });
+
+      row.innerHTML =
+        '<span class="git-file-badge ' + statusClass + '">' + statusLabel + '</span>' +
+        '<span class="git-file-name" title="' + escapeHtml(f.path) + '"><bdi>' + escapeHtml(f.path) + '</bdi></span>' + stat;
+      row.appendChild(stageBtn);
+    } else {
       const stagedDot = f.staged ? '<span class="git-staged-dot" title="staged"></span>' : '';
       row.innerHTML =
         '<span class="git-file-badge ' + statusClass + '">' + statusLabel + '</span>' +
         '<span class="git-file-name" title="' + escapeHtml(f.path) + '"><bdi>' + escapeHtml(f.path) + '</bdi></span>' +
         stagedDot + stat;
-      row.addEventListener('click', () => toggleGitDiff(f, fileEl, key));
-      fileEl.appendChild(row);
-
-      const diffEl = document.createElement('div');
-      diffEl.className = 'git-diff';
-      diffEl.dataset.loaded = '0';
-      fileEl.appendChild(diffEl);
-
-      els.gitBody.appendChild(fileEl);
-
-      // Re-expand (and reload) if it was open before a re-render.
-      if (g.expanded.has(key)) loadGitDiff(f, diffEl);
     }
+    row.addEventListener('click', () => toggleGitDiff(f, fileEl, key));
+    fileEl.appendChild(row);
+
+    const diffEl = document.createElement('div');
+    diffEl.className = 'git-diff';
+    diffEl.dataset.loaded = '0';
+    fileEl.appendChild(diffEl);
+
+    els.gitBody.appendChild(fileEl);
+    if (g.expanded.has(key)) loadGitDiff(f, diffEl);
+  }
+
+  function updateCommitBtnState() {
+    const hasStagedFiles = state.git.files.some(f => f.staged && !f.unstaged);
+    const hasMessage = els.gitCommitInput.value.trim().length > 0;
+    els.btnGitCommit.disabled = !hasStagedFiles || !hasMessage;
+  }
+
+  async function gitStageFiles(files, stage) {
+    const url = stage ? '/api/git/stage' : '/api/git/unstage';
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, files }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'failed');
+      await refreshGit(state.git.cwd);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    }
+  }
+
+  async function gitCommit() {
+    const message = els.gitCommitInput.value.trim();
+    if (!message) return;
+    els.btnGitCommit.disabled = true;
+    els.btnGitCommit.textContent = 'Committing…';
+    try {
+      const res = await fetch('/api/git/commit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'commit failed');
+      els.gitCommitInput.value = '';
+      showGitCommitStatus('Committed successfully', false);
+      await refreshGit(state.git.cwd);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    } finally {
+      els.btnGitCommit.textContent = 'Commit';
+      updateCommitBtnState();
+    }
+  }
+
+  async function gitPush() {
+    els.btnGitPush.disabled = true;
+    els.btnGitPush.textContent = 'Pushing…';
+    try {
+      const res = await fetch('/api/git/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'push failed');
+      showGitCommitStatus('Pushed to origin/' + (state.git.branch || 'branch'), false);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    } finally {
+      els.btnGitPush.disabled = false;
+      els.btnGitPush.textContent = 'Push';
+    }
+  }
+
+  function showGitCommitStatus(msg, isError) {
+    els.gitCommitStatus.style.display = '';
+    els.gitCommitStatus.textContent = msg;
+    els.gitCommitStatus.className = 'git-commit-status ' + (isError ? 'error' : 'success');
+    clearTimeout(showGitCommitStatus._timer);
+    showGitCommitStatus._timer = setTimeout(() => {
+      els.gitCommitStatus.style.display = 'none';
+    }, isError ? 8000 : 4000);
   }
 
   function gitStatHtml(f) {
@@ -4306,6 +4502,10 @@
     state.git.mode = e.target.value;
     refreshGit(state.cwd);
   });
+
+  els.gitCommitInput.addEventListener('input', () => updateCommitBtnState());
+  els.btnGitCommit.addEventListener('click', () => gitCommit());
+  els.btnGitPush.addEventListener('click', () => gitPush());
 
   els.btnGitExpand.addEventListener('click', () => {
     const files = state.git.files;

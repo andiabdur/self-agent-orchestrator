@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 
 // Promise wrapper around `git` with a timeout and bounded output buffer.
-export function runGit(cwd, args) {
+export function runGit(cwd, args, { timeout = 10000 } = {}) {
   return new Promise((resolve) => {
     let proc;
     try {
@@ -14,7 +14,7 @@ export function runGit(cwd, args) {
     const MAX = 4 * 1024 * 1024; // 4 MB cap
     let out = '', errBuf = '', truncated = false, done = false;
     const finish = (code) => { if (done) return; done = true; resolve({ code, stdout: out, stderr: errBuf, truncated }); };
-    const timer = setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} finish(-2); }, 10000);
+    const timer = setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} finish(-2); }, timeout);
     proc.stdout.on('data', (d) => { if (out.length < MAX) out += d; else truncated = true; });
     proc.stderr.on('data', (d) => { if (errBuf.length < MAX) errBuf += d; });
     proc.on('error', (err) => { clearTimeout(timer); if (!errBuf) errBuf = err.message; proc.spawnError = true; finish(-1); });
