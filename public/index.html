@@ -776,15 +776,42 @@
     font-family: 'IBM Plex Mono', monospace;
   }
   #git-branch-row svg { color: var(--muted); flex-shrink: 0; }
-  #git-branch-name {
-    font-weight: 600; white-space: nowrap; overflow: hidden;
-    text-overflow: ellipsis;
+  #git-branch-select {
+    flex: 1; min-width: 0; background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 3px; color: var(--text); font-size: 12px; padding: 4px 6px;
+    cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: 600;
   }
+  #git-branch-select:focus { border-color: var(--accent); outline: none; }
   #git-branch-cwd {
     color: var(--muted); font-size: 10px; margin-left: auto;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 45%; text-align: right;
   }
+  #git-merge-row {
+    display: none; align-items: center; gap: 6px;
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; background: var(--bg-2);
+  }
+  #git-merge-row.open { display: flex; }
+  #git-merge-into-select {
+    flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 3px; color: var(--text); font-size: 12px; padding: 4px 6px;
+    cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+  }
+  #git-merge-into-select:focus { border-color: var(--accent); outline: none; }
+  #btn-git-merge-confirm {
+    padding: 4px 10px; border: none; border-radius: 3px; font-size: 12px;
+    font-weight: 600; cursor: pointer; background: var(--accent); color: var(--on-accent);
+    font-family: 'IBM Plex Sans', sans-serif; white-space: nowrap;
+    transition: opacity .12s;
+  }
+  #btn-git-merge-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+  #btn-git-merge-cancel {
+    background: none; border: 1px solid var(--border); border-radius: 3px;
+    color: var(--muted); cursor: pointer; padding: 4px 8px; font-size: 12px;
+    font-family: 'IBM Plex Sans', sans-serif; transition: background .12s, color .12s;
+  }
+  #btn-git-merge-cancel:hover { background: var(--bg-3); color: var(--text); }
   #git-body { flex: 1; overflow-y: auto; min-height: 0; }
   .git-empty {
     padding: 28px 16px; text-align: center; color: var(--muted);
@@ -837,6 +864,62 @@
   .git-staged-dot {
     flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%;
     background: #2ea043;
+  }
+  .git-commit-area {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;
+  }
+  .git-commit-input {
+    width: 100%; box-sizing: border-box; min-height: 60px; max-height: 120px;
+    resize: vertical; background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px; padding: 8px 10px; line-height: 1.4;
+  }
+  .git-commit-input::placeholder { color: var(--muted); }
+  .git-commit-input:focus { border-color: var(--accent); outline: none; }
+  .git-commit-actions {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .git-commit-btn {
+    flex: 1; padding: 6px 12px; border: none; border-radius: 4px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    transition: background .12s, opacity .12s;
+    background: var(--accent); color: var(--on-accent);
+  }
+  .git-commit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .git-commit-btn:hover:not(:disabled) { filter: brightness(1.1); }
+  .git-commit-status {
+    font-size: 11px; line-height: 1.4; padding: 0 2px;
+    max-height: 60px; overflow-y: auto; word-break: break-word;
+  }
+  .git-commit-status.success { color: var(--success); }
+  .git-commit-status.error { color: var(--error); }
+  .git-stage-cb {
+    flex-shrink: 0; width: 14px; height: 14px; cursor: pointer;
+    accent-color: var(--accent);
+  }
+  .git-stage-actions {
+    display: flex; align-items: center; gap: 4px; margin-left: auto;
+    padding-right: 2px;
+  }
+  .git-stage-btn {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); cursor: pointer; padding: 1px 4px;
+    font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    transition: background .12s, color .12s;
+  }
+  .git-stage-btn:hover { background: var(--bg-3); color: var(--text); }
+  .git-section-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .git-section-count {
+    background: var(--bg-3); border-radius: 8px; padding: 1px 6px;
+    font-size: 9px; min-width: 16px; text-align: center;
   }
   .git-diff {
     display: none; overflow-x: auto;
@@ -1701,6 +1784,8 @@
   }
   .engine-badge.claude { border-color: var(--accent); color: var(--accent); }
   .engine-badge.qwen { border-color: #3b82f6; color: #3b82f6; }
+  .engine-badge.codex { border-color: #10a37f; color: #10a37f; } /* OpenAI green */
+  .engine-badge.kilo { border-color: #f59e0b; color: #f59e0b; } /* amber */
   .engine-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
   .engine-label { text-transform: capitalize; white-space: nowrap; }
   .engine-model { opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
@@ -1760,6 +1845,12 @@
           </button>
           <button class="popover-opt" data-engine="qwen" type="button">
             <span class="opt-dot"></span>Qwen Code
+          </button>
+          <button class="popover-opt" data-engine="codex" type="button">
+            <span class="opt-dot"></span>Codex
+          </button>
+          <button class="popover-opt" data-engine="kilo" type="button">
+            <span class="opt-dot"></span>Kilo Code
           </button>
         </div>
         <div class="popover-section" id="popover-model-section">
@@ -1913,6 +2004,8 @@
           <select id="engine-select" class="settings-select">
             <option value="claude">Claude Code</option>
             <option value="qwen">Qwen Code</option>
+            <option value="codex">Codex</option>
+            <option value="kilo">Kilo Code</option>
           </select>
         </div>
         <div class="settings-row col">
@@ -2009,8 +2102,22 @@
   </div>
   <div id="git-branch-row" style="display:none">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-    <span id="git-branch-name">—</span>
+    <select id="git-branch-select"><option>—</option></select>
+    <button id="btn-git-merge-open" class="git-stage-btn" type="button" title="Merge branch">Merge</button>
     <span id="git-branch-cwd"></span>
+  </div>
+  <div id="git-merge-row">
+    <span style="font-size:11px;color:var(--muted);white-space:nowrap">Merge into:</span>
+    <select id="git-merge-into-select"><option>—</option></select>
+    <button id="btn-git-merge-confirm" type="button">Merge</button>
+    <button id="btn-git-merge-cancel" type="button">✕</button>
+  </div>
+  <div id="git-commit-area" class="git-commit-area" style="display:none">
+    <textarea id="git-commit-input" class="git-commit-input" placeholder="Commit message…" rows="2"></textarea>
+    <div class="git-commit-actions">
+      <button id="btn-git-commit-push" class="git-commit-btn" type="button" disabled>Commit & Push</button>
+    </div>
+    <div id="git-commit-status" class="git-commit-status" style="display:none"></div>
   </div>
   <div id="git-body"></div>
 </aside>
@@ -2092,9 +2199,18 @@
     btnGitRefresh: $('#btn-git-refresh'),
     btnGitCard: $('#btn-git-card'),
     gitBranchRow: $('#git-branch-row'),
-    gitBranchName: $('#git-branch-name'),
+    gitBranchSelect: $('#git-branch-select'),
     gitBranchCwd: $('#git-branch-cwd'),
+    btnGitMergeOpen: $('#btn-git-merge-open'),
+    gitMergeRow: $('#git-merge-row'),
+    gitMergeIntoSelect: $('#git-merge-into-select'),
+    btnGitMergeConfirm: $('#btn-git-merge-confirm'),
+    btnGitMergeCancel: $('#btn-git-merge-cancel'),
     gitBody: $('#git-body'),
+    gitCommitArea: $('#git-commit-area'),
+    gitCommitInput: $('#git-commit-input'),
+    btnGitCommitPush: $('#btn-git-commit-push'),
+    gitCommitStatus: $('#git-commit-status'),
     sessionList: $('#session-list'),
     cwdInput: $('#cwd-input'),
     modelSelect: $('#model-select'),
@@ -2276,7 +2392,10 @@
         state.sessions = m.sessions || [];
         els.cwdInput.value = state.cwd;
         els.permSelect.value = state.permissionMode;
-        if (state.engine === 'claude') els.modelSelect.innerHTML = claudeModelOptionsHtml(state.model);
+        if (state.engine === 'codex') els.modelSelect.innerHTML = codexModelOptionsHtml(state.model || 'gpt-5-codex');
+        else if (state.engine === 'kilo') els.modelSelect.innerHTML = kiloModelOptionsHtml(state.model || 'kilo/kilo-auto/free');
+        else if (state.engine === 'qwen') els.modelSelect.innerHTML = '<option value="default">Default Model (use config)</option><option value="qwen2.5-coder:32b">Qwen 2.5 Coder 32B</option><option value="qwen2.5-coder:14b">Qwen 2.5 Coder 14B</option><option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</option><option value="qwen2.5-coder:1.5b">Qwen 2.5 Coder 1.5B</option>';
+        else els.modelSelect.innerHTML = claudeModelOptionsHtml(state.model);
         els.modelSelect.value = state.model;
         if (els.engineSelect) els.engineSelect.value = state.engine;
         updateSettingsCwd(state.cwd);
@@ -2398,6 +2517,24 @@
             els.modelSelect.value = state.model;
           } else {
             els.modelSelect.value = 'sonnet';
+          }
+          state.model = els.modelSelect.value;
+          send({ type: 'set_model', model: state.model });
+        } else if (m.engine === 'codex') {
+          els.modelSelect.innerHTML = codexModelOptionsHtml(state.model || 'gpt-5-codex');
+          if (state.model && els.modelSelect.querySelector(`option[value="${CSS.escape(state.model)}"]`)) {
+            els.modelSelect.value = state.model;
+          } else {
+            els.modelSelect.value = 'gpt-5-codex';
+          }
+          state.model = els.modelSelect.value;
+          send({ type: 'set_model', model: state.model });
+        } else if (m.engine === 'kilo') {
+          els.modelSelect.innerHTML = kiloModelOptionsHtml(state.model || 'kilo/kilo-auto/free');
+          if (state.model && els.modelSelect.querySelector(`option[value="${CSS.escape(state.model)}"]`)) {
+            els.modelSelect.value = state.model;
+          } else {
+            els.modelSelect.value = 'kilo/kilo-auto/free';
           }
           state.model = els.modelSelect.value;
           send({ type: 'set_model', model: state.model });
@@ -3611,15 +3748,15 @@
 
   function renderGit() {
     const g = state.git;
-    // Branch row
     if (g.isRepo && g.branch) {
       els.gitBranchRow.style.display = 'flex';
-      els.gitBranchName.textContent = g.branch || '—';
       els.gitBranchCwd.textContent = shortCwd(g.cwd);
+      loadGitBranches();
     } else {
       els.gitBranchRow.style.display = 'none';
     }
-    // Body
+    const showCommitArea = g.isRepo && g.files.length > 0 && g.mode === 'git';
+    els.gitCommitArea.style.display = showCommitArea ? '' : 'none';
     if (g.error) {
       els.gitBody.innerHTML = '<div class="git-empty">Error: ' + escapeHtml(g.error) + '</div>';
       return;
@@ -3636,46 +3773,237 @@
       return;
     }
     els.gitBody.innerHTML = '';
-    for (const f of g.files) {
-      const fileEl = document.createElement('div');
-      fileEl.className = 'git-file';
-      const key = (f.staged ? 'S:' : 'W:') + f.path;
-      if (g.expanded.has(key)) fileEl.classList.add('expanded');
-
-      const row = document.createElement('div');
-      row.className = 'git-file-row';
-
-      // Determine Added / Modified / Deleted status
-      const statusChar = (f.status || '?').toUpperCase();
-      let statusLabel = 'Modified';
-      let statusClass = 'badge-modified';
-      if (statusChar === 'A' || statusChar === '?') {
-        statusLabel = 'Added';
-        statusClass = 'badge-added';
-      } else if (statusChar === 'D') {
-        statusLabel = 'Deleted';
-        statusClass = 'badge-deleted';
+    const stagedFiles = g.files.filter(f => f.staged && !f.unstaged);
+    const unstagedFiles = g.files.filter(f => !f.staged || f.unstaged);
+    if (g.mode === 'git') {
+      if (stagedFiles.length) {
+        const hdr = document.createElement('div');
+        hdr.className = 'git-section-header';
+        hdr.innerHTML = 'Staged <span class="git-section-count">' + stagedFiles.length + '</span>' +
+          '<span style="margin-left:auto"><button class="git-stage-btn" data-action="unstage-all" type="button" title="Unstage all">− All</button></span>';
+        hdr.querySelector('[data-action="unstage-all"]').addEventListener('click', () => {
+          gitStageFiles(stagedFiles.map(f => f.path), false);
+        });
+        els.gitBody.appendChild(hdr);
+        for (const f of stagedFiles) renderGitFileRow(f, true);
       }
+      if (unstagedFiles.length) {
+        const hdr = document.createElement('div');
+        hdr.className = 'git-section-header';
+        hdr.innerHTML = 'Changes <span class="git-section-count">' + unstagedFiles.length + '</span>' +
+          '<span style="margin-left:auto"><button class="git-stage-btn" data-action="stage-all" type="button" title="Stage all">+ All</button></span>';
+        hdr.querySelector('[data-action="stage-all"]').addEventListener('click', () => {
+          gitStageFiles(unstagedFiles.map(f => f.path), true);
+        });
+        els.gitBody.appendChild(hdr);
+        for (const f of unstagedFiles) renderGitFileRow(f, false);
+      }
+    } else {
+      for (const f of g.files) renderGitFileRow(f, f.staged);
+    }
+    updateCommitBtnState();
+  }
 
-      const stat = gitStatHtml(f);
+  function renderGitFileRow(f, isInStagedSection) {
+    const g = state.git;
+    const fileEl = document.createElement('div');
+    fileEl.className = 'git-file';
+    const key = (isInStagedSection ? 'S:' : 'W:') + f.path;
+    if (g.expanded.has(key)) fileEl.classList.add('expanded');
+
+    const row = document.createElement('div');
+    row.className = 'git-file-row';
+
+    const statusChar = (f.status || '?').toUpperCase();
+    let statusLabel = 'Modified';
+    let statusClass = 'badge-modified';
+    if (statusChar === 'A' || statusChar === '?') {
+      statusLabel = 'Added';
+      statusClass = 'badge-added';
+    } else if (statusChar === 'D') {
+      statusLabel = 'Deleted';
+      statusClass = 'badge-deleted';
+    }
+
+    const stat = gitStatHtml(f);
+    if (g.mode === 'git') {
+      const stageBtn = document.createElement('button');
+      stageBtn.className = 'git-stage-btn';
+      stageBtn.type = 'button';
+      stageBtn.title = isInStagedSection ? 'Unstage' : 'Stage';
+      stageBtn.textContent = isInStagedSection ? '−' : '+';
+      stageBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        gitStageFiles([f.path], !isInStagedSection);
+      });
+
+      row.innerHTML =
+        '<span class="git-file-badge ' + statusClass + '">' + statusLabel + '</span>' +
+        '<span class="git-file-name" title="' + escapeHtml(f.path) + '"><bdi>' + escapeHtml(f.path) + '</bdi></span>' + stat;
+      row.appendChild(stageBtn);
+    } else {
       const stagedDot = f.staged ? '<span class="git-staged-dot" title="staged"></span>' : '';
       row.innerHTML =
         '<span class="git-file-badge ' + statusClass + '">' + statusLabel + '</span>' +
         '<span class="git-file-name" title="' + escapeHtml(f.path) + '"><bdi>' + escapeHtml(f.path) + '</bdi></span>' +
         stagedDot + stat;
-      row.addEventListener('click', () => toggleGitDiff(f, fileEl, key));
-      fileEl.appendChild(row);
-
-      const diffEl = document.createElement('div');
-      diffEl.className = 'git-diff';
-      diffEl.dataset.loaded = '0';
-      fileEl.appendChild(diffEl);
-
-      els.gitBody.appendChild(fileEl);
-
-      // Re-expand (and reload) if it was open before a re-render.
-      if (g.expanded.has(key)) loadGitDiff(f, diffEl);
     }
+    row.addEventListener('click', () => toggleGitDiff(f, fileEl, key));
+    fileEl.appendChild(row);
+
+    const diffEl = document.createElement('div');
+    diffEl.className = 'git-diff';
+    diffEl.dataset.loaded = '0';
+    fileEl.appendChild(diffEl);
+
+    els.gitBody.appendChild(fileEl);
+    if (g.expanded.has(key)) loadGitDiff(f, diffEl);
+  }
+
+  function updateCommitBtnState() {
+    const hasStagedFiles = state.git.files.some(f => f.staged && !f.unstaged);
+    const hasMessage = els.gitCommitInput.value.trim().length > 0;
+    els.btnGitCommitPush.disabled = !hasStagedFiles || !hasMessage;
+  }
+
+  async function gitStageFiles(files, stage) {
+    const url = stage ? '/api/git/stage' : '/api/git/unstage';
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, files }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'failed');
+      await refreshGit(state.git.cwd);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    }
+  }
+
+  async function gitCommitPush() {
+    const message = els.gitCommitInput.value.trim();
+    if (!message) return;
+    els.btnGitCommitPush.disabled = true;
+    els.btnGitCommitPush.textContent = 'Committing…';
+    try {
+      const res = await fetch('/api/git/commit-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'failed');
+      els.gitCommitInput.value = '';
+      if (data.pushed) {
+        showGitCommitStatus('Committed & pushed to origin/' + data.branch, false);
+      } else {
+        showGitCommitStatus('Committed, but push failed: ' + (data.error || 'unknown'), true);
+      }
+      await refreshGit(state.git.cwd);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    } finally {
+      els.btnGitCommitPush.textContent = 'Commit & Push';
+      updateCommitBtnState();
+    }
+  }
+
+  let _branchesLoaded = '';
+  async function loadGitBranches() {
+    const cwd = state.git.cwd;
+    if (_branchesLoaded === cwd + ':' + state.git.branch) return;
+    try {
+      const res = await fetch('/api/git/branches?cwd=' + encodeURIComponent(cwd));
+      const data = await res.json();
+      if (!res.ok) return;
+      els.gitBranchSelect.innerHTML = '';
+      for (const b of data.branches) {
+        const opt = document.createElement('option');
+        opt.value = b;
+        opt.textContent = b;
+        if (b === state.git.branch) opt.selected = true;
+        els.gitBranchSelect.appendChild(opt);
+      }
+      _branchesLoaded = cwd + ':' + state.git.branch;
+    } catch {}
+  }
+
+  async function gitCheckout(branch) {
+    if (branch === state.git.branch) return;
+    try {
+      const res = await fetch('/api/git/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, branch }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'checkout failed');
+      _branchesLoaded = '';
+      await refreshGit(state.git.cwd);
+      showGitCommitStatus('Switched to ' + branch, false);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+      els.gitBranchSelect.value = state.git.branch;
+    }
+  }
+
+  function showGitMergeRow(open) {
+    if (open) {
+      els.gitMergeRow.classList.add('open');
+      els.gitMergeIntoSelect.innerHTML = '';
+      for (const opt of els.gitBranchSelect.options) {
+        if (opt.value !== state.git.branch) {
+          const o = document.createElement('option');
+          o.value = opt.value;
+          o.textContent = opt.value;
+          els.gitMergeIntoSelect.appendChild(o);
+        }
+      }
+    } else {
+      els.gitMergeRow.classList.remove('open');
+    }
+  }
+
+  async function gitMerge() {
+    const from = state.git.branch;
+    const into = els.gitMergeIntoSelect.value;
+    if (!from || !into) return;
+    els.btnGitMergeConfirm.disabled = true;
+    els.btnGitMergeConfirm.textContent = 'Merging…';
+    try {
+      const res = await fetch('/api/git/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, from, into }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = data.conflict
+          ? 'Merge conflict — resolve manually: ' + data.error
+          : (data.error || 'merge failed');
+        throw new Error(msg);
+      }
+      showGitMergeRow(false);
+      showGitCommitStatus('Merged ' + from + ' → ' + into, false);
+      _branchesLoaded = '';
+      await refreshGit(state.git.cwd);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    } finally {
+      els.btnGitMergeConfirm.disabled = false;
+      els.btnGitMergeConfirm.textContent = 'Merge';
+    }
+  }
+
+  function showGitCommitStatus(msg, isError) {    els.gitCommitStatus.style.display = '';
+    els.gitCommitStatus.textContent = msg;
+    els.gitCommitStatus.className = 'git-commit-status ' + (isError ? 'error' : 'success');
+    clearTimeout(showGitCommitStatus._timer);
+    showGitCommitStatus._timer = setTimeout(() => {
+      els.gitCommitStatus.style.display = 'none';
+    }, isError ? 8000 : 4000);
   }
 
   function gitStatHtml(f) {
@@ -3810,7 +4138,13 @@
     els.cwdInput.value = state.cwd;
     els.permSelect.value = state.permissionMode;
     if (els.engineSelect) els.engineSelect.value = state.engine;
-    if (state.engine === 'qwen') {
+    if (state.engine === 'codex') {
+      els.modelSelect.innerHTML = codexModelOptionsHtml(state.model || 'gpt-5-codex');
+      els.modelSelect.value = state.model || 'gpt-5-codex';
+    } else if (state.engine === 'kilo') {
+      els.modelSelect.innerHTML = kiloModelOptionsHtml(state.model || 'kilo/kilo-auto/free');
+      els.modelSelect.value = state.model || 'kilo/kilo-auto/free';
+    } else if (state.engine === 'qwen') {
       els.modelSelect.innerHTML = '<option value="default">Default Model (use config)</option><option value="qwen2.5-coder:32b">Qwen 2.5 Coder 32B</option><option value="qwen2.5-coder:14b">Qwen 2.5 Coder 14B</option><option value="qwen2.5-coder:7b">Qwen 2.5 Coder 7B</option><option value="qwen2.5-coder:1.5b">Qwen 2.5 Coder 1.5B</option>';
       els.modelSelect.value = state.model || 'default';
     } else {
@@ -4270,6 +4604,13 @@
     refreshGit(state.cwd);
   });
 
+  els.gitCommitInput.addEventListener('input', () => updateCommitBtnState());
+  els.btnGitCommitPush.addEventListener('click', () => gitCommitPush());
+  els.gitBranchSelect.addEventListener('change', (e) => gitCheckout(e.target.value));
+  els.btnGitMergeOpen.addEventListener('click', () => showGitMergeRow(!els.gitMergeRow.classList.contains('open')));
+  els.btnGitMergeCancel.addEventListener('click', () => showGitMergeRow(false));
+  els.btnGitMergeConfirm.addEventListener('click', () => gitMerge());
+
   els.btnGitExpand.addEventListener('click', () => {
     const files = state.git.files;
     if (!files || !files.length) return;
@@ -4640,6 +4981,44 @@
         });
         sec.appendChild(btn);
       }
+    } else if (state.engine === 'codex') {
+      for (const m of CODEX_MODELS_UI) {
+        const btn = document.createElement('button');
+        btn.className = 'popover-opt' + (state.model === m.id ? ' active' : '');
+        btn.type = 'button';
+        btn.dataset.model = m.id;
+        const dot = document.createElement('span');
+        dot.className = 'opt-dot';
+        btn.appendChild(dot);
+        btn.appendChild(document.createTextNode(m.label));
+        btn.addEventListener('click', () => {
+          state.model = m.id;
+          els.modelSelect.value = m.id;
+          send({ type: 'set_model', model: m.id });
+          updateEngineBadge(state.engine, m.id);
+          closePopover();
+        });
+        sec.appendChild(btn);
+      }
+    } else if (state.engine === 'kilo') {
+      for (const m of KILO_MODELS_UI) {
+        const btn = document.createElement('button');
+        btn.className = 'popover-opt' + (state.model === m.id ? ' active' : '');
+        btn.type = 'button';
+        btn.dataset.model = m.id;
+        const dot = document.createElement('span');
+        dot.className = 'opt-dot';
+        btn.appendChild(dot);
+        btn.appendChild(document.createTextNode(m.label));
+        btn.addEventListener('click', () => {
+          state.model = m.id;
+          els.modelSelect.value = m.id;
+          send({ type: 'set_model', model: m.id });
+          updateEngineBadge(state.engine, m.id);
+          closePopover();
+        });
+        sec.appendChild(btn);
+      }
     } else if (state.engine === 'qwen') {
       const models = [
         { id: 'default', label: 'Default — use config' },
@@ -4831,6 +5210,29 @@
     const m = (state.claudeModels || []).find(x => x.id === id);
     return m ? m.label : (id || '');
   }
+  const CODEX_MODELS_UI = [
+    { id: 'gpt-5-codex', label: 'GPT-5 Codex' },
+    { id: 'gpt-5',       label: 'GPT-5' },
+    { id: 'o4-mini',     label: 'o4-mini' },
+  ];
+  function codexModelOptionsHtml(selected) {
+    return CODEX_MODELS_UI.map(m =>
+      `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}</option>`).join('');
+  }
+
+  const KILO_MODELS_UI = [
+    { id: 'kilo/kilo-auto/free',                         label: 'Kilo Auto (Free)' },
+    { id: 'kilo/poolside/laguna-m.1:free',               label: 'Laguna M.1 (Free)' },
+    { id: 'kilo/stepfun/step-3.7-flash:free',            label: 'Step 3.7 Flash (Free)' },
+    { id: 'kilo/nvidia/nemotron-3.5-content-safety:free',label: 'Nemotron 3.5 Safety (Free)' },
+    { id: 'kilo/cohere/north-mini-code:free',            label: 'North Mini Code (Free)' },
+    { id: 'kilo/nvidia/nemotron-3-ultra-550b-a55b:free', label: 'Nemotron 3 Ultra (Free)' },
+  ];
+  function kiloModelOptionsHtml(selected) {
+    return KILO_MODELS_UI.map(m =>
+      `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}</option>`).join('');
+  }
+
   function claudeModelOptionsHtml(selected) {
     return (state.claudeModels || []).map(m =>
       `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}${m.custom ? ' ⚡' : ''}</option>`).join('');
@@ -4844,11 +5246,19 @@
     const modelSpan = document.getElementById('engine-model-label');
     if (label) {
       if (engine === 'qwen') label.textContent = 'Qwen Code';
+      else if (engine === 'codex') label.textContent = 'Codex';
+      else if (engine === 'kilo') label.textContent = 'Kilo Code';
       else label.textContent = 'Claude Code';
     }
     if (modelSpan) {
       if (engine === 'claude') {
         modelSpan.textContent = claudeModelLabel(model);
+      } else if (engine === 'codex') {
+        const found = CODEX_MODELS_UI.find(x => x.id === model);
+        modelSpan.textContent = found ? found.label : (model || '');
+      } else if (engine === 'kilo') {
+        const found = KILO_MODELS_UI.find(x => x.id === model);
+        modelSpan.textContent = found ? found.label : (model || '');
       } else {
         modelSpan.textContent = model === 'default' ? 'default' : (model || '');
       }
