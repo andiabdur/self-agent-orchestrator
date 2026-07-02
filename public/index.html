@@ -787,6 +787,31 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 45%; text-align: right;
   }
+  #git-merge-row {
+    display: none; align-items: center; gap: 6px;
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; background: var(--bg-2);
+  }
+  #git-merge-row.open { display: flex; }
+  #git-merge-into-select {
+    flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 3px; color: var(--text); font-size: 12px; padding: 4px 6px;
+    cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+  }
+  #git-merge-into-select:focus { border-color: var(--accent); outline: none; }
+  #btn-git-merge-confirm {
+    padding: 4px 10px; border: none; border-radius: 3px; font-size: 12px;
+    font-weight: 600; cursor: pointer; background: var(--accent); color: var(--on-accent);
+    font-family: 'IBM Plex Sans', sans-serif; white-space: nowrap;
+    transition: opacity .12s;
+  }
+  #btn-git-merge-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+  #btn-git-merge-cancel {
+    background: none; border: 1px solid var(--border); border-radius: 3px;
+    color: var(--muted); cursor: pointer; padding: 4px 8px; font-size: 12px;
+    font-family: 'IBM Plex Sans', sans-serif; transition: background .12s, color .12s;
+  }
+  #btn-git-merge-cancel:hover { background: var(--bg-3); color: var(--text); }
   #git-body { flex: 1; overflow-y: auto; min-height: 0; }
   .git-empty {
     padding: 28px 16px; text-align: center; color: var(--muted);
@@ -2078,7 +2103,14 @@
   <div id="git-branch-row" style="display:none">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
     <select id="git-branch-select"><option>—</option></select>
+    <button id="btn-git-merge-open" class="git-stage-btn" type="button" title="Merge branch">Merge</button>
     <span id="git-branch-cwd"></span>
+  </div>
+  <div id="git-merge-row">
+    <span style="font-size:11px;color:var(--muted);white-space:nowrap">Merge into:</span>
+    <select id="git-merge-into-select"><option>—</option></select>
+    <button id="btn-git-merge-confirm" type="button">Merge</button>
+    <button id="btn-git-merge-cancel" type="button">✕</button>
   </div>
   <div id="git-commit-area" class="git-commit-area" style="display:none">
     <textarea id="git-commit-input" class="git-commit-input" placeholder="Commit message…" rows="2"></textarea>
@@ -2169,6 +2201,11 @@
     gitBranchRow: $('#git-branch-row'),
     gitBranchSelect: $('#git-branch-select'),
     gitBranchCwd: $('#git-branch-cwd'),
+    btnGitMergeOpen: $('#btn-git-merge-open'),
+    gitMergeRow: $('#git-merge-row'),
+    gitMergeIntoSelect: $('#git-merge-into-select'),
+    btnGitMergeConfirm: $('#btn-git-merge-confirm'),
+    btnGitMergeCancel: $('#btn-git-merge-cancel'),
     gitBody: $('#git-body'),
     gitCommitArea: $('#git-commit-area'),
     gitCommitInput: $('#git-commit-input'),
@@ -3912,8 +3949,55 @@
     }
   }
 
-  function showGitCommitStatus(msg, isError) {
-    els.gitCommitStatus.style.display = '';
+  function showGitMergeRow(open) {
+    if (open) {
+      els.gitMergeRow.classList.add('open');
+      els.gitMergeIntoSelect.innerHTML = '';
+      for (const opt of els.gitBranchSelect.options) {
+        if (opt.value !== state.git.branch) {
+          const o = document.createElement('option');
+          o.value = opt.value;
+          o.textContent = opt.value;
+          els.gitMergeIntoSelect.appendChild(o);
+        }
+      }
+    } else {
+      els.gitMergeRow.classList.remove('open');
+    }
+  }
+
+  async function gitMerge() {
+    const from = state.git.branch;
+    const into = els.gitMergeIntoSelect.value;
+    if (!from || !into) return;
+    els.btnGitMergeConfirm.disabled = true;
+    els.btnGitMergeConfirm.textContent = 'Merging…';
+    try {
+      const res = await fetch('/api/git/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, from, into }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = data.conflict
+          ? 'Merge conflict — resolve manually: ' + data.error
+          : (data.error || 'merge failed');
+        throw new Error(msg);
+      }
+      showGitMergeRow(false);
+      showGitCommitStatus('Merged ' + from + ' → ' + into, false);
+      _branchesLoaded = '';
+      await refreshGit(state.git.cwd);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    } finally {
+      els.btnGitMergeConfirm.disabled = false;
+      els.btnGitMergeConfirm.textContent = 'Merge';
+    }
+  }
+
+  function showGitCommitStatus(msg, isError) {    els.gitCommitStatus.style.display = '';
     els.gitCommitStatus.textContent = msg;
     els.gitCommitStatus.className = 'git-commit-status ' + (isError ? 'error' : 'success');
     clearTimeout(showGitCommitStatus._timer);
@@ -4523,6 +4607,9 @@
   els.gitCommitInput.addEventListener('input', () => updateCommitBtnState());
   els.btnGitCommitPush.addEventListener('click', () => gitCommitPush());
   els.gitBranchSelect.addEventListener('change', (e) => gitCheckout(e.target.value));
+  els.btnGitMergeOpen.addEventListener('click', () => showGitMergeRow(!els.gitMergeRow.classList.contains('open')));
+  els.btnGitMergeCancel.addEventListener('click', () => showGitMergeRow(false));
+  els.btnGitMergeConfirm.addEventListener('click', () => gitMerge());
 
   els.btnGitExpand.addEventListener('click', () => {
     const files = state.git.files;

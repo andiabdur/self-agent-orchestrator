@@ -212,4 +212,32 @@ router.post('/api/git/checkout', async (req, res) => {
   res.json({ ok: true, branch: sanitized });
 });
 
+router.post('/api/git/merge', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.body.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const from = req.body.from;
+  const into = req.body.into;
+  if (!from || !into || typeof from !== 'string' || typeof into !== 'string') {
+    return res.status(400).json({ error: 'from and into branch names required' });
+  }
+  for (const b of [from, into]) {
+    if (/[;&|`$(){}]/.test(b.trim())) return res.status(400).json({ error: 'Invalid branch name' });
+  }
+  // Checkout target branch first
+  const checkoutResult = await runGit(cwd, ['checkout', into.trim()]);
+  if (checkoutResult.code !== 0) {
+    return res.status(400).json({ error: checkoutResult.stderr || 'checkout failed', step: 'checkout' });
+  }
+  // Merge from branch into current
+  const mergeResult = await runGit(cwd, ['merge', '--no-ff', from.trim()]);
+  if (mergeResult.code !== 0) {
+    // Abort merge to leave repo clean
+    await runGit(cwd, ['merge', '--abort']);
+    return res.status(400).json({ error: mergeResult.stderr || 'merge failed', step: 'merge', conflict: mergeResult.stderr.includes('CONFLICT') });
+  }
+  res.json({ ok: true, from: from.trim(), into: into.trim(), output: mergeResult.stdout });
+});
+
 export default router;
