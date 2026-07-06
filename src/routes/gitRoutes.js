@@ -253,7 +253,16 @@ router.post('/api/git/delete', async (req, res) => {
   if (result.code !== 0) {
     return res.status(400).json({ error: result.stderr || 'git branch delete failed' });
   }
-  res.json({ ok: true, deleted: true, branch: sanitized });
+
+  const remote = !!req.body.remote;
+  if (remote) {
+    const remoteResult = await runGit(cwd, ['push', 'origin', '--delete', sanitized], { timeout: 60000 });
+    if (remoteResult.code !== 0) {
+      return res.status(400).json({ error: remoteResult.stderr || 'git remote branch delete failed' });
+    }
+  }
+
+  res.json({ ok: true, deleted: true, remoteDeleted: remote, branch: sanitized });
 });
 
 router.post('/api/git/merge', async (req, res) => {

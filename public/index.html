@@ -2184,6 +2184,10 @@
   <div id="git-delete-row">
     <span style="font-size:11px;color:var(--muted);white-space:nowrap">Delete:</span>
     <select id="git-delete-select"><option>—</option></select>
+    <label class="git-branch-push-label" for="git-delete-remote" style="font-size:11px; margin-left:4px; margin-right:4px;">
+      <input type="checkbox" id="git-delete-remote" />
+      Delete on remote
+    </label>
     <button id="btn-git-delete-confirm" type="button" style="padding:4px 10px;border:none;border-radius:3px;font-size:12px;font-weight:600;c‍ursor:pointer;background:var(--error);color:#fff">Delete</button>
     <button id="btn-git-delete-cancel" type="button">✕</button>
   </div>
@@ -2284,6 +2288,7 @@
     btnGitBranchDeleteOpen: $('#btn-git-branch-delete-open'),
     gitDeleteRow: $('#git-delete-row'),
     gitDeleteSelect: $('#git-delete-select'),
+    gitDeleteRemote: $('#git-delete-remote'),
     btnGitDeleteConfirm: $('#btn-git-delete-confirm'),
     btnGitDeleteCancel: $('#btn-git-delete-cancel'),
     btnGitMergeOpen: $('#btn-git-merge-open'),
@@ -4144,6 +4149,7 @@
     if (open) {
       els.gitDeleteRow.classList.add('open');
       els.gitDeleteSelect.innerHTML = '';
+      els.gitDeleteRemote.checked = false;
       let hasOther = false;
       for (const opt of els.gitBranchSelect.options) {
         if (opt.value !== state.git.branch && opt.value !== '—') {
@@ -4172,8 +4178,14 @@
 
   async function gitDeleteBranch() {
     const branch = els.gitDeleteSelect.value;
+    const deleteRemote = els.gitDeleteRemote.checked;
     if (!branch || branch === '—' || els.gitDeleteSelect.options[0].disabled) return;
-    if (!confirm(`Are you sure you want to delete branch "${branch}"?`)) return;
+
+    const confirmMsg = deleteRemote
+      ? `Are you sure you want to delete branch "${branch}" locally and on remote?`
+      : `Are you sure you want to delete branch "${branch}" locally?`;
+
+    if (!confirm(confirmMsg)) return;
 
     els.btnGitDeleteConfirm.disabled = true;
     els.btnGitDeleteConfirm.textContent = 'Deleting…';
@@ -4181,13 +4193,18 @@
       const res = await fetch('/api/git/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cwd: state.git.cwd, branch }),
+        body: JSON.stringify({ cwd: state.git.cwd, branch, remote: deleteRemote }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Delete failed');
 
       showGitDeleteRow(false);
-      showGitCommitStatus(`Branch "${branch}" deleted successfully!`, false);
+
+      const successMsg = deleteRemote
+        ? `Branch "${branch}" deleted locally & on remote!`
+        : `Branch "${branch}" deleted locally!`;
+      showGitCommitStatus(successMsg, false);
+
       _branchesLoaded = '';
       await refreshGit(state.git.cwd);
     } catch (err) {
