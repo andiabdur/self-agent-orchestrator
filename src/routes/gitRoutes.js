@@ -235,6 +235,27 @@ router.post('/api/git/push', async (req, res) => {
   res.json({ ok: true, pushed: true, branch: sanitized });
 });
 
+router.post('/api/git/delete', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.body.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const branch = req.body.branch;
+  if (!branch || typeof branch !== 'string' || !branch.trim()) {
+    return res.status(400).json({ error: 'branch name required' });
+  }
+  const sanitized = branch.trim();
+  if (/[;&|`$(){}]/.test(sanitized)) {
+    return res.status(400).json({ error: 'Invalid branch name' });
+  }
+
+  const result = await runGit(cwd, ['branch', '-D', sanitized]);
+  if (result.code !== 0) {
+    return res.status(400).json({ error: result.stderr || 'git branch delete failed' });
+  }
+  res.json({ ok: true, deleted: true, branch: sanitized });
+});
+
 router.post('/api/git/merge', async (req, res) => {
   if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
   const c = resolveContainedDir(req.body.cwd);
