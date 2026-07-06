@@ -769,6 +769,56 @@
     transition: background .12s, color .12s;
   }
   #btn-close-git:hover { background: var(--bg-3); color: var(--text); }
+
+  /* ---------- Create‑branch row ---------- */
+  .git-branch-create-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+  .git-branch-create-input {
+    flex: 1 1 180px;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+  }
+  .git-branch-create-input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .git-branch-push-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .git-branch-create-btn {
+    background: var(--accent);
+    color: var(--on-accent);
+    border: none;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .git-branch-create-btn:hover {
+    background: var(--accent-2);
+  }
+  [data-theme="dark"] .git-branch-create-row {
+    background: var(--bg-3);
+  }
+
   #git-branch-row {
     display: flex; align-items: center; gap: 6px;
     padding: 10px 12px; border-bottom: 1px solid var(--border);
@@ -2099,6 +2149,23 @@
         </svg>
       </button>
     </div>
+    <div id="git-branch-create-row" class="git-branch-create-row">
+      <input
+        type="text"
+        id="git-new-branch-name"
+        class="git-branch-create-input"
+        placeholder="Nama cabang baru"
+        aria-label="Nama cabang baru"
+        autocomplete="off"
+      />
+      <label class="git-branch-push-label" for="git-push-remote">
+        <input type="checkbox" id="git-push-remote" class="git-branch-push-checkbox" />
+        Push ke remote
+      </label>
+      <button id="git-create-branch-btn" class="git-panel-btn git-branch-create-btn" type="button">
+        Buat
+      </button>
+    </div>
   </div>
   <div id="git-branch-row" style="display:none">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
@@ -2201,6 +2268,10 @@
     gitBranchRow: $('#git-branch-row'),
     gitBranchSelect: $('#git-branch-select'),
     gitBranchCwd: $('#git-branch-cwd'),
+    gitBranchCreateRow: $('#git-branch-create-row'),
+    gitNewBranchName: $('#git-new-branch-name'),
+    gitPushRemote: $('#git-push-remote'),
+    gitCreateBranchBtn: $('#git-create-branch-btn'),
     btnGitMergeOpen: $('#btn-git-merge-open'),
     gitMergeRow: $('#git-merge-row'),
     gitMergeIntoSelect: $('#git-merge-into-select'),
@@ -3949,6 +4020,59 @@
     }
   }
 
+  async function gitCreateBranch() {
+    const branch = els.gitNewBranchName.value.trim();
+    const push = els.gitPushRemote.checked;
+    if (!branch) {
+      showGitCommitStatus('Nama cabang tidak boleh kosong', true);
+      return;
+    }
+    if (/[;&|`$(){}]/.test(branch)) {
+      showGitCommitStatus('Nama cabang mengandung karakter tidak valid', true);
+      return;
+    }
+
+    try {
+      // 1. Checkout automatically (passing -b or similar backend mechanism, but wait,
+      // checkout route creates branch or not? Let's check how git checkout is handled in backend)
+      // Ah! In gitRoutes.js, checkout is runGit(cwd, ['checkout', sanitized]).
+      // Git checkout of a non-existing branch will FAIL unless we pass -b!
+      // But we can check if the branch exists first, or our api/git/checkout endpoint might need to support a new branch creation flag,
+      // OR we just create a new endpoint, OR we implement it locally by running a git checkout command in the checkout endpoint if it's new.
+      // Wait, let's see: we want to checkout a NEW branch, so we should run git checkout -b.
+      // Let's modify gitRoutes to support a new branch checkout or create a dedicated endpoint.
+      // Yes! A dedicated POST /api/git/checkout with a "newBranch" flag or supporting checkout -b is best,
+      // OR we can make POST /api/git/checkout automatically fallback to -b if it doesn't exist, OR explicitly pass a boolean.
+      // Let's modify gitRoutes.js /api/git/checkout to accept a `create` boolean!
+      // If `create` is true, it runs: checkout -b <branch>. That is extremely clean and standard!
+      const res = await fetch('/api/git/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, branch, create: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Buat cabang gagal');
+
+      // 2. Optional push
+      if (push) {
+        const pushRes = await fetch('/api/git/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cwd: state.git.cwd, branch }),
+        });
+        const pushData = await pushRes.json();
+        if (!pushRes.ok) throw new Error(pushData.error || 'Push ke remote gagal');
+      }
+
+      els.gitNewBranchName.value = '';
+      _branchesLoaded = '';
+      await refreshGit(state.git.cwd);
+      showGitCommitStatus(`Cabang "${branch}" berhasil dibuat${push ? ' & dipush' : ''}`, false);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    }
+  }
+
   function showGitMergeRow(open) {
     if (open) {
       els.gitMergeRow.classList.add('open');
@@ -4607,6 +4731,13 @@
   els.gitCommitInput.addEventListener('input', () => updateCommitBtnState());
   els.btnGitCommitPush.addEventListener('click', () => gitCommitPush());
   els.gitBranchSelect.addEventListener('change', (e) => gitCheckout(e.target.value));
+  els.gitCreateBranchBtn.addEventListener('click', () => gitCreateBranch());
+  els.gitNewBranchName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      gitCreateBranch();
+    }
+  });
   els.btnGitMergeOpen.addEventListener('click', () => showGitMergeRow(!els.gitMergeRow.classList.contains('open')));
   els.btnGitMergeCancel.addEventListener('click', () => showGitMergeRow(false));
   els.btnGitMergeConfirm.addEventListener('click', () => gitMerge());
