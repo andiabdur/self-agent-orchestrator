@@ -2176,7 +2176,7 @@
     <span id="git-branch-cwd"></span>
   </div>
   <div id="git-merge-row">
-    <span style="font-size:11px;color:var(--muted);white-space:nowrap">Merge into:</span>
+    <span style="font-size:11px;color:var(--muted);white-space:nowrap">Merge from:</span>
     <select id="git-merge-into-select"><option>—</option></select>
     <button id="btn-git-merge-confirm" type="button">Merge</button>
     <button id="btn-git-merge-cancel" type="button">✕</button>
@@ -4115,9 +4115,16 @@
   }
 
   async function gitMerge() {
-    const from = state.git.branch;
-    const into = els.gitMergeIntoSelect.value;
-    if (!from || !into) return;
+    const into = state.git.branch;
+    const from = els.gitMergeIntoSelect.value;
+    if (!from || !into || from === '—') return;
+
+    // Check for uncommitted changes first to be safe
+    const hasUncommitted = state.git.files.some(f => !f.untracked);
+    if (hasUncommitted) {
+      if(!confirm("Warning: You have uncommitted changes. This merge might cause conflicts or fail. Continue anyway?")) return;
+    }
+
     els.btnGitMergeConfirm.disabled = true;
     els.btnGitMergeConfirm.textContent = 'Merging…';
     try {
@@ -4134,7 +4141,7 @@
         throw new Error(msg);
       }
       showGitMergeRow(false);
-      showGitCommitStatus('Merged ' + from + ' → ' + into, false);
+      showGitCommitStatus('Merged ' + from + ' into ' + into, false);
       _branchesLoaded = '';
       await refreshGit(state.git.cwd);
     } catch (err) {
