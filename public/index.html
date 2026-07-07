@@ -769,6 +769,56 @@
     transition: background .12s, color .12s;
   }
   #btn-close-git:hover { background: var(--bg-3); color: var(--text); }
+
+  /* ---------- Create‑branch row ---------- */
+  .git-branch-create-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+  .git-branch-create-input {
+    flex: 1 1 180px;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+  }
+  .git-branch-create-input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .git-branch-push-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .git-branch-create-btn {
+    background: var(--accent);
+    color: var(--on-accent);
+    border: none;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .git-branch-create-btn:hover {
+    background: var(--accent-2);
+  }
+  [data-theme="dark"] .git-branch-create-row {
+    background: var(--bg-3);
+  }
+
   #git-branch-row {
     display: flex; align-items: center; gap: 6px;
     padding: 10px 12px; border-bottom: 1px solid var(--border);
@@ -787,18 +837,18 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 45%; text-align: right;
   }
-  #git-merge-row {
+  #git-merge-row, #git-delete-row {
     display: none; align-items: center; gap: 6px;
     padding: 8px 12px; border-bottom: 1px solid var(--border);
     flex-shrink: 0; background: var(--bg-2);
   }
-  #git-merge-row.open { display: flex; }
-  #git-merge-into-select {
+  #git-merge-row.open, #git-delete-row.open { display: flex; }
+  #git-merge-into-select, #git-delete-select {
     flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border);
     border-radius: 3px; color: var(--text); font-size: 12px; padding: 4px 6px;
     cursor: pointer; font-family: 'IBM Plex Mono', monospace;
   }
-  #git-merge-into-select:focus { border-color: var(--accent); outline: none; }
+  #git-merge-into-select:focus, #git-delete-select:focus { border-color: var(--accent); outline: none; }
   #btn-git-merge-confirm {
     padding: 4px 10px; border: none; border-radius: 3px; font-size: 12px;
     font-weight: 600; cursor: pointer; background: var(--accent); color: var(--on-accent);
@@ -806,12 +856,12 @@
     transition: opacity .12s;
   }
   #btn-git-merge-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
-  #btn-git-merge-cancel {
+  #btn-git-merge-cancel, #btn-git-delete-cancel {
     background: none; border: 1px solid var(--border); border-radius: 3px;
     color: var(--muted); cursor: pointer; padding: 4px 8px; font-size: 12px;
     font-family: 'IBM Plex Sans', sans-serif; transition: background .12s, color .12s;
   }
-  #btn-git-merge-cancel:hover { background: var(--bg-3); color: var(--text); }
+  #btn-git-merge-cancel:hover, #btn-git-delete-cancel:hover { background: var(--bg-3); color: var(--text); }
   #git-body { flex: 1; overflow-y: auto; min-height: 0; }
   .git-empty {
     padding: 28px 16px; text-align: center; color: var(--muted);
@@ -2099,11 +2149,30 @@
         </svg>
       </button>
     </div>
+    <div id="git-branch-create-row" class="git-branch-create-row" style="display:none">
+      <input
+        type="text"
+        id="git-new-branch-name"
+        class="git-branch-create-input"
+        placeholder="New branch name..."
+        aria-label="New branch name"
+        autocomplete="off"
+      />
+      <label class="git-branch-push-label" for="git-push-remote">
+        <input type="checkbox" id="git-push-remote" class="git-branch-push-checkbox" />
+        Push to remote
+      </label>
+      <button id="git-create-branch-btn" class="git-panel-btn git-branch-create-btn" type="button">
+        Create
+      </button>
+    </div>
   </div>
   <div id="git-branch-row" style="display:none">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
     <select id="git-branch-select"><option>—</option></select>
+    <button id="btn-git-branch-create-open" class="git-stage-btn" type="button" title="Create new branch">New</button>
     <button id="btn-git-merge-open" class="git-stage-btn" type="button" title="Merge branch">Merge</button>
+    <button id="btn-git-branch-delete-open" class="git-stage-btn" type="button" title="Delete a branch" style="color:var(--error);border-color:rgba(247,118,142,0.3)">Delete</button>
     <span id="git-branch-cwd"></span>
   </div>
   <div id="git-merge-row">
@@ -2111,6 +2180,16 @@
     <select id="git-merge-into-select"><option>—</option></select>
     <button id="btn-git-merge-confirm" type="button">Merge</button>
     <button id="btn-git-merge-cancel" type="button">✕</button>
+  </div>
+  <div id="git-delete-row">
+    <span style="font-size:11px;color:var(--muted);white-space:nowrap">Delete:</span>
+    <select id="git-delete-select"><option>—</option></select>
+    <label class="git-branch-push-label" for="git-delete-remote" style="font-size:11px; margin-left:4px; margin-right:4px;">
+      <input type="checkbox" id="git-delete-remote" />
+      Delete on remote
+    </label>
+    <button id="btn-git-delete-confirm" type="button" style="padding:4px 10px;border:none;border-radius:3px;font-size:12px;font-weight:600;c‍ursor:pointer;background:var(--error);color:#fff">Delete</button>
+    <button id="btn-git-delete-cancel" type="button">✕</button>
   </div>
   <div id="git-commit-area" class="git-commit-area" style="display:none">
     <textarea id="git-commit-input" class="git-commit-input" placeholder="Commit message…" rows="2"></textarea>
@@ -2201,6 +2280,17 @@
     gitBranchRow: $('#git-branch-row'),
     gitBranchSelect: $('#git-branch-select'),
     gitBranchCwd: $('#git-branch-cwd'),
+    gitBranchCreateRow: $('#git-branch-create-row'),
+    gitNewBranchName: $('#git-new-branch-name'),
+    gitPushRemote: $('#git-push-remote'),
+    gitCreateBranchBtn: $('#git-create-branch-btn'),
+    btnGitBranchCreateOpen: $('#btn-git-branch-create-open'),
+    btnGitBranchDeleteOpen: $('#btn-git-branch-delete-open'),
+    gitDeleteRow: $('#git-delete-row'),
+    gitDeleteSelect: $('#git-delete-select'),
+    gitDeleteRemote: $('#git-delete-remote'),
+    btnGitDeleteConfirm: $('#btn-git-delete-confirm'),
+    btnGitDeleteCancel: $('#btn-git-delete-cancel'),
     btnGitMergeOpen: $('#btn-git-merge-open'),
     gitMergeRow: $('#git-merge-row'),
     gitMergeIntoSelect: $('#git-merge-into-select'),
@@ -3704,6 +3794,9 @@
     els.btnGit.classList.remove('active');
     document.getElementById('app').classList.remove('git-open');
     document.documentElement.style.removeProperty('--git-w');
+    showGitBranchCreateRow(false);
+    showGitMergeRow(false);
+    showGitDeleteRow(false);
   }
 
   async function refreshGit(cwd) {
@@ -3949,6 +4042,59 @@
     }
   }
 
+  function showGitBranchCreateRow(show) {
+    if (show) {
+      els.gitBranchCreateRow.style.display = 'flex';
+      els.gitNewBranchName.value = '';
+      els.gitNewBranchName.focus();
+      showGitMergeRow(false);
+      showGitDeleteRow(false);
+    } else {
+      els.gitBranchCreateRow.style.display = 'none';
+    }
+  }
+
+  async function gitCreateBranch() {
+    const branch = els.gitNewBranchName.value.trim();
+    const push = els.gitPushRemote.checked;
+    if (!branch) {
+      showGitCommitStatus("Branch name can't be empty!", true);
+      return;
+    }
+    if (/[;&|`$(){}]/.test(branch)) {
+      showGitCommitStatus("Branch name contains invalid character!", true);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/git/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, branch, create: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal checkout branch');
+
+      if (push) {
+        const pushRes = await fetch('/api/git/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cwd: state.git.cwd, branch }),
+        });
+        const pushData = await pushRes.json();
+        if (!pushRes.ok) throw new Error(pushData.error || 'Gagal push branch ke remote');
+      }
+
+      els.gitNewBranchName.value = '';
+      showGitBranchCreateRow(false);
+      _branchesLoaded = '';
+      await refreshGit(state.git.cwd);
+      showGitCommitStatus(`Branch "${branch}" successfully created${push ? ' & pushed' : ''}!`, false);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    }
+  }
+
   function showGitMergeRow(open) {
     if (open) {
       els.gitMergeRow.classList.add('open');
@@ -3961,6 +4107,8 @@
           els.gitMergeIntoSelect.appendChild(o);
         }
       }
+      showGitBranchCreateRow(false);
+      showGitDeleteRow(false);
     } else {
       els.gitMergeRow.classList.remove('open');
     }
@@ -3994,6 +4142,76 @@
     } finally {
       els.btnGitMergeConfirm.disabled = false;
       els.btnGitMergeConfirm.textContent = 'Merge';
+    }
+  }
+
+  function showGitDeleteRow(open) {
+    if (open) {
+      els.gitDeleteRow.classList.add('open');
+      els.gitDeleteSelect.innerHTML = '';
+      els.gitDeleteRemote.checked = false;
+      let hasOther = false;
+      for (const opt of els.gitBranchSelect.options) {
+        if (opt.value !== state.git.branch && opt.value !== '—') {
+          const o = document.createElement('option');
+          o.value = opt.value;
+          o.textContent = opt.value;
+          els.gitDeleteSelect.appendChild(o);
+          hasOther = true;
+        }
+      }
+      if (!hasOther) {
+        const o = document.createElement('option');
+        o.textContent = 'No other branches';
+        o.disabled = true;
+        els.gitDeleteSelect.appendChild(o);
+        els.btnGitDeleteConfirm.disabled = true;
+      } else {
+        els.btnGitDeleteConfirm.disabled = false;
+      }
+      showGitBranchCreateRow(false);
+      showGitMergeRow(false);
+    } else {
+      els.gitDeleteRow.classList.remove('open');
+    }
+  }
+
+  async function gitDeleteBranch() {
+    const branch = els.gitDeleteSelect.value;
+    const deleteRemote = els.gitDeleteRemote.checked;
+    if (!branch || branch === '—' || els.gitDeleteSelect.options[0].disabled) return;
+
+    const confirmMsg = deleteRemote
+      ? `Are you sure you want to delete branch "${branch}" locally and on remote?`
+      : `Are you sure you want to delete branch "${branch}" locally?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    els.btnGitDeleteConfirm.disabled = true;
+    els.btnGitDeleteConfirm.textContent = 'Deleting…';
+    try {
+      const res = await fetch('/api/git/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd: state.git.cwd, branch, remote: deleteRemote }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+
+      showGitDeleteRow(false);
+
+      const successMsg = deleteRemote
+        ? `Branch "${branch}" deleted locally & on remote!`
+        : `Branch "${branch}" deleted locally!`;
+      showGitCommitStatus(successMsg, false);
+
+      _branchesLoaded = '';
+      await refreshGit(state.git.cwd);
+    } catch (err) {
+      showGitCommitStatus(err.message, true);
+    } finally {
+      els.btnGitDeleteConfirm.disabled = false;
+      els.btnGitDeleteConfirm.textContent = 'Delete';
     }
   }
 
@@ -4607,6 +4825,17 @@
   els.gitCommitInput.addEventListener('input', () => updateCommitBtnState());
   els.btnGitCommitPush.addEventListener('click', () => gitCommitPush());
   els.gitBranchSelect.addEventListener('change', (e) => gitCheckout(e.target.value));
+  els.btnGitBranchCreateOpen.addEventListener('click', () => showGitBranchCreateRow(els.gitBranchCreateRow.style.display === 'none'));
+  els.gitCreateBranchBtn.addEventListener('click', () => gitCreateBranch());
+  els.gitNewBranchName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      gitCreateBranch();
+    }
+  });
+  els.btnGitBranchDeleteOpen.addEventListener('click', () => showGitDeleteRow(!els.gitDeleteRow.classList.contains('open')));
+  els.btnGitDeleteConfirm.addEventListener('click', () => gitDeleteBranch());
+  els.btnGitDeleteCancel.addEventListener('click', () => showGitDeleteRow(false));
   els.btnGitMergeOpen.addEventListener('click', () => showGitMergeRow(!els.gitMergeRow.classList.contains('open')));
   els.btnGitMergeCancel.addEventListener('click', () => showGitMergeRow(false));
   els.btnGitMergeConfirm.addEventListener('click', () => gitMerge());

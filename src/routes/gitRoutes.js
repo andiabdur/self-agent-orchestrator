@@ -207,9 +207,62 @@ router.post('/api/git/checkout', async (req, res) => {
   if (/[;&|`$(){}]/.test(sanitized)) {
     return res.status(400).json({ error: 'Invalid branch name' });
   }
-  const result = await runGit(cwd, ['checkout', sanitized]);
+  const create = !!req.body.create;
+  const args = create ? ['checkout', '-b', sanitized] : ['checkout', sanitized];
+  const result = await runGit(cwd, args);
   if (result.code !== 0) return res.status(400).json({ error: result.stderr || 'git checkout failed' });
   res.json({ ok: true, branch: sanitized });
+});
+
+router.post('/api/git/push', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.body.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const branch = req.body.branch;
+  if (!branch || typeof branch !== 'string' || !branch.trim()) {
+    return res.status(400).json({ error: 'branch name required' });
+  }
+  const sanitized = branch.trim();
+  if (/[;&|`$(){}]/.test(sanitized)) {
+    return res.status(400).json({ error: 'Invalid branch name' });
+  }
+
+  const pushResult = await runGit(cwd, ['push', '-u', 'origin', sanitized], { timeout: 60000 });
+  if (pushResult.code !== 0) {
+    return res.status(400).json({ error: pushResult.stderr || 'git push failed' });
+  }
+  res.json({ ok: true, pushed: true, branch: sanitized });
+});
+
+router.post('/api/git/delete', async (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
+  const c = resolveContainedDir(req.body.cwd);
+  if (c.error) return res.status(c.status).json({ error: c.error });
+  const cwd = c.dir;
+  const branch = req.body.branch;
+  if (!branch || typeof branch !== 'string' || !branch.trim()) {
+    return res.status(400).json({ error: 'branch name required' });
+  }
+  const sanitized = branch.trim();
+  if (/[;&|`$(){}]/.test(sanitized)) {
+    return res.status(400).json({ error: 'Invalid branch name' });
+  }
+
+  const result = await runGit(cwd, ['branch', '-D', sanitized]);
+  if (result.code !== 0) {
+    return res.status(400).json({ error: result.stderr || 'git branch delete failed' });
+  }
+
+  const remote = !!req.body.remote;
+  if (remote) {
+    const remoteResult = await runGit(cwd, ['push', 'origin', '--delete', sanitized], { timeout: 60000 });
+    if (remoteResult.code !== 0) {
+      return res.status(400).json({ error: remoteResult.stderr || 'git remote branch delete failed' });
+    }
+  }
+
+  res.json({ ok: true, deleted: true, remoteDeleted: remote, branch: sanitized });
 });
 
 router.post('/api/git/merge', async (req, res) => {
