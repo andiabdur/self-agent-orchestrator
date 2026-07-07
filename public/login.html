@@ -13,6 +13,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
 <title>Login - Self Agent Orchestrator</title>
+<script>
+  (() => {
+    let t = 'light';
+    try { t = localStorage.getItem('theme') || 'light'; } catch {}
+    document.documentElement.dataset.theme = t;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', t === 'light' ? '#f8f8f8' : '#0a0a0a');
+  })();
+</script>
 <style>
   :root {
     /* Light Theme (Default) */
@@ -62,6 +71,8 @@
     font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     display: flex; align-items: center; justify-content: center;
     overflow: hidden;
+  }
+  body.theme-initialized {
     transition: background 0.15s, color 0.15s;
   }
 
@@ -344,7 +355,10 @@
   let savedTheme = 'light';
   try { savedTheme = localStorage.getItem('theme') || 'light'; } catch {}
   setTheme(savedTheme);
-  
+
+  // Enable transition after theme values are loaded
+  document.body.classList.add('theme-initialized');
+
   toggleBtn.addEventListener('click', () => {
     const cur = document.documentElement.dataset.theme || 'light';
     setTheme(cur === 'light' ? 'dark' : 'light');
