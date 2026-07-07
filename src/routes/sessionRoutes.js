@@ -33,7 +33,13 @@ router.get('/api/sessions/search', (req, res) => {
   if (!isAuthenticated(req)) return res.status(401).json({ error: 'unauthorized' });
   const q = String(req.query.q || '').trim();
   if (q.length < 2) return res.json([]);
-  const lower = q.toLowerCase();
+  // Multi-word AND search: every term must appear somewhere in the session.
+  const terms = [...new Set(q.toLowerCase().split(/\s+/).filter(t => t.length >= 2))];
+  if (!terms.length) return res.json([]);
+  const highlightRe = new RegExp(
+    terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'
+  );
+  const MAX_SNIPPETS = 5;
   const list = loadIndex();
   const results = [];
   for (const s of list) {
@@ -41,6 +47,7 @@ router.get('/api/sessions/search', (req, res) => {
     if (!fs.existsSync(f)) continue;
     let lines;
     try { lines = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean); } catch { continue; }
+    const found = new Set();
     const snippets = [];
     let hitCount = 0;
     for (const line of lines) {
@@ -49,29 +56,30 @@ router.get('/api/sessions/search', (req, res) => {
       if (evt.kind !== 'user_message' && evt.kind !== 'assistant_text') continue;
       const text = String(evt.text || '');
       const ltext = text.toLowerCase();
-      let idx = ltext.indexOf(lower);
-      while (idx !== -1) {
-        hitCount++;
-        if (snippets.length < 3) {
-          const start = Math.max(0, idx - 80);
-          const end = Math.min(text.length, idx + lower.length + 80);
-          let snippet = text.slice(start, end).replace(/\n+/g, ' ');
-          if (start > 0) snippet = '…' + snippet;
-          if (end < text.length) snippet = snippet + '…';
-          snippets.push(snippet.replace(
-            new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
-            m => `\x00${m}\x00`
-          ));
+      for (const term of terms) {
+        let idx = ltext.indexOf(term);
+        if (idx !== -1) found.add(term);
+        while (idx !== -1) {
+          hitCount++;
+          if (snippets.length < MAX_SNIPPETS) {
+            const start = Math.max(0, idx - 80);
+            const end = Math.min(text.length, idx + term.length + 80);
+            let snippet = text.slice(start, end).replace(/\n+/g, ' ');
+            if (start > 0) snippet = '…' + snippet;
+            if (end < text.length) snippet = snippet + '…';
+            snippets.push(snippet.replace(highlightRe, m => `\x00${m}\x00`));
+          }
+          idx = ltext.indexOf(term, idx + 1);
         }
-        idx = ltext.indexOf(lower, idx + 1);
       }
     }
-    if (hitCount > 0) {
+    if (found.size === terms.length) {
       results.push({ id: s.id, title: s.title, cwd: s.cwd, last_used_at: s.last_used_at, snippets, hitCount });
     }
   }
-  results.sort((a, b) => b.hitCount - a.hitCount);
-  res.json(results.slice(0, 20));
+  // Newest conversation first — recency beats hit count for finding your way back.
+  results.sort((a, b) => (b.last_used_at || 0) - (a.last_used_at || 0));
+  res.json(results.slice(0, 50));
 });
 
 export default router;

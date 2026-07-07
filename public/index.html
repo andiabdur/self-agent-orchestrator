@@ -217,14 +217,14 @@
     transition: background .12s, color .12s;
   }
   #theme-toggle:hover { background: var(--bg-3); color: var(--text); }
-  #btn-terminal {
+  #btn-terminal, #btn-global-search {
     background: none; border: none; color: var(--muted);
     width: 32px; height: 32px; cursor: pointer; flex: 0 0 auto;
     display: flex; align-items: center; justify-content: center;
     padding: 0; border-radius: 3px;
     transition: background .12s, color .12s;
   }
-  #btn-terminal:hover { background: var(--bg-3); color: var(--text); }
+  #btn-terminal:hover, #btn-global-search:hover { background: var(--bg-3); color: var(--text); }
   #btn-terminal.active { color: var(--accent); }
   #btn-git {
     background: none; border: none; color: var(--muted);
@@ -1082,30 +1082,90 @@
   }
   #session-search:focus { border-color: var(--accent); }
   #session-search::placeholder { color: var(--muted); }
-  #btn-search-mode {
-    position: absolute; right: 6px;
-    background: none; border: none; cursor: pointer;
-    color: var(--muted); padding: 2px 4px; border-radius: 3px;
+  /* ─── Global search panel (body overlay) ─────────────────── */
+  #search-panel {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 46; display: none; flex-direction: column;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #search-panel.open { display: flex; }
+  .search-panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    max-width: 860px; width: 100%; margin: 0 auto;
+  }
+  .search-panel-input-wrap {
+    flex: 1; position: relative; display: flex; align-items: center;
+  }
+  .search-panel-input-wrap .session-search-icon { left: 12px; }
+  #global-search-input {
+    width: 100%; background: var(--bg-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px 10px 36px;
+    font-size: 15px; font-family: 'IBM Plex Sans', sans-serif;
+    outline: none; transition: border-color .15s;
+  }
+  #global-search-input:focus { border-color: var(--accent); }
+  #global-search-input::placeholder { color: var(--muted); }
+  #btn-search-close {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); cursor: pointer; padding: 8px 10px;
     display: flex; align-items: center;
     transition: color .15s, background .15s;
-    flex-shrink: 0;
   }
-  #btn-search-mode:hover { color: var(--text); background: var(--bg-3); }
-  #btn-search-mode.active { color: var(--accent); }
-  #session-search.content-mode { padding-right: 28px; }
-  .session-snippet {
-    font-size: 11px; color: var(--muted); margin-top: 3px;
-    line-height: 1.45; white-space: pre-wrap; word-break: break-word;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-    overflow: hidden;
+  #btn-search-close:hover { color: var(--text); background: var(--bg-3); }
+  #search-results {
+    flex: 1; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  .session-snippet mark {
+  .search-results-inner {
+    max-width: 860px; margin: 0 auto; padding: 12px 16px 40px;
+  }
+  .search-result-count {
+    font-size: 12px; color: var(--muted); padding: 4px 2px 10px;
+  }
+  .search-result-card {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 10px;
+    cursor: pointer; background: var(--bg-2);
+    transition: border-color .15s, background .15s;
+  }
+  .search-result-card:hover { border-color: var(--accent); background: var(--bg-3); }
+  .search-result-title {
+    font-size: 14px; font-weight: 600; color: var(--text);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .search-result-hits {
+    font-size: 11px; font-weight: 500; color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-radius: 10px; padding: 1px 8px;
+  }
+  .search-result-meta {
+    font-size: 11.5px; color: var(--muted); margin-top: 3px;
+  }
+  .search-result-snippets { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
+  .search-result-snippet {
+    font-size: 12.5px; color: var(--muted); line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+    border-left: 2px solid var(--border); padding-left: 10px;
+  }
+  .search-result-snippet mark {
     background: transparent; color: var(--accent); font-weight: 600;
   }
-  .search-loading {
-    font-size: 11px; color: var(--muted);
-    padding: 12px 14px; text-align: center;
+  .search-empty, .search-loading {
+    font-size: 13px; color: var(--muted);
+    padding: 40px 16px; text-align: center;
   }
+  /* Flash highlight for the message we jump to after opening a result */
+  @keyframes search-flash {
+    0%, 60% { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+    100% { background: transparent; }
+  }
+  .search-jump-flash { animation: search-flash 1.8s ease-out 1; border-radius: 8px; }
   #btn-new {
     background: var(--accent); color: var(--on-accent);
     border: none; border-radius: 4px;
@@ -1858,6 +1918,9 @@
     <div id="header-title">New chat</div>
     <button id="header-cwd" type="button" title="Change working directory" aria-label="Working directory"></button>
     <div id="node-badge"></div>
+    <button id="btn-global-search" type="button" title="Search conversations (⌘K)" aria-label="Search conversations">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </button>
     <button id="btn-terminal" type="button" title="Terminal" aria-label="Open terminal">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
     </button>
@@ -1985,11 +2048,6 @@
           </svg>
         </span>
         <input id="session-search" type="text" placeholder="Search sessions…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Search sessions" />
-        <button id="btn-search-mode" type="button" title="Toggle: search inside conversations" aria-pressed="false">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-          </svg>
-        </button>
       </div>
       <button id="btn-new" type="button">+ New</button>
     </div>
@@ -2117,6 +2175,25 @@
   </div>
   <div id="sidebar-footer-row" style="margin-top:auto;padding:8px 12px 4px;flex-shrink:0;"></div>
 </aside>
+
+<div id="search-panel" aria-hidden="true" role="dialog" aria-label="Search conversations">
+  <div class="search-panel-header">
+    <div class="search-panel-input-wrap">
+      <span class="session-search-icon" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+      </span>
+      <input id="global-search-input" type="text" placeholder="Search inside all conversations…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Search inside all conversations" />
+    </div>
+    <button id="btn-search-close" type="button" title="Close (Esc)" aria-label="Close search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div id="search-results">
+    <div class="search-results-inner" id="search-results-inner"></div>
+  </div>
+</div>
 
 <aside id="git-panel" aria-hidden="true">
   <div id="git-resize" title="Drag to resize"></div>
@@ -2317,7 +2394,11 @@
     nodeRow: $('#node-row'),
     nodeList: $('#node-list'),
     sessionSearch: $('#session-search'),
-    btnSearchMode: $('#btn-search-mode'),
+    btnGlobalSearch: $('#btn-global-search'),
+    searchPanel: $('#search-panel'),
+    globalSearchInput: $('#global-search-input'),
+    btnSearchClose: $('#btn-search-close'),
+    searchResultsInner: $('#search-results-inner'),
     engineBadge: $('#engine-badge'),
     enginePopover: $('#engine-popover'),
     popoverModelSection: $('#popover-model-section'),
@@ -2337,9 +2418,8 @@
     sessionId: null,
     sessions: [],
     sessionSearch: '',
-    contentSearchMode: false,
-    contentSearchResults: null,
-    contentSearchLoading: false,
+    searchOpen: false,
+    searchJumpQuery: null,
     cwd: '',
     git: { open: false, loading: false, cwd: '', branch: '', files: [], isRepo: false, error: '', expanded: new Set(), mode: 'git' },
     permissionMode: 'bypassPermissions',
@@ -4405,27 +4485,10 @@
     renderSessions();
     updateEngineBadge(state.engine, state.model);  // sync composer badge with loaded session
     closeSidebar();
+    if (state.searchJumpQuery) requestAnimationFrame(() => jumpToSearchMatch());
   }
 
-  function renderSnippets(snippets) {
-    return snippets.map(raw => {
-      const div = document.createElement('div');
-      div.className = 'session-snippet';
-      const parts = raw.split('\x00');
-      for (let i = 0; i < parts.length; i++) {
-        if (i % 2 === 0) {
-          div.appendChild(document.createTextNode(parts[i]));
-        } else {
-          const mark = document.createElement('mark');
-          mark.textContent = parts[i];
-          div.appendChild(mark);
-        }
-      }
-      return div;
-    });
-  }
-
-  function buildSessionItem(s, snippets) {
+  function buildSessionItem(s) {
     const item = document.createElement('div');
     item.className = 'session-item' + (s.id === state.sessionId ? ' active' : '');
     const text = document.createElement('div');
@@ -4444,9 +4507,6 @@
       <div class="session-meta">${timeAgo(s.last_used_at)} · ${shortCwd(s.cwd)}</div>
       ${weight ? `<div class="session-weight ${heavy}">${weight}</div>` : ''}
     `;
-    if (snippets && snippets.length) {
-      renderSnippets(snippets).forEach(el => text.appendChild(el));
-    }
     text.addEventListener('click', () => {
       send({ type: 'load_session', sessionId: s.id });
     });
@@ -4496,30 +4556,11 @@
 
   function renderSessions() {
     els.sessionList.innerHTML = '';
-    if (state.contentSearchMode && state.contentSearchResults !== null) {
-      if (state.contentSearchLoading) {
-        const e = document.createElement('div');
-        e.className = 'search-loading';
-        e.textContent = 'Searching…';
-        els.sessionList.appendChild(e);
-        return;
-      }
-      if (!state.contentSearchResults.length) {
-        const e = document.createElement('div');
-        e.style.cssText = 'padding:20px;color:var(--muted);font-size:12px;text-align:center;';
-        e.textContent = 'No sessions match';
-        els.sessionList.appendChild(e);
-        return;
-      }
-      for (const s of state.contentSearchResults) {
-        els.sessionList.appendChild(buildSessionItem(s, s.snippets || []));
-      }
-      return;
-    }
     const q = state.sessionSearch.toLowerCase().trim();
-    const visible = q
+    const visible = (q
       ? state.sessions.filter(s => (s.title || 'Untitled').toLowerCase().includes(q))
-      : state.sessions;
+      : state.sessions.slice()
+    ).sort((a, b) => (b.last_used_at || 0) - (a.last_used_at || 0));
     if (!visible.length) {
       const e = document.createElement('div');
       e.style.cssText = 'padding:20px;color:var(--muted);font-size:12px;text-align:center;';
@@ -4528,7 +4569,7 @@
       return;
     }
     for (const s of visible) {
-      els.sessionList.appendChild(buildSessionItem(s, []));
+      els.sessionList.appendChild(buildSessionItem(s));
     }
   }
 
@@ -4544,13 +4585,18 @@
     return p.startsWith(home) ? '~' + p.slice(home.length) : p;
   }
 
+  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function timeAgo(ts) {
     if (!ts) return '';
     const s = Math.floor((Date.now() - ts) / 1000);
     if (s < 60) return 'just now';
     if (s < 3600) return Math.floor(s/60) + 'm ago';
     if (s < 86400) return Math.floor(s/3600) + 'h ago';
-    return Math.floor(s/86400) + 'd ago';
+    // Older than a day: relative time alone gets vague — show real date + clock.
+    const d = new Date(ts);
+    const hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    const yearSuffix = d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '';
+    return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}${yearSuffix}, ${hm}`;
   }
 
   // ---------- Composer ----------
@@ -5108,60 +5154,142 @@
     send({ type: 'set_engine', engine: state.engine });
   });
 
-  // ---------- Session search ----------
-  let _searchDebounce = null;
-
-  function runContentSearch(q) {
-    if (q.length < 2) {
-      state.contentSearchResults = null;
-      state.contentSearchLoading = false;
-      renderSessions();
-      return;
-    }
-    state.contentSearchLoading = true;
-    state.contentSearchResults = null;
+  // ---------- Sidebar session search (title filter only) ----------
+  els.sessionSearch.addEventListener('input', () => {
+    state.sessionSearch = els.sessionSearch.value;
     renderSessions();
+  });
+
+  // ---------- Global conversation search (body panel) ----------
+  let _searchDebounce = null;
+  let _searchSeq = 0;
+
+  function openSearchPanel() {
+    state.searchOpen = true;
+    els.searchPanel.classList.add('open');
+    els.searchPanel.setAttribute('aria-hidden', 'false');
+    els.globalSearchInput.focus();
+    els.globalSearchInput.select();
+    if (!els.searchResultsInner.childElementCount) renderSearchHint();
+  }
+
+  function closeSearchPanel() {
+    state.searchOpen = false;
+    els.searchPanel.classList.remove('open');
+    els.searchPanel.setAttribute('aria-hidden', 'true');
+  }
+
+  function renderSearchHint() {
+    els.searchResultsInner.innerHTML = '';
+    const e = document.createElement('div');
+    e.className = 'search-empty';
+    e.textContent = 'Type at least 2 characters to search across all conversations. Multiple words = all must match.';
+    els.searchResultsInner.appendChild(e);
+  }
+
+  function runGlobalSearch(q) {
+    const seq = ++_searchSeq;
+    if (q.length < 2) { renderSearchHint(); return; }
+    els.searchResultsInner.innerHTML = '<div class="search-loading">Searching…</div>';
     fetch('/api/sessions/search?' + new URLSearchParams({ q }))
-      .then(r => r.json())
-      .then(data => {
-        state.contentSearchResults = data;
-        state.contentSearchLoading = false;
-        renderSessions();
-      })
+      .then(r => { if (!r.ok) throw new Error('search failed'); return r.json(); })
+      .then(data => { if (seq === _searchSeq) renderSearchResults(data, q); })
       .catch(() => {
-        state.contentSearchResults = [];
-        state.contentSearchLoading = false;
-        renderSessions();
+        if (seq !== _searchSeq) return;
+        els.searchResultsInner.innerHTML = '<div class="search-empty">Search failed — please try again.</div>';
       });
   }
 
-  els.sessionSearch.addEventListener('input', () => {
-    const val = els.sessionSearch.value;
-    if (state.contentSearchMode) {
-      clearTimeout(_searchDebounce);
-      _searchDebounce = setTimeout(() => runContentSearch(val.trim()), 350);
-    } else {
-      state.sessionSearch = val;
-      renderSessions();
+  function renderSearchResults(results, q) {
+    els.searchResultsInner.innerHTML = '';
+    if (!results.length) {
+      const e = document.createElement('div');
+      e.className = 'search-empty';
+      e.textContent = `No conversations match “${q}”`;
+      els.searchResultsInner.appendChild(e);
+      return;
     }
-  });
+    const count = document.createElement('div');
+    count.className = 'search-result-count';
+    count.textContent = results.length + (results.length === 1 ? ' conversation' : ' conversations') + ' — newest first';
+    els.searchResultsInner.appendChild(count);
+    for (const s of results) {
+      const card = document.createElement('div');
+      card.className = 'search-result-card';
+      const title = document.createElement('div');
+      title.className = 'search-result-title';
+      title.textContent = s.title || 'Untitled';
+      if (s.hitCount > 0) {
+        const hits = document.createElement('span');
+        hits.className = 'search-result-hits';
+        hits.textContent = s.hitCount + (s.hitCount === 1 ? ' match' : ' matches');
+        title.appendChild(hits);
+      }
+      const meta = document.createElement('div');
+      meta.className = 'search-result-meta';
+      meta.textContent = [timeAgo(s.last_used_at), shortCwd(s.cwd)].filter(Boolean).join(' · ');
+      card.appendChild(title);
+      card.appendChild(meta);
+      if (s.snippets && s.snippets.length) {
+        const wrap = document.createElement('div');
+        wrap.className = 'search-result-snippets';
+        for (const raw of s.snippets) {
+          const div = document.createElement('div');
+          div.className = 'search-result-snippet';
+          const parts = raw.split('\x00');
+          for (let i = 0; i < parts.length; i++) {
+            if (i % 2 === 0) div.appendChild(document.createTextNode(parts[i]));
+            else {
+              const mark = document.createElement('mark');
+              mark.textContent = parts[i];
+              div.appendChild(mark);
+            }
+          }
+          wrap.appendChild(div);
+        }
+        card.appendChild(wrap);
+      }
+      card.addEventListener('click', () => {
+        state.searchJumpQuery = q;
+        closeSearchPanel();
+        send({ type: 'load_session', sessionId: s.id });
+      });
+      els.searchResultsInner.appendChild(card);
+    }
+  }
 
-  els.btnSearchMode.addEventListener('click', () => {
-    state.contentSearchMode = !state.contentSearchMode;
-    els.btnSearchMode.classList.toggle('active', state.contentSearchMode);
-    els.btnSearchMode.setAttribute('aria-pressed', String(state.contentSearchMode));
-    els.sessionSearch.classList.toggle('content-mode', state.contentSearchMode);
-    if (state.contentSearchMode) {
-      els.sessionSearch.placeholder = 'Search inside conversations…';
-      const val = els.sessionSearch.value.trim();
-      if (val.length >= 2) runContentSearch(val);
-      else { state.contentSearchResults = null; renderSessions(); }
-    } else {
-      els.sessionSearch.placeholder = 'Search sessions…';
-      state.contentSearchResults = null;
-      state.contentSearchLoading = false;
-      state.sessionSearch = els.sessionSearch.value;
-      renderSessions();
+  // After a session opens from a search result, scroll to the first matching message.
+  function jumpToSearchMatch() {
+    const q = state.searchJumpQuery;
+    state.searchJumpQuery = null;
+    if (!q) return;
+    const terms = q.toLowerCase().split(/\s+/).filter(t => t.length >= 2);
+    if (!terms.length) return;
+    const nodes = els.messages.querySelectorAll('.msg-user, .msg-assistant, .msg-text');
+    for (const node of nodes) {
+      const t = (node.textContent || '').toLowerCase();
+      if (terms.some(term => t.includes(term))) {
+        node.scrollIntoView({ block: 'center' });
+        node.classList.add('search-jump-flash');
+        setTimeout(() => node.classList.remove('search-jump-flash'), 2000);
+        return;
+      }
+    }
+  }
+
+  els.btnGlobalSearch.addEventListener('click', openSearchPanel);
+  els.btnSearchClose.addEventListener('click', closeSearchPanel);
+  els.globalSearchInput.addEventListener('input', () => {
+    clearTimeout(_searchDebounce);
+    const val = els.globalSearchInput.value.trim();
+    _searchDebounce = setTimeout(() => runGlobalSearch(val), 300);
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      if (state.searchOpen) closeSearchPanel(); else openSearchPanel();
+    } else if (e.key === 'Escape' && state.searchOpen) {
+      closeSearchPanel();
     }
   });
 
