@@ -3,11 +3,12 @@ import path from 'path';
 import fs from 'fs';
 
 // Promise wrapper around `git` with a timeout and bounded output buffer.
-export function runGit(cwd, args, { timeout = 10000 } = {}) {
+export function runGit(cwd, args, { timeout = 10000, envOverride } = {}) {
   return new Promise((resolve) => {
     let proc;
     try {
-      proc = spawn('git', args, { cwd, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } });
+      const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', ...envOverride };
+      proc = spawn('git', args, { cwd, env });
     } catch (err) {
       return resolve({ code: -1, stdout: '', stderr: err.message, spawnError: true });
     }

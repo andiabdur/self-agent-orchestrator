@@ -278,18 +278,35 @@ router.post('/api/git/merge', async (req, res) => {
   for (const b of [from, into]) {
     if (/[;&|`$(){}]/.test(b.trim())) return res.status(400).json({ error: 'Invalid branch name' });
   }
-  // Checkout target branch first
+
+  // Stash uncommitted changes so checkout doesn't fail
+  const hasChanges = await runGit(cwd, ['status', '--porcelain']);
+  const stashed = hasChanges.stdout.trim().length > 0;
+  if (stashed) {
+    const stashRes = await runGit(cwd, ['stash', 'push', '-m', 'auto-stash-before-merge']);
+    if (stashRes.code !== 0) return res.status(400).json({ error: stashRes.stderr || 'stash failed' });
+  }
+
+  // Checkout target branch
   const checkoutResult = await runGit(cwd, ['checkout', into.trim()]);
   if (checkoutResult.code !== 0) {
+    if (stashed) await runGit(cwd, ['stash', 'pop']);
     return res.status(400).json({ error: checkoutResult.stderr || 'checkout failed', step: 'checkout' });
   }
-  // Merge from branch into current
-  const mergeResult = await runGit(cwd, ['merge', '--no-ff', from.trim()]);
+
+  // Merge from branch with no-ff — set GIT_EDITOR to true so no editor opens
+  const mergeResult = await runGit(cwd, ['merge', '--no-ff', from.trim()], { envOverride: { GIT_EDITOR: 'true' } });
   if (mergeResult.code !== 0) {
-    // Abort merge to leave repo clean
     await runGit(cwd, ['merge', '--abort']);
+    await runGit(cwd, ['checkout', from.trim()]);
+    if (stashed) await runGit(cwd, ['stash', 'pop']);
     return res.status(400).json({ error: mergeResult.stderr || 'merge failed', step: 'merge', conflict: mergeResult.stderr.includes('CONFLICT') });
   }
+
+  // Checkout back to original branch
+  await runGit(cwd, ['checkout', from.trim()]);
+  if (stashed) await runGit(cwd, ['stash', 'pop']);
+
   res.json({ ok: true, from: from.trim(), into: into.trim(), output: mergeResult.stdout });
 });
 
