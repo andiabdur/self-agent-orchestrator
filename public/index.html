@@ -176,6 +176,44 @@
   #app.git-open { right: var(--git-w, 360px); }
   #app.sidebar-pinned { left: var(--sidebar-w, 272px); }
 
+  /* ─── Layout variants ────────────────────────────────── */
+  /* Sidebar on right */
+  body.layout-sidebar-right #sidebar {
+    left: auto; right: -300px;
+    border-right: none; border-left: 1px solid var(--border);
+  }
+  body.layout-sidebar-right #sidebar.open { left: auto; right: 0; }
+  body.layout-sidebar-right #app.sidebar-pinned { left: 0; right: var(--sidebar-w, 272px); }
+  body.layout-sidebar-right #sidebar-bg.open { display: block; }
+
+  /* Git panel on left */
+  body.layout-git-left #git-panel {
+    right: auto; left: calc(-1 * var(--gw, 360px));
+    border-left: none; border-right: 1px solid var(--border);
+  }
+  body.layout-git-left #git-panel.open { right: auto; left: 0; }
+  body.layout-git-left #app.git-open { right: 0; left: var(--git-w, 360px); }
+  body.layout-git-left #git-resize {
+    left: auto; right: 0; cursor: col-resize;
+  }
+
+  /* Viewer on left */
+  body.layout-viewer-left #viewer {
+    right: auto; left: calc(-1 * var(--vw, 540px));
+    border-left: none; border-right: 1px solid var(--border);
+  }
+  body.layout-viewer-left #viewer.open { right: auto; left: 0; }
+  body.layout-viewer-left #app.viewer-open { right: 0; left: var(--viewer-w, 520px); }
+  body.layout-viewer-left #viewer-resize {
+    left: auto; right: 0; cursor: col-resize;
+  }
+
+  /* Combined: sidebar-pinned + viewer-open or git-open on same side — stack offsets */
+  body.layout-sidebar-right #app.sidebar-pinned.viewer-open { right: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
+  body.layout-sidebar-right #app.sidebar-pinned.git-open { right: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
+  body.layout-git-left #app.sidebar-pinned.git-open { left: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
+  body.layout-viewer-left #app.sidebar-pinned.viewer-open { left: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
+
   /* ─── Header ──────────────────────────────────────────── */
   #header {
     display: flex; align-items: center; gap: 8px;
@@ -2160,6 +2198,55 @@
       </div>
     </div>
 
+    <!-- Layout -->
+    <div class="settings-section">
+      <div class="settings-section-title">Layout</div>
+      <div class="settings-card">
+        <div class="settings-row col">
+          <span class="settings-row-head">
+            <span class="settings-row-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+            </span>
+            <span class="settings-row-label">Sidebar</span>
+          </span>
+          <select id="layout-sidebar-select" class="settings-select">
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+        <div class="settings-row col">
+          <span class="settings-row-head">
+            <span class="settings-row-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48l2.12 2.12M5.64 18.36l2.12-2.12m8.48-8.48l2.12-2.12"/></svg>
+            </span>
+            <span class="settings-row-label">Git Panel</span>
+          </span>
+          <select id="layout-git-select" class="settings-select">
+            <option value="right">Right</option>
+            <option value="left">Left</option>
+          </select>
+        </div>
+        <div class="settings-row col">
+          <span class="settings-row-head">
+            <span class="settings-row-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </span>
+            <span class="settings-row-label">File Viewer</span>
+          </span>
+          <select id="layout-viewer-select" class="settings-select">
+            <option value="right">Right</option>
+            <option value="left">Left</option>
+          </select>
+        </div>
+        <button id="btn-layout-reset" class="settings-action-btn" type="button">
+          <span class="settings-row-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          </span>
+          Reset to defaults
+        </button>
+      </div>
+    </div>
+
     <!-- Account -->
     <div class="settings-section">
       <div class="settings-section-title">Account</div>
@@ -3561,7 +3648,8 @@
   });
   document.addEventListener('mousemove', (e) => {
     if (!resizing) return;
-    const dx = resizeStartX - e.clientX;
+    const dir = document.body.classList.contains('layout-viewer-left') ? -1 : 1;
+    const dx = dir * (resizeStartX - e.clientX);
     const w = Math.min(900, Math.max(260, resizeStartW + dx));
     setViewerWidth(w);
   });
@@ -3581,7 +3669,8 @@
   }, { passive: false });
   document.addEventListener('touchmove', (e) => {
     if (!resizing) return;
-    const dx = resizeStartX - e.touches[0].clientX;
+    const dir = document.body.classList.contains('layout-viewer-left') ? -1 : 1;
+    const dx = dir * (resizeStartX - e.touches[0].clientX);
     const w = Math.min(900, Math.max(260, resizeStartW + dx));
     setViewerWidth(w);
   }, { passive: false });
@@ -4811,9 +4900,13 @@
   });
 
   // ---------- Sidebar ----------
-  let sidebarPinned = false;
+  let savedSidebarPin; try { savedSidebarPin = localStorage.getItem('sidebar-pinned'); } catch {}
+  let sidebarPinned = savedSidebarPin === '0' ? false : true;
   const btnSidebarPin = document.getElementById('btn-sidebar-pin');
-  btnSidebarPin.innerHTML = PIN_OFF_SVG;
+  btnSidebarPin.innerHTML = sidebarPinned ? PIN_ON_SVG : PIN_OFF_SVG;
+  btnSidebarPin.classList.toggle('pinned', sidebarPinned);
+  if (sidebarPinned) btnSidebarPin.classList.add('visible');
+  btnSidebarPin.title = sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar';
 
   function updateSidebarLayout() {
     const pinned = sidebarPinned && els.sidebar.classList.contains('open');
@@ -4838,6 +4931,7 @@
     btnSidebarPin.classList.toggle('pinned', sidebarPinned);
     btnSidebarPin.innerHTML = sidebarPinned ? PIN_ON_SVG : PIN_OFF_SVG;
     btnSidebarPin.title = sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar';
+    try { localStorage.setItem('sidebar-pinned', sidebarPinned ? '1' : '0'); } catch {}
     updateSidebarLayout();
   });
 
@@ -4859,9 +4953,14 @@
     sidebarPinned = false;
     btnSidebarPin.classList.remove('pinned');
     btnSidebarPin.innerHTML = PIN_OFF_SVG;
+    btnSidebarPin.title = 'Pin sidebar';
+    try { localStorage.setItem('sidebar-pinned', '0'); } catch {}
     closeSidebar();
   });
   els.sidebarBg.addEventListener('click', closeSidebar);
+
+  // Auto-open sidebar pinned on load (desktop only)
+  if (sidebarPinned && window.innerWidth > 700) openSidebar();
 
   els.btnGit.addEventListener('click', () => {
     if (state.git.open) closeGitPanel(); else openGitPanel();
@@ -4930,7 +5029,8 @@
   }
   function gitResizeMove(clientX) {
     if (!gitResizing) return;
-    const w = Math.min(760, Math.max(240, gitStartW + (gitStartX - clientX)));
+    const dir = document.body.classList.contains('layout-git-left') ? -1 : 1;
+    const w = Math.min(760, Math.max(240, gitStartW + dir * (gitStartX - clientX)));
     setGitWidth(w);
   }
   function gitResizeEnd() {
@@ -5629,6 +5729,49 @@
     }
     if (els.enginePopover && !els.enginePopover.hidden) syncPopoverState();
   }
+
+  // ---------- Layout Settings ----------
+  const LAYOUT_DEFAULTS = { sidebar: 'left', git: 'right', viewer: 'right' };
+  let layoutConfig = Object.assign({}, LAYOUT_DEFAULTS);
+  try {
+    const saved = localStorage.getItem('layout-config');
+    if (saved) Object.assign(layoutConfig, JSON.parse(saved));
+  } catch {}
+
+  const layoutSidebarSel = document.getElementById('layout-sidebar-select');
+  const layoutGitSel = document.getElementById('layout-git-select');
+  const layoutViewerSel = document.getElementById('layout-viewer-select');
+  const btnLayoutReset = document.getElementById('btn-layout-reset');
+
+  function applyLayout() {
+    document.body.classList.toggle('layout-sidebar-right', layoutConfig.sidebar === 'right');
+    document.body.classList.toggle('layout-git-left', layoutConfig.git === 'left');
+    document.body.classList.toggle('layout-viewer-left', layoutConfig.viewer === 'left');
+    layoutSidebarSel.value = layoutConfig.sidebar;
+    layoutGitSel.value = layoutConfig.git;
+    layoutViewerSel.value = layoutConfig.viewer;
+    try { localStorage.setItem('layout-config', JSON.stringify(layoutConfig)); } catch {}
+    updateSidebarLayout();
+  }
+
+  layoutSidebarSel.addEventListener('change', (e) => {
+    layoutConfig.sidebar = e.target.value;
+    applyLayout();
+  });
+  layoutGitSel.addEventListener('change', (e) => {
+    layoutConfig.git = e.target.value;
+    applyLayout();
+  });
+  layoutViewerSel.addEventListener('change', (e) => {
+    layoutConfig.viewer = e.target.value;
+    applyLayout();
+  });
+  btnLayoutReset.addEventListener('click', () => {
+    Object.assign(layoutConfig, LAYOUT_DEFAULTS);
+    applyLayout();
+  });
+
+  applyLayout();
 
   // ---------- Theme ----------
   // Tokyo Night: moon + stars
