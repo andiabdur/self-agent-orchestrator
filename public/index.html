@@ -181,6 +181,7 @@
   body.layout-sidebar-right #sidebar {
     left: auto; right: -300px;
     border-right: none; border-left: 1px solid var(--border);
+    transition: right .22s cubic-bezier(.4,0,.2,1);
   }
   body.layout-sidebar-right #sidebar.open { left: auto; right: 0; }
   body.layout-sidebar-right #app.sidebar-pinned { left: 0; right: var(--sidebar-w, 272px); }
@@ -190,6 +191,7 @@
   body.layout-git-left #git-panel {
     right: auto; left: calc(-1 * var(--gw, 360px));
     border-left: none; border-right: 1px solid var(--border);
+    transition: left .25s cubic-bezier(.4,0,.2,1);
   }
   body.layout-git-left #git-panel.open { right: auto; left: 0; }
   body.layout-git-left #app.git-open { right: 0; left: var(--git-w, 360px); }
@@ -201,6 +203,7 @@
   body.layout-viewer-left #viewer {
     right: auto; left: calc(-1 * var(--vw, 540px));
     border-left: none; border-right: 1px solid var(--border);
+    transition: left .25s cubic-bezier(.4,0,.2,1);
   }
   body.layout-viewer-left #viewer.open { right: auto; left: 0; }
   body.layout-viewer-left #app.viewer-open { right: 0; left: var(--viewer-w, 520px); }
@@ -208,11 +211,23 @@
     left: auto; right: 0; cursor: col-resize;
   }
 
-  /* Combined: sidebar-pinned + viewer-open or git-open on same side — stack offsets */
-  body.layout-sidebar-right #app.sidebar-pinned.viewer-open { right: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
-  body.layout-sidebar-right #app.sidebar-pinned.git-open { right: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
+  /* Sidebar-pinned + panel on SAME side: offset panel position & stack #app offsets */
+  /* sidebar left (default) + git left */
   body.layout-git-left #app.sidebar-pinned.git-open { left: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
+  body.sidebar-is-pinned.layout-git-left #git-panel.open { left: var(--sidebar-w, 272px); }
+  /* sidebar left (default) + viewer left */
   body.layout-viewer-left #app.sidebar-pinned.viewer-open { left: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
+  body.sidebar-is-pinned.layout-viewer-left #viewer.open { left: var(--sidebar-w, 272px); }
+  /* sidebar right + git right (git stays default right) */
+  body.layout-sidebar-right:not(.layout-git-left) #app.sidebar-pinned.git-open { right: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
+  body.sidebar-is-pinned.layout-sidebar-right:not(.layout-git-left) #git-panel.open { right: var(--sidebar-w, 272px); }
+  /* sidebar right + viewer right (viewer stays default right) */
+  body.layout-sidebar-right:not(.layout-viewer-left) #app.sidebar-pinned.viewer-open { right: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
+  body.sidebar-is-pinned.layout-sidebar-right:not(.layout-viewer-left) #viewer.open { right: var(--sidebar-w, 272px); }
+
+  /* Git + viewer on same side: close one when other opens (handled in JS) — but prevent overlap via z-index */
+  body.layout-git-left.layout-viewer-left #git-panel { z-index: 43; }
+  body:not(.layout-git-left):not(.layout-viewer-left) #git-panel { z-index: 43; }
 
   /* ─── Header ──────────────────────────────────────────── */
   #header {
@@ -3436,6 +3451,10 @@
     if (showIframe) viewerBody.style.display = 'none';
   }
 
+  function gitSide() { return document.body.classList.contains('layout-git-left') ? 'left' : 'right'; }
+  function viewerSide() { return document.body.classList.contains('layout-viewer-left') ? 'left' : 'right'; }
+  function areGitViewerSameSide() { return gitSide() === viewerSide(); }
+
   async function openFileViewer(filePath, cachedContent) {
     const ext = fileExt(filePath);
     viewerEditMode = false;
@@ -3460,6 +3479,7 @@
     updateViewerToolbar();
     renderViewerBody();
     showViewerPanels();
+    if (areGitViewerSameSide() && state.git.open) closeGitPanel();
     viewerEl.classList.add('open');
     document.getElementById('app').classList.add('viewer-open');
     const vw = (viewerEl.offsetWidth || parseInt(viewerEl.style.width) || 520);
@@ -3931,6 +3951,7 @@
 
   // ---------- Git panel (read-only) ----------
   function openGitPanel() {
+    if (areGitViewerSameSide() && viewerEl.classList.contains('open')) closeViewer();
     state.git.open = true;
     els.gitPanel.classList.add('open');
     els.gitPanel.setAttribute('aria-hidden', 'false');
@@ -4912,6 +4933,7 @@
     const pinned = sidebarPinned && els.sidebar.classList.contains('open');
     const app = document.getElementById('app');
     app.classList.toggle('sidebar-pinned', pinned);
+    document.body.classList.toggle('sidebar-is-pinned', pinned);
     // When pinned: hide the overlay so chat remains interactive
     if (pinned) {
       els.sidebarBg.classList.remove('open');
@@ -5747,6 +5769,9 @@
     document.body.classList.toggle('layout-sidebar-right', layoutConfig.sidebar === 'right');
     document.body.classList.toggle('layout-git-left', layoutConfig.git === 'left');
     document.body.classList.toggle('layout-viewer-left', layoutConfig.viewer === 'left');
+    if (areGitViewerSameSide() && state.git.open && viewerEl.classList.contains('open')) {
+      closeGitPanel();
+    }
     layoutSidebarSel.value = layoutConfig.sidebar;
     layoutGitSel.value = layoutConfig.git;
     layoutViewerSel.value = layoutConfig.viewer;
