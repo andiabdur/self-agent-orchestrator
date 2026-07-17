@@ -18,7 +18,7 @@
 <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <title>Self Agent Orchestrator</title>
 <style>
   /* ─── Tokens ──────────────────────────────────────────────
@@ -161,7 +161,7 @@
   html, body {
     margin: 0; padding: 0; height: 100%; width: 100%;
     background: var(--bg); color: var(--text);
-    font: 13px/1.5 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font: 13px/1.5 'Inter', system-ui, sans-serif;
     overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -241,7 +241,7 @@
   }
   #btn-menu {
     background: none; border: none; color: var(--muted);
-    cursor: pointer; padding: 6px; border-radius: 3px;
+    cursor: pointer; padding: 6px; border-radius: 6px;
     display: flex; align-items: center; flex: 0 0 auto;
     font-family: inherit; transition: background .12s, color .12s;
   }
@@ -254,11 +254,11 @@
   }
   #header-cwd {
     font-size: 11px; color: var(--muted);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 38%;
     background: none; border: none; cursor: pointer; padding: 2px 5px;
-    border-radius: 3px; transition: background .12s, color .12s;
+    border-radius: 6px; transition: background .12s, color .12s;
     text-align: left;
   }
   #header-cwd:hover { background: var(--bg-3); color: var(--text); }
@@ -266,7 +266,7 @@
     background: none; border: none; color: var(--muted);
     width: 32px; height: 32px; cursor: pointer; flex: 0 0 auto;
     display: flex; align-items: center; justify-content: center;
-    padding: 0; border-radius: 3px;
+    padding: 0; border-radius: 6px;
     transition: background .12s, color .12s;
   }
   #theme-toggle:hover { background: var(--bg-3); color: var(--text); }
@@ -274,7 +274,7 @@
     background: none; border: none; color: var(--muted);
     width: 32px; height: 32px; cursor: pointer; flex: 0 0 auto;
     display: flex; align-items: center; justify-content: center;
-    padding: 0; border-radius: 3px;
+    padding: 0; border-radius: 6px;
     transition: background .12s, color .12s;
   }
   #btn-terminal:hover, #btn-global-search:hover { background: var(--bg-3); color: var(--text); }
@@ -283,7 +283,7 @@
     background: none; border: none; color: var(--muted);
     width: 32px; height: 32px; cursor: pointer; flex: 0 0 auto;
     display: flex; align-items: center; justify-content: center;
-    padding: 0; border-radius: 3px;
+    padding: 0; border-radius: 6px;
     transition: background .12s, color .12s;
   }
   #btn-git:hover { background: var(--bg-3); color: var(--text); }
@@ -306,7 +306,7 @@
   .msg-user {
     align-self: flex-end; max-width: 80%;
     background: var(--accent); color: var(--user-bubble-text);
-    padding: 9px 14px; border-radius: 3px;
+    padding: 9px 14px; border-radius: 6px;
     font-size: 14px; line-height: 1.5;
     white-space: pre-wrap; word-wrap: break-word;
   }
@@ -317,7 +317,7 @@
   .msg-text {
     background: var(--bg-2);
     border: 1px solid var(--border);
-    border-radius: 3px;
+    border-radius: 6px;
     padding: 12px 16px;
     word-wrap: break-word;
     font-size: 14px;
@@ -346,17 +346,17 @@
   .msg-text li > p { margin: 0; }
   .msg-text code {
     background: var(--code-bg);
-    padding: 1px 5px; border-radius: 2px;
+    padding: 1px 5px; border-radius: 6px;
     font-size: 12.5px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     color: var(--code-fg);
   }
   .msg-text pre {
     background: var(--code-bg);
     border: 1px solid var(--border);
-    padding: 11px 13px; border-radius: 3px;
+    padding: 11px 13px; border-radius: 6px;
     margin: 10px 0; overflow-x: auto;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 12.5px; line-height: 1.55;
     -webkit-overflow-scrolling: touch;
   }
@@ -373,14 +373,14 @@
   .msg-text th { background: var(--bg-3); font-weight: 500; text-align: left; }
   .msg-text::-webkit-scrollbar { height: 6px; }
   .msg-text::-webkit-scrollbar-track { background: transparent; }
-  .msg-text::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .msg-text::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
 
   /* ─── Tool cards ──────────────────────────────────────── */
   .tool {
     background: var(--tool-bg);
     border: 1px solid var(--tool-border);
     border-left: 2px solid var(--tool);
-    border-radius: 3px;
+    border-radius: 6px;
     overflow: hidden;
   }
   .tool-header {
@@ -407,18 +407,18 @@
   .msg-thinking .thinking-icon svg { display: block; }
   .msg-thinking .thinking-text { flex: 1; min-width: 0; }
   .tool-name {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 11px; font-weight: 500;
     letter-spacing: .06em; text-transform: uppercase;
     color: var(--tool); flex: 0 0 auto;
   }
   .tool-summary {
     color: var(--muted); flex: 1; min-width: 0;
-    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .tool-status {
-    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
     color: var(--muted); flex: 0 0 auto; letter-spacing: .03em;
     display: inline-flex; align-items: center;
   }
@@ -433,16 +433,16 @@
   .tool-section { margin-bottom: 10px; }
   .tool-section:last-child { margin-bottom: 0; }
   .tool-section-label {
-    font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-family: 'JetBrains Mono', monospace;
     color: var(--muted); text-transform: uppercase;
     letter-spacing: .08em; margin-bottom: 5px; font-weight: 500;
   }
   .tool pre {
     background: var(--code-bg);
     border: 1px solid var(--border);
-    padding: 8px 10px; border-radius: 2px;
+    padding: 8px 10px; border-radius: 6px;
     margin: 0; overflow-x: auto;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 12px; line-height: 1.5;
     white-space: pre; max-height: 360px; overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -463,7 +463,7 @@
   /* ─── Turn summary ────────────────────────────────────── */
   .turn-summary {
     align-self: center; color: var(--muted);
-    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
     padding: 4px 10px;
     border: 1px solid var(--border); border-radius: 6px;
     background: var(--bg-2);
@@ -482,7 +482,7 @@
     margin: 2px auto 0;
     border: 1px solid var(--border); border-radius: 8px;
     background: var(--bg-2); overflow: hidden;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   .changes-card-head {
     display: flex; align-items: center; gap: 8px;
@@ -530,7 +530,7 @@
   .empty-state-label {
     font-size: 11px; font-weight: 500; color: var(--muted);
     text-transform: uppercase; letter-spacing: .08em;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   .empty-state-hint {
     font-size: 13px; color: var(--muted);
@@ -543,7 +543,7 @@
     padding: 10px 14px;
     background: var(--bg-2);
     border: 1px solid var(--border);
-    border-radius: 3px;
+    border-radius: 6px;
     color: var(--muted);
     font-size: 13px;
     font-style: italic;
@@ -587,7 +587,7 @@
   #image-previews:empty { display: none; }
   .image-preview {
     position: relative; width: 56px; height: 56px;
-    border-radius: 3px; overflow: hidden;
+    border-radius: 6px; overflow: hidden;
     border: 1px solid var(--border); background: var(--bg-2);
     flex: 0 0 auto;
   }
@@ -603,7 +603,7 @@
   .image-preview .remove:hover { background: var(--error); }
   #btn-attach {
     background: var(--bg-2); color: var(--muted);
-    border: 1px solid var(--border); border-radius: 3px;
+    border: 1px solid var(--border); border-radius: 6px;
     width: 40px; height: 40px; cursor: pointer; flex: 0 0 auto;
     display: flex; align-items: center; justify-content: center;
     padding: 0; font-family: inherit;
@@ -621,7 +621,7 @@
   .msg-user-images:empty { display: none; }
   .msg-user-images img {
     width: 100%; max-height: 200px;
-    object-fit: cover; border-radius: 3px;
+    object-fit: cover; border-radius: 6px;
     display: block; cursor: zoom-in;
     background: rgba(0,0,0,.2);
   }
@@ -639,9 +639,9 @@
   #input {
     flex: 1; resize: none;
     background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 3px;
+    border: 1px solid var(--border); border-radius: 6px;
     padding: 9px 12px; font-size: 14px;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     min-height: 40px; max-height: 160px;
     line-height: 1.4; outline: none;
     transition: border-color .15s;
@@ -650,7 +650,7 @@
   #input::placeholder { color: var(--muted); }
   #btn-send {
     background: var(--accent); color: var(--on-accent); border: none;
-    width: 40px; height: 40px; border-radius: 3px;
+    width: 40px; height: 40px; border-radius: 6px;
     font-size: 15px; cursor: pointer; flex: 0 0 auto;
     display: flex; align-items: center; justify-content: center;
     font-family: inherit;
@@ -708,17 +708,17 @@
   .sidebar-title {
     font-size: 10px; font-weight: 500; color: var(--muted);
     text-transform: uppercase; letter-spacing: .08em;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   #btn-close-sidebar {
     background: none; border: none; color: var(--muted);
     font-size: 20px; cursor: pointer; line-height: 1;
-    padding: 4px 6px; border-radius: 2px;
+    padding: 4px 6px; border-radius: 6px;
     transition: background .12s, color .12s;
   }
   #btn-close-sidebar:hover { background: var(--bg-3); color: var(--text); }
   #btn-sidebar-pin {
-    background: none; border: 1px solid var(--border); border-radius: 2px;
+    background: none; border: 1px solid var(--border); border-radius: 6px;
     color: var(--muted); cursor: pointer;
     padding: 3px 5px; margin-right: 4px;
     display: none; align-items: center;
@@ -782,7 +782,7 @@
     min-width: 0;
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: 3px;
+    border-radius: 6px;
     color: var(--text);
     font-size: 12px;
     padding: 3px 6px;
@@ -795,7 +795,7 @@
   }
   .git-view-toggles {
     display: flex;
-    border-radius: 3px;
+    border-radius: 6px;
     overflow: hidden;
     border: 1px solid var(--border);
   }
@@ -824,10 +824,10 @@
   .git-panel-title {
     font-size: 11px; font-weight: 600; color: var(--text-strong);
     text-transform: uppercase; letter-spacing: .08em;
-    font-family: 'IBM Plex Mono', monospace; flex: 1;
+    font-family: 'JetBrains Mono', monospace; flex: 1;
   }
   .git-panel-btn {
-    background: none; border: 1px solid var(--border); border-radius: 2px;
+    background: none; border: 1px solid var(--border); border-radius: 6px;
     color: var(--muted); cursor: pointer; padding: 3px 5px;
     display: inline-flex; align-items: center;
     transition: background .12s, color .12s, border-color .12s;
@@ -839,7 +839,7 @@
   #btn-close-git {
     background: none; border: none; color: var(--muted);
     font-size: 20px; cursor: pointer; line-height: 1;
-    padding: 4px 6px; border-radius: 2px;
+    padding: 4px 6px; border-radius: 6px;
     transition: background .12s, color .12s;
   }
   #btn-close-git:hover { background: var(--bg-3); color: var(--text); }
@@ -859,7 +859,7 @@
     min-width: 0;
     padding: 4px 8px;
     border: 1px solid var(--border);
-    border-radius: 3px;
+    border-radius: 6px;
     background: var(--bg);
     color: var(--text);
     font-size: 12px;
@@ -881,7 +881,7 @@
     color: var(--on-accent);
     border: none;
     padding: 4px 10px;
-    border-radius: 3px;
+    border-radius: 6px;
     font-size: 12px;
     cursor: pointer;
     transition: background 0.12s;
@@ -897,13 +897,13 @@
     display: flex; align-items: center; gap: 6px;
     padding: 10px 12px; border-bottom: 1px solid var(--border);
     flex-shrink: 0; font-size: 12px; color: var(--text);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   #git-branch-row svg { color: var(--muted); flex-shrink: 0; }
   #git-branch-select {
     flex: 1; min-width: 0; background: var(--bg-2); border: 1px solid var(--border);
-    border-radius: 3px; color: var(--text); font-size: 12px; padding: 4px 6px;
-    cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-weight: 600;
+    border-radius: 6px; color: var(--text); font-size: 12px; padding: 4px 6px;
+    cursor: pointer; font-family: 'JetBrains Mono', monospace; font-weight: 600;
   }
   #git-branch-select:focus { border-color: var(--accent); outline: none; }
   #git-branch-cwd {
@@ -919,21 +919,21 @@
   #git-merge-row.open, #git-delete-row.open { display: flex; }
   #git-merge-into-select, #git-delete-select {
     flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 3px; color: var(--text); font-size: 12px; padding: 4px 6px;
-    cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+    border-radius: 6px; color: var(--text); font-size: 12px; padding: 4px 6px;
+    cursor: pointer; font-family: 'JetBrains Mono', monospace;
   }
   #git-merge-into-select:focus, #git-delete-select:focus { border-color: var(--accent); outline: none; }
   #btn-git-merge-confirm {
-    padding: 4px 10px; border: none; border-radius: 3px; font-size: 12px;
+    padding: 4px 10px; border: none; border-radius: 6px; font-size: 12px;
     font-weight: 600; cursor: pointer; background: var(--accent); color: var(--on-accent);
-    font-family: 'IBM Plex Sans', sans-serif; white-space: nowrap;
+    font-family: 'Inter', system-ui, sans-serif; white-space: nowrap;
     transition: opacity .12s;
   }
   #btn-git-merge-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
   #btn-git-merge-cancel, #btn-git-delete-cancel {
-    background: none; border: 1px solid var(--border); border-radius: 3px;
+    background: none; border: 1px solid var(--border); border-radius: 6px;
     color: var(--muted); cursor: pointer; padding: 4px 8px; font-size: 12px;
-    font-family: 'IBM Plex Sans', sans-serif; transition: background .12s, color .12s;
+    font-family: 'Inter', system-ui, sans-serif; transition: background .12s, color .12s;
   }
   #btn-git-merge-cancel:hover, #btn-git-delete-cancel:hover { background: var(--bg-3); color: var(--text); }
   #git-body { flex: 1; overflow-y: auto; min-height: 0; }
@@ -953,10 +953,10 @@
   .git-file-badge {
     flex-shrink: 0;
     text-align: center;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 9px;
     font-weight: 700;
-    border-radius: 3px;
+    border-radius: 6px;
     padding: 2px 5px;
     text-transform: uppercase;
   }
@@ -974,14 +974,14 @@
   }
   .git-file-name {
     flex: 1; min-width: 0; font-size: 12px; color: var(--text);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     direction: rtl; text-align: left;
   }
   .git-file-name bdi { direction: ltr; unicode-bidi: bidi-override; }
   .git-file-stat {
     flex-shrink: 0; font-size: 11px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   .git-stat-add { color: #2ea043; }
   .git-stat-del { color: #f85149; }
@@ -996,7 +996,7 @@
   .git-commit-input {
     width: 100%; box-sizing: border-box; min-height: 60px; max-height: 120px;
     resize: vertical; background: var(--bg-2); border: 1px solid var(--border);
-    border-radius: 4px; color: var(--text); font-family: 'IBM Plex Sans', sans-serif;
+    border-radius: 8px; color: var(--text); font-family: 'Inter', system-ui, sans-serif;
     font-size: 12px; padding: 8px 10px; line-height: 1.4;
   }
   .git-commit-input::placeholder { color: var(--muted); }
@@ -1005,9 +1005,9 @@
     display: flex; gap: 6px; align-items: center;
   }
   .git-commit-btn {
-    flex: 1; padding: 6px 12px; border: none; border-radius: 4px;
+    flex: 1; padding: 6px 12px; border: none; border-radius: 8px;
     font-size: 12px; font-weight: 600; cursor: pointer;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     transition: background .12s, opacity .12s;
     background: var(--accent); color: var(--on-accent);
   }
@@ -1028,9 +1028,9 @@
     padding-right: 2px;
   }
   .git-stage-btn {
-    background: none; border: 1px solid var(--border); border-radius: 2px;
+    background: none; border: 1px solid var(--border); border-radius: 6px;
     color: var(--muted); cursor: pointer; padding: 1px 4px;
-    font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-family: 'JetBrains Mono', monospace;
     transition: background .12s, color .12s;
   }
   .git-stage-btn:hover { background: var(--bg-3); color: var(--text); }
@@ -1048,7 +1048,7 @@
   .git-diff {
     display: none; overflow-x: auto;
     background: var(--bg-2); border-top: 1px solid var(--border);
-    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
     line-height: 1.5;
   }
   .git-file.expanded .git-diff { display: block; }
@@ -1099,21 +1099,21 @@
     font-size: 10px; color: var(--muted);
     margin-bottom: 6px; text-transform: uppercase;
     letter-spacing: .07em; font-weight: 500;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   .cwd-input-row { display: flex; gap: 6px; }
   #cwd-input {
     flex: 1; min-width: 0;
     background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 2px;
-    padding: 6px 8px; font-family: 'IBM Plex Mono', monospace;
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 8px; font-family: 'JetBrains Mono', monospace;
     font-size: 11.5px; outline: none;
     transition: border-color .15s;
   }
   #cwd-input:focus { border-color: var(--accent); }
   #btn-browse {
     background: var(--bg-2); color: var(--muted);
-    border: 1px solid var(--border); border-radius: 2px;
+    border: 1px solid var(--border); border-radius: 6px;
     padding: 0 10px; cursor: pointer;
     display: flex; align-items: center;
     transition: background .12s, color .12s;
@@ -1122,16 +1122,16 @@
   #model-select, #perm-select {
     width: 100%;
     background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 2px;
+    border: 1px solid var(--border); border-radius: 6px;
     padding: 7px 8px; font-size: 12.5px;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     outline: none; cursor: pointer;
     transition: border-color .15s;
   }
   #model-select:focus, #perm-select:focus { border-color: var(--accent); }
   #perm-warn {
     font-size: 11px; color: var(--muted); margin-top: 6px;
-    line-height: 1.45; font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.45; font-family: 'JetBrains Mono', monospace;
   }
   /* ─── Session controls (search + new) ──────────────────── */
   #session-controls {
@@ -1149,9 +1149,9 @@
   }
   #session-search {
     width: 100%; background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 4px;
+    border: 1px solid var(--border); border-radius: 8px;
     padding: 6px 8px 6px 28px;
-    font-size: 12px; font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px; font-family: 'Inter', system-ui, sans-serif;
     outline: none; transition: border-color .15s;
   }
   #session-search:focus { border-color: var(--accent); }
@@ -1180,7 +1180,7 @@
     width: 100%; background: var(--bg-2); color: var(--text);
     border: 1px solid var(--border); border-radius: 8px;
     padding: 10px 12px 10px 36px;
-    font-size: 15px; font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 15px; font-family: 'Inter', system-ui, sans-serif;
     outline: none; transition: border-color .15s;
   }
   #global-search-input:focus { border-color: var(--accent); }
@@ -1242,9 +1242,9 @@
   .search-jump-flash { animation: search-flash 1.8s ease-out 1; border-radius: 8px; }
   #btn-new {
     background: var(--accent); color: var(--on-accent);
-    border: none; border-radius: 4px;
+    border: none; border-radius: 8px;
     padding: 6px 12px; font-size: 12px; cursor: pointer;
-    font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+    font-family: 'Inter', system-ui, sans-serif; font-weight: 500;
     white-space: nowrap; flex-shrink: 0;
     transition: opacity .12s;
   }
@@ -1260,7 +1260,7 @@
     padding: 14px 14px 0;
   }
   .settings-section-title {
-    font-size: 9.5px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px; font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase; letter-spacing: .1em;
     color: var(--muted); font-weight: 600; margin-bottom: 8px;
   }
@@ -1290,16 +1290,16 @@
   }
   .settings-row-sub {
     font-size: 11px; color: var(--muted); margin-top: 1px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     max-width: 100%;
   }
   .settings-row-label-wrap { flex: 1; min-width: 0; }
   .settings-select {
     background: var(--bg-3); color: var(--text);
-    border: 1px solid var(--border); border-radius: 4px;
+    border: 1px solid var(--border); border-radius: 8px;
     padding: 7px 10px; font-size: 12.5px;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     outline: none; cursor: pointer; min-width: 130px;
     transition: border-color .15s; flex-shrink: 0;
   }
@@ -1316,7 +1316,7 @@
     width: 100%; background: none; border: none; cursor: pointer;
     display: flex; align-items: center; gap: 10px;
     padding: 11px 14px; min-height: 48px; text-align: left;
-    font-size: 13px; font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px; font-family: 'Inter', system-ui, sans-serif;
     color: var(--text); transition: background .12s;
   }
   .settings-action-btn:hover { background: var(--bg-3); }
@@ -1324,7 +1324,7 @@
   .settings-action-btn.danger:hover { background: rgba(255,131,137,.06); }
   #perm-warn-card {
     font-size: 11px; color: var(--muted); padding: 8px 14px 10px;
-    font-family: 'IBM Plex Mono', monospace; line-height: 1.45;
+    font-family: 'JetBrains Mono', monospace; line-height: 1.45;
     display: none;
   }
   #perm-warn-card.visible { display: block; }
@@ -1357,14 +1357,14 @@
   .popover-label {
     font-size: 10px; color: var(--muted); text-transform: uppercase;
     letter-spacing: .07em; padding: 4px 12px 3px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   .popover-opt {
     display: flex; align-items: center; gap: 8px;
     width: 100%; background: none; border: none;
     color: var(--muted); cursor: pointer;
     padding: 7px 12px; font-size: 12.5px;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     text-align: left; white-space: nowrap;
     transition: background .1s, color .1s;
   }
@@ -1387,7 +1387,7 @@
   #picker-bg.open { display: flex; }
   #picker {
     background: var(--bg); border: 1px solid var(--border);
-    border-radius: 4px; width: 100%; max-width: 480px;
+    border-radius: 8px; width: 100%; max-width: 480px;
     max-height: 80vh; display: flex; flex-direction: column;
     overflow: hidden;
   }
@@ -1401,7 +1401,7 @@
   #picker-close {
     background: none; border: none; color: var(--muted);
     font-size: 20px; cursor: pointer; line-height: 1;
-    padding: 4px 6px; border-radius: 2px;
+    padding: 4px 6px; border-radius: 6px;
     transition: background .12s, color .12s;
     opacity: 1;
   }
@@ -1409,7 +1409,7 @@
   .picker-path {
     padding: 8px 14px; background: var(--bg-2);
     border-bottom: 1px solid var(--border);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 11.5px; color: var(--muted);
     word-break: break-all; flex-shrink: 0;
   }
@@ -1423,19 +1423,19 @@
      background: var(--bg);
      color: var(--text);
      border: 1px solid var(--border);
-     border-radius: 2px;
+     border-radius: 6px;
      font-size: 12.5px;
-     font-family: 'IBM Plex Mono', monospace;
+     font-family: 'JetBrains Mono', monospace;
      outline: none;
    }
    #picker-search:focus {
      border-color: var(--accent);
    }
    .picker-item {
-    padding: 10px 12px; border-radius: 2px;
+    padding: 10px 12px; border-radius: 6px;
     cursor: pointer;
     display: flex; align-items: center; gap: 10px;
-    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
     transition: background .1s, color .1s;
     color: var(--text);
   }
@@ -1460,7 +1460,7 @@
   .picker-empty {
     padding: 20px; text-align: center;
     color: var(--muted); font-size: 12px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   .picker-footer {
     padding: 10px 14px; border-top: 1px solid var(--border);
@@ -1469,9 +1469,9 @@
   }
   .picker-footer button {
     background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 2px;
+    border: 1px solid var(--border); border-radius: 6px;
     padding: 7px 14px; font-size: 13px; cursor: pointer;
-    font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+    font-family: 'Inter', system-ui, sans-serif; font-weight: 500;
     transition: background .12s;
   }
   .picker-footer button:hover { background: var(--bg-3); }
@@ -1488,9 +1488,9 @@
   #picker-create-input {
     flex: 1; min-width: 0;
     background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--accent); border-radius: 2px;
+    border: 1px solid var(--accent); border-radius: 6px;
     padding: 6px 9px; font-size: 12.5px;
-    font-family: 'IBM Plex Mono', monospace; outline: none;
+    font-family: 'JetBrains Mono', monospace; outline: none;
   }
   #picker-create-input::placeholder { color: var(--muted); }
   #picker-newfolder {
@@ -1505,7 +1505,7 @@
   .sidebar-tab {
     flex: 1; background: none; border: none; border-bottom: 2px solid transparent;
     color: var(--muted); cursor: pointer; padding: 9px 4px 7px;
-    font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase; letter-spacing: .08em; font-weight: 500;
     transition: color .12s, border-color .12s;
     display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -1521,7 +1521,7 @@
     -webkit-overflow-scrolling: touch;
   }
   .session-item {
-    padding: 8px 10px; border-radius: 2px; cursor: pointer;
+    padding: 8px 10px; border-radius: 6px; cursor: pointer;
     display: flex; align-items: center; gap: 6px;
     margin-bottom: 2px;
     transition: background .1s;
@@ -1535,19 +1535,19 @@
   }
   .session-weight {
     margin-top: 3px; font-size: 10.5px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     color: var(--muted); letter-spacing: .02em;
   }
   .session-weight.medium { color: var(--tool); }
   .session-weight.heavy  { color: var(--error); }
   .session-meta {
     font-size: 11px; color: var(--muted); margin-top: 2px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   .session-action {
     background: none; border: none; color: var(--muted);
     cursor: pointer; padding: 6px; font-size: 0;
-    opacity: 0.7; border-radius: 3px;
+    opacity: 0.7; border-radius: 6px;
     display: inline-flex; align-items: center; justify-content: center;
     transition: opacity .12s, background .12s, color .12s;
     flex: 0 0 auto;
@@ -1568,7 +1568,7 @@
     border: 1px solid var(--border);
     background: var(--bg-2); color: var(--muted);
     font-size: 11.5px; cursor: pointer;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     transition: background .12s, color .12s, border-color .12s;
     white-space: nowrap; line-height: 1;
   }
@@ -1587,7 +1587,7 @@
   .node-chip.active .ndot { background: rgba(255,255,255,.75); }
   #node-badge {
     display: none;
-    font-size: 10px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-family: 'JetBrains Mono', monospace;
     color: var(--accent);
     background: rgba(15,98,254,.1);
     border: 1px solid rgba(15,98,254,.22);
@@ -1604,11 +1604,11 @@
   .file-path-label {
     font-size: 10px; color: var(--muted); margin-bottom: 4px;
     text-transform: uppercase; letter-spacing: .07em; font-weight: 500;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
   .file-path-value {
     font-size: 11px; color: var(--text-em);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .file-list {
@@ -1617,8 +1617,8 @@
   }
   .file-item {
     display: flex; align-items: center; gap: 7px;
-    padding: 6px 8px; border-radius: 2px; cursor: pointer;
-    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    padding: 6px 8px; border-radius: 6px; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
     transition: background .1s;
   }
   .file-item:hover { background: var(--bg-2); }
@@ -1637,7 +1637,7 @@
   }
   .file-item .fi-dl {
     flex: 0 0 auto; display: none; background: none; border: none;
-    color: var(--muted); cursor: pointer; padding: 2px; border-radius: 2px;
+    color: var(--muted); cursor: pointer; padding: 2px; border-radius: 6px;
     font-size: 0; line-height: 1;
   }
   .file-item .fi-dl svg { display: block; }
@@ -1645,20 +1645,20 @@
   .file-item .fi-dl:hover { background: var(--bg-3); color: var(--accent); }
   .file-empty {
     padding: 20px; text-align: center; color: var(--muted);
-    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
   }
    .file-loading {
      padding: 20px; text-align: center; display: flex;
      align-items: center; justify-content: center; gap: 8px;
-     color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+     color: var(--muted); font-size: 11px; font-family: 'JetBrains Mono', monospace;
    }
 
    /* File creation & rename */
    #btn-newfile {
      background: var(--bg-2); color: var(--muted);
-     border: 1px solid var(--border); border-radius: 2px;
+     border: 1px solid var(--border); border-radius: 6px;
      padding: 4px 9px; font-size: 12.5px; cursor: pointer;
-     font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+     font-family: 'Inter', system-ui, sans-serif; font-weight: 500;
      margin-left: 8px; white-space: nowrap;
      transition: background .12s, color .12s;
    }
@@ -1671,16 +1671,16 @@
    .file-create-row input {
      flex: 1; min-width: 0;
      background: var(--bg); color: var(--text);
-     border: 1px solid var(--border); border-radius: 2px;
+     border: 1px solid var(--border); border-radius: 6px;
      padding: 6px 9px; font-size: 12.5px;
-     font-family: 'IBM Plex Mono', monospace; outline: none;
+     font-family: 'JetBrains Mono', monospace; outline: none;
    }
    .file-create-row input:focus { border-color: var(--accent); }
    .file-create-row button {
      background: var(--bg-2); color: var(--text);
-     border: 1px solid var(--border); border-radius: 2px;
+     border: 1px solid var(--border); border-radius: 6px;
      padding: 7px 14px; font-size: 13px; cursor: pointer;
-     font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+     font-family: 'Inter', system-ui, sans-serif; font-weight: 500;
      transition: background .12s;
    }
    .file-create-row button.primary {
@@ -1695,16 +1695,16 @@
    .file-rename-row input {
      flex: 1; min-width: 0;
      background: var(--bg); color: var(--text);
-     border: 1px solid var(--accent); border-radius: 2px;
+     border: 1px solid var(--accent); border-radius: 6px;
      padding: 6px 9px; font-size: 12.5px;
-     font-family: 'IBM Plex Mono', monospace; outline: none;
+     font-family: 'JetBrains Mono', monospace; outline: none;
    }
    .file-rename-row input:focus { border-color: var(--accent); }
    .file-rename-row button {
      background: var(--bg-2); color: var(--text);
-     border: 1px solid var(--border); border-radius: 2px;
+     border: 1px solid var(--border); border-radius: 6px;
      padding: 6px 12px; font-size: 12.5px; cursor: pointer;
-     font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;
+     font-family: 'Inter', system-ui, sans-serif; font-weight: 500;
      transition: background .12s;
    }
    .file-rename-row button.primary {
@@ -1714,7 +1714,7 @@
 
    .file-item .fi-rename {
      flex: 0 0 auto; display: none; background: none; border: none;
-     color: var(--muted); cursor: pointer; padding: 2px; border-radius: 2px;
+     color: var(--muted); cursor: pointer; padding: 2px; border-radius: 6px;
      font-size: 0; line-height: 1;
    }
    .file-item:hover .fi-rename { display: block; }
@@ -1750,12 +1750,12 @@
   #terminal-title {
     display: inline-flex; align-items: center; gap: 6px;
     color: var(--text-strong); font-weight: 500;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
-  #terminal-status { color: var(--muted); font-size: 11px; font-family: 'IBM Plex Mono', monospace; }
+  #terminal-status { color: var(--muted); font-size: 11px; font-family: 'JetBrains Mono', monospace; }
   .terminal-bar-btn {
     background: none; border: 1px solid var(--border); color: var(--text-em);
-    cursor: pointer; padding: 3px 9px; border-radius: 4px;
+    cursor: pointer; padding: 3px 9px; border-radius: 8px;
     font: inherit; font-size: 11.5px; transition: background .12s, color .12s, border-color .12s;
   }
   .terminal-bar-btn:hover { background: var(--bg-3); color: var(--text); border-color: var(--accent); }
@@ -1789,7 +1789,7 @@
   }
   #viewer-filename {
     flex: 1; min-width: 0;
-    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
     color: var(--text-strong);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
@@ -1797,7 +1797,7 @@
   #viewer-close {
     background: none; border: none; color: var(--muted);
     font-size: 20px; cursor: pointer; line-height: 1;
-    padding: 4px 6px; border-radius: 2px; flex: 0 0 auto;
+    padding: 4px 6px; border-radius: 6px; flex: 0 0 auto;
     transition: background .12s, color .12s;
   }
   #viewer-close:hover { background: var(--bg-3); color: var(--text); }
@@ -1817,13 +1817,13 @@
   #viewer-body.md strong { color: var(--text-strong); font-weight: 600; }
   #viewer-body.md em { color: var(--text-em); font-style: italic; }
   #viewer-body.md code {
-    background: var(--code-bg); padding: 1px 5px; border-radius: 2px;
-    font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; color: var(--code-fg);
+    background: var(--code-bg); padding: 1px 5px; border-radius: 6px;
+    font-size: 12.5px; font-family: 'JetBrains Mono', monospace; color: var(--code-fg);
   }
   #viewer-body.md pre {
     background: var(--code-bg); border: 1px solid var(--border);
-    padding: 11px 13px; border-radius: 3px; margin: 10px 0; overflow-x: auto;
-    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.55;
+    padding: 11px 13px; border-radius: 6px; margin: 10px 0; overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.55;
   }
   #viewer-body.md pre code { background: none; padding: 0; color: var(--text); }
   #viewer-body.md ul,#viewer-body.md ol { margin: 6px 0 10px; padding-left: 20px; }
@@ -1836,11 +1836,11 @@
   #viewer-body.md th,#viewer-body.md td { border: 1px solid var(--border); padding: 6px 10px; }
   #viewer-body.md th { background: var(--bg-3); font-weight: 500; text-align: left; }
   #viewer-body.raw {
-    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6;
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6;
     white-space: pre-wrap; word-wrap: break-word; color: var(--text);
   }
   #viewer-body.csv .csv-wrap { overflow-x: auto; }
-  #viewer-body.csv table { border-collapse: collapse; font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; }
+  #viewer-body.csv table { border-collapse: collapse; font-size: 12.5px; font-family: 'JetBrains Mono', monospace; }
   #viewer-body.csv th {
     background: var(--bg-3); font-weight: 500;
     position: sticky; top: 0; z-index: 1;
@@ -1863,7 +1863,7 @@
   }
   #viewer-resize:hover, #viewer-resize.dragging { background: var(--accent); }
   #btn-pin {
-    background: none; border: 1px solid var(--border); border-radius: 2px;
+    background: none; border: 1px solid var(--border); border-radius: 6px;
     color: var(--muted); cursor: pointer;
     padding: 3px 7px; font-size: 13px;
     transition: background .12s, color .12s; line-height: 1; flex: 0 0 auto;
@@ -1873,9 +1873,9 @@
 
   /* ─── Viewer toolbar buttons ──────────────────────────── */
   .viewer-toolbar-btn {
-    background: none; border: 1px solid var(--border); border-radius: 2px;
+    background: none; border: 1px solid var(--border); border-radius: 6px;
     color: var(--muted); cursor: pointer; padding: 3px 8px;
-    font-size: 11.5px; font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11.5px; font-family: 'Inter', system-ui, sans-serif;
     transition: background .12s, color .12s, border-color .12s; line-height: 1.4; flex: 0 0 auto; white-space: nowrap;
   }
   .viewer-toolbar-btn:hover { background: var(--bg-3); color: var(--text); }
@@ -1889,7 +1889,7 @@
     flex: 1; width: 100%; min-height: 0;
     background: var(--bg); color: var(--text);
     border: none; outline: none; resize: none;
-    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6;
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6;
     padding: 14px 16px;
     tab-size: 2;
   }
@@ -1915,9 +1915,9 @@
 
   /* ─── File manager hidden toggle ─────────────────────── */
   #btn-show-hidden {
-    background: none; border: 1px solid var(--border); border-radius: 2px;
+    background: none; border: 1px solid var(--border); border-radius: 6px;
     color: var(--muted); cursor: pointer; padding: 2px 7px; font-size: 11px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     transition: color .12s, border-color .12s; flex-shrink: 0;
   }
   #btn-show-hidden:hover { color: var(--text); }
@@ -1931,9 +1931,9 @@
   .msg-text code.file-link:hover { background: var(--tool-bg); }
 
   .tool-view-btn {
-    font-size: 10.5px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px; font-family: 'JetBrains Mono', monospace;
     color: var(--accent); background: rgba(15,98,254,.08);
-    border: 1px solid rgba(15,98,254,.2); border-radius: 2px;
+    border: 1px solid rgba(15,98,254,.2); border-radius: 6px;
     padding: 2px 7px; cursor: pointer; flex: 0 0 auto;
     transition: background .12s; white-space: nowrap; line-height: 1.4;
   }
@@ -1976,6 +1976,13 @@
   .engine-model::before { content: '· '; }
   @media (max-width: 480px) {
     .engine-model { max-width: 120px; }
+  }
+
+  /* Modern Focus Ring */
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent) !important;
+    border-color: var(--accent) !important;
   }
 </style>
 </head>
@@ -2061,7 +2068,7 @@
       </button>
       <input type="file" id="file-input" accept="image/*" multiple hidden />
       <textarea id="input" rows="1" placeholder="Type a message…"></textarea>
-      <button id="btn-send" type="button" disabled>➤</button>
+      <button id="btn-send" type="button" disabled>Send</button>
     </div>
   </div>
 
@@ -2392,7 +2399,7 @@
     <span style="font-size:11px;color:var(--muted);white-space:nowrap">Merge from:</span>
     <select id="git-merge-into-select"><option>—</option></select>
     <button id="btn-git-merge-confirm" type="button">Merge</button>
-    <button id="btn-git-merge-cancel" type="button">✕</button>
+    <button id="btn-git-merge-cancel" type="button">Cancel</button>
   </div>
   <div id="git-delete-row">
     <span style="font-size:11px;color:var(--muted);white-space:nowrap">Delete:</span>
@@ -2418,7 +2425,7 @@
   <div id="viewer-resize"></div>
   <div id="viewer-header">
     <span id="viewer-filename"></span>
-    <button id="btn-pin" type="button" title="Pin viewer">📌</button>
+    <button id="btn-pin" type="button" title="Pin viewer">Pin</button>
     <button id="viewer-copy-btn" class="viewer-toolbar-btn" type="button" title="Copy all text" style="display:none">Copy</button>
     <button id="viewer-html-btn" class="viewer-toolbar-btn" type="button" style="display:none">Preview</button>
     <button id="viewer-raw-btn" class="viewer-toolbar-btn" type="button" style="display:none">Raw</button>
@@ -3129,7 +3136,7 @@
     const summary = toolSummary(m.name, m.input);
     el.innerHTML = `
       <div class="tool-header">
-        <span class="tool-chevron">▶</span>
+        <span class="tool-chevron"></span>
         <span class="tool-icon">${toolIcon(m.name)}</span>
         <span class="tool-name">${escapeHtml(m.name)}</span>
         <span class="tool-summary"></span>
@@ -3280,7 +3287,7 @@
     addItem('↑', fmtTokens(tokIn), `Token masuk / konteks: ${tokIn.toLocaleString()}`);
     addItem('↓', fmtTokens(m.output_tokens), `Token keluar / jawaban: ${(m.output_tokens || 0).toLocaleString()}`);
     if (m.cache_read_tokens) {
-      addItem('⚡', fmtTokens(m.cache_read_tokens),
+      addItem('', fmtTokens(m.cache_read_tokens),
         `Dari cache (jauh lebih murah): ${m.cache_read_tokens.toLocaleString()} token`);
     }
 
@@ -5784,7 +5791,7 @@
 
   function claudeModelOptionsHtml(selected) {
     return (state.claudeModels || []).map(m =>
-      `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}${m.custom ? ' ⚡' : ''}</option>`).join('');
+      `<option value="${m.id}"${m.id === selected ? ' selected' : ''}>${escapeHtml(m.label)}${m.custom ? ' ' : ''}</option>`).join('');
   }
 
   function updateEngineBadge(engine, model) {
