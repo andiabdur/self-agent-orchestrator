@@ -1,7 +1,7 @@
 // Minimal service worker for PWA install eligibility.
 // Strategy: network-first (always fresh), fallback to cache when offline.
 
-const CACHE = 'sao-v5-token-opt';
+const CACHE = 'sao-v8-scroll';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (e) => {

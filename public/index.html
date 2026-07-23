@@ -11,6 +11,7 @@
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" type="image/svg+xml" href="/icon.svg" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.11.0/styles/vs2015.min.css" integrity="sha384-BE+nmfgoK1j3fBxbLI64Jzf52Mx/QAyw+4O7GyPYevJnAyrljCoRtQkYNfCfuWPF" crossorigin="anonymous" />
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
 <link rel="apple-touch-icon" href="/icon-192.png" />
@@ -174,7 +175,8 @@
   }
   #app.viewer-open { right: var(--viewer-w, 520px); }
   #app.git-open { right: var(--git-w, 360px); }
-  #app.sidebar-pinned { left: var(--sidebar-w, 272px); }
+  /* Sidebar left (default) + pinned: push app right */
+  body:not(.layout-sidebar-right) #app.sidebar-pinned { left: var(--sidebar-w, 272px); }
 
   /* ─── Layout variants ────────────────────────────────── */
   /* Sidebar on right */
@@ -211,19 +213,38 @@
     left: auto; right: 0; cursor: col-resize;
   }
 
-  /* Sidebar-pinned + panel on SAME side: offset panel position & stack #app offsets */
-  /* sidebar left (default) + git left */
-  body.layout-git-left #app.sidebar-pinned.git-open { left: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
-  body.sidebar-is-pinned.layout-git-left #git-panel.open { left: var(--sidebar-w, 272px); }
-  /* sidebar left (default) + viewer left */
-  body.layout-viewer-left #app.sidebar-pinned.viewer-open { left: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
-  body.sidebar-is-pinned.layout-viewer-left #viewer.open { left: var(--sidebar-w, 272px); }
-  /* sidebar right + git right (git stays default right) */
+  /* Sidebar + panel on SAME side: offset panel position & stack #app offsets */
+  /* Sidebar + git on same side: offset git panel when sidebar is open (pinned OR overlay) */
+  body:not(.layout-sidebar-right).layout-git-left #app.sidebar-pinned.git-open { left: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
+  body:not(.layout-sidebar-right).layout-git-left #sidebar.open ~ #git-panel.open { left: var(--sidebar-w, 272px); }
+  /* Sidebar + viewer on same side: offset viewer when sidebar is open (pinned OR overlay) */
+  body:not(.layout-sidebar-right).layout-viewer-left #app.sidebar-pinned.viewer-open { left: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
+  body:not(.layout-sidebar-right).layout-viewer-left #sidebar.open ~ #viewer.open { left: var(--sidebar-w, 272px); }
+  /* Sidebar right + git right (git stays default right) */
   body.layout-sidebar-right:not(.layout-git-left) #app.sidebar-pinned.git-open { right: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
-  body.sidebar-is-pinned.layout-sidebar-right:not(.layout-git-left) #git-panel.open { right: var(--sidebar-w, 272px); }
-  /* sidebar right + viewer right (viewer stays default right) */
+  body.layout-sidebar-right:not(.layout-git-left) #sidebar.open ~ #git-panel.open { right: var(--sidebar-w, 272px); }
+  /* Sidebar right + viewer right (viewer stays default right) */
   body.layout-sidebar-right:not(.layout-viewer-left) #app.sidebar-pinned.viewer-open { right: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
-  body.sidebar-is-pinned.layout-sidebar-right:not(.layout-viewer-left) #viewer.open { right: var(--sidebar-w, 272px); }
+  body.layout-sidebar-right:not(.layout-viewer-left) #sidebar.open ~ #viewer.open { right: var(--sidebar-w, 272px); }
+  /* Sidebar open (overlay) + git/viewer on same right side — also offset #app so there's no gap */
+  body.sidebar-open.layout-sidebar-right:not(.layout-git-left) #app.git-open { right: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
+  body.sidebar-open.layout-sidebar-right:not(.layout-viewer-left) #app.viewer-open { right: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
+  /* Sidebar right + git left: offset #app right for sidebar AND left for git */
+  body.layout-sidebar-right.layout-git-left #app.sidebar-pinned.git-open { left: var(--git-w, 360px); right: var(--sidebar-w, 272px); }
+  /* Sidebar right + viewer left: offset #app right for sidebar AND left for viewer */
+  body.layout-sidebar-right.layout-viewer-left #app.sidebar-pinned.viewer-open { left: var(--viewer-w, 520px); right: var(--sidebar-w, 272px); }
+
+  /* ─── Combined: git + viewer on different sides (both open simultaneously) ──── */
+  /* Override body.layout-git-left #app.git-open { right: 0; } which has higher specificity than #app.viewer-open */
+  body.layout-git-left:not(.layout-viewer-left) #app.git-open.viewer-open { right: var(--viewer-w, 520px); left: var(--git-w, 360px); }
+  body:not(.layout-sidebar-right).layout-git-left:not(.layout-viewer-left) #app.sidebar-pinned.git-open.viewer-open { left: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); right: var(--viewer-w, 520px); }
+  /* Override body.layout-viewer-left #app.viewer-open { right: 0; } */
+  body.layout-viewer-left:not(.layout-git-left) #app.git-open.viewer-open { right: var(--git-w, 360px); left: var(--viewer-w, 520px); }
+  body:not(.layout-sidebar-right).layout-viewer-left:not(.layout-git-left) #app.sidebar-pinned.git-open.viewer-open { left: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); right: var(--git-w, 360px); }
+  /* Sidebar right + git left + viewer right */
+  body.layout-sidebar-right.layout-git-left:not(.layout-viewer-left) #app.sidebar-pinned.git-open.viewer-open { left: var(--git-w, 360px); right: calc(var(--sidebar-w, 272px) + var(--viewer-w, 520px)); }
+  /* Sidebar right + viewer left + git right */
+  body.layout-sidebar-right.layout-viewer-left:not(.layout-git-left) #app.sidebar-pinned.git-open.viewer-open { left: var(--viewer-w, 520px); right: calc(var(--sidebar-w, 272px) + var(--git-w, 360px)); }
 
   /* Git + viewer on same side: close one when other opens (handled in JS) — but prevent overlap via z-index */
   body.layout-git-left.layout-viewer-left #git-panel { z-index: 43; }
@@ -297,6 +318,32 @@
   #conn-dot.disconnected { background: var(--error); }
 
   /* ─── Messages ────────────────────────────────────────── */
+
+  /* ─── Scroll Controls ────────────────────────────────── */
+  .scroll-controls {
+    position: absolute; right: 24px; bottom: 85px;
+    display: flex; flex-direction: column; gap: 8px; z-index: 100;
+    pointer-events: none; /* Let clicks pass if hidden */
+  }
+  .scroll-btn {
+    position: relative; pointer-events: auto;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--bg-3); border: 1px solid var(--border);
+    color: var(--text); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s, background 0.15s;
+    opacity: 1; transform: scale(1) translateY(0);
+  }
+  .scroll-btn:hover { background: var(--bg-2); color: var(--accent); border-color: var(--accent); }
+  .scroll-btn.action-hide { opacity: 0; transform: scale(0.8) translateY(10px); pointer-events: none; }
+  .scroll-badge {
+    position: absolute; top: -4px; right: -4px;
+    background: var(--accent); width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--bg); display: block;
+  }
+  /* Push bottom up slightly on mobile if needed */
+  @media (max-width: 600px) { .scroll-controls { bottom: 75px; right: 16px; } }
+
   #messages {
     flex: 1; overflow-y: auto; overflow-x: hidden;
     padding: 20px 16px;
@@ -569,6 +616,29 @@
   }
 
   /* ─── Composer ────────────────────────────────────────── */
+
+  /* ─── Quick Sessions ───────────────────────────────────── */
+  .quick-sessions {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding: 0 0 8px 0; margin-bottom: 4px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .quick-sessions::-webkit-scrollbar { display: none; }
+  .quick-session-btn {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 10px; flex: 0 0 auto;
+    font-size: 11px; color: var(--muted); cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+    font-family: 'IBM Plex Sans', sans-serif; max-width: 150px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .quick-session-btn:hover { background: var(--bg-3); color: var(--text); }
+  .quick-session-btn.active { 
+    background: rgba(0,0,0,0.05); color: var(--accent); border-color: var(--accent);
+  }
+  body.dark-mode .quick-session-btn.active { background: rgba(255,255,255,0.08); }
+
   #composer {
     display: flex; flex-direction: column; gap: 8px;
     padding: 10px 12px;
@@ -663,7 +733,7 @@
   /* ─── Sidebar ─────────────────────────────────────────── */
   #sidebar-bg {
     position: fixed; inset: 0; background: rgba(0,0,0,.45);
-    z-index: 50; display: none;
+    z-index: 42; display: none;
   }
   #sidebar-bg.open { display: block; }
   #restart-overlay {
@@ -698,6 +768,17 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
   #sidebar.open { left: 0; }
+  /* Sidebar resize handle — on right edge when left, on left edge when right */
+  #sidebar-resize {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 6px; cursor: col-resize;
+    background: transparent; transition: background .15s; z-index: 1;
+  }
+  #sidebar-resize:hover, #sidebar-resize.dragging { background: var(--accent); }
+  body.layout-sidebar-right #sidebar-resize {
+    right: auto; left: 0; cursor: col-resize;
+  }
+  @media (max-width: 700px) { #sidebar-resize { display: none; } }
   .sidebar-header {
     display: flex; justify-content: space-between; align-items: center;
     padding: 0 12px;
@@ -744,6 +825,9 @@
     #git-panel { width: 100%; right: -100vw; }
     #git-panel.open { right: 0; }
     #app.git-open { right: 0; }
+    /* Override sidebar offset on mobile: panel takes full width */
+    body.layout-sidebar-right:not(.layout-git-left) #sidebar.open ~ #git-panel.open { right: 0; }
+    body.sidebar-open.layout-sidebar-right:not(.layout-git-left) #app.git-open { right: 0; }
     #git-resize { display: none; }
   }
   #git-resize {
@@ -1119,20 +1203,6 @@
     transition: background .12s, color .12s;
   }
   #btn-browse:hover { background: var(--bg-3); color: var(--text); }
-  #model-select, #perm-select {
-    width: 100%;
-    background: var(--bg-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 2px;
-    padding: 7px 8px; font-size: 12.5px;
-    font-family: 'IBM Plex Sans', sans-serif;
-    outline: none; cursor: pointer;
-    transition: border-color .15s;
-  }
-  #model-select:focus, #perm-select:focus { border-color: var(--accent); }
-  #perm-warn {
-    font-size: 11px; color: var(--muted); margin-top: 6px;
-    line-height: 1.45; font-family: 'IBM Plex Mono', monospace;
-  }
   /* ─── Session controls (search + new) ──────────────────── */
   #session-controls {
     display: flex; align-items: center; gap: 6px;
@@ -1611,6 +1681,23 @@
     font-family: 'IBM Plex Mono', monospace;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+
+  /* ─── File Search ─────────────────────────────────────── */
+  .file-search-row {
+    position: relative; padding: 0 16px 8px; border-bottom: 1px solid var(--border);
+  }
+  .file-search-icon {
+    position: absolute; left: 24px; top: 7px; color: var(--muted); pointer-events: none;
+  }
+  #file-search-input {
+    width: 100%; background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px 4px 26px; font-size: 12px;
+    color: var(--text); font-family: 'IBM Plex Sans', sans-serif;
+    transition: border-color .15s; outline: none;
+  }
+  #file-search-input:focus { border-color: var(--accent); }
+  #file-search-input::placeholder { color: var(--muted); }
+
   .file-list {
     flex: 1; overflow-y: auto; padding: 4px 6px;
     -webkit-overflow-scrolling: touch;
@@ -1757,8 +1844,31 @@
     background: none; border: 1px solid var(--border); color: var(--text-em);
     cursor: pointer; padding: 3px 9px; border-radius: 4px;
     font: inherit; font-size: 11.5px; transition: background .12s, color .12s, border-color .12s;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
   }
   .terminal-bar-btn:hover { background: var(--bg-3); color: var(--text); border-color: var(--accent); }
+  #terminal-mobile-keys {
+    display: none;
+    flex-direction: row;
+    gap: 4px;
+    margin-left: 8px;
+    margin-right: 8px;
+    overflow-x: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+    white-space: nowrap;
+  }
+  #terminal-mobile-keys::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+  #terminal-mobile-keys .terminal-bar-btn {
+    flex-shrink: 0;
+  }
+  @media (max-width: 768px) {
+    #terminal-mobile-keys {
+      display: flex;
+    }
+  }
   #terminal-close-btn { font-size: 15px; line-height: 1; padding: 2px 8px; }
   #terminal-host { flex: 1; min-height: 0; padding: 6px 8px; overflow: hidden; }
   #terminal-host .xterm { height: 100%; }
@@ -1779,6 +1889,9 @@
     #viewer.open { right: 0; }
     #app.viewer-open { right: 0; }
     #app.sidebar-pinned { left: 0; }
+    /* Override sidebar offset on mobile: panel takes full width */
+    body.layout-sidebar-right:not(.layout-viewer-left) #sidebar.open ~ #viewer.open { right: 0; }
+    body.sidebar-open.layout-sidebar-right:not(.layout-viewer-left) #app.viewer-open { right: 0; }
     #viewer-resize { display: none; }
   }
   #viewer.open { right: 0; }
@@ -1838,6 +1951,20 @@
   #viewer-body.raw {
     font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.6;
     white-space: pre-wrap; word-wrap: break-word; color: var(--text);
+  }
+  #viewer-body.code {
+    padding: 0; overflow-x: auto; overflow-y: auto;
+    background: #1e1e1e;
+  }
+  #viewer-body.code pre {
+    margin: 0; padding: 16px 20px;
+    background: none; border: none;
+    min-height: 100%;
+  }
+  #viewer-body.code code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px; line-height: 1.6;
+    background: none; padding: 0;
   }
   #viewer-body.csv .csv-wrap { overflow-x: auto; }
   #viewer-body.csv table { border-collapse: collapse; font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; }
@@ -1978,6 +2105,7 @@
     .engine-model { max-width: 120px; }
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.0/highlight.min.js" integrity="sha384-iZTDsA4hrrdw3oWgWAtLAOgX01LVJRhWwzsaxnz4pDvF3cvDO8M6amjYktKA8uJU" crossorigin="anonymous"></script>
 </head>
 <body>
 <div id="restart-overlay" aria-hidden="true">
@@ -2021,7 +2149,19 @@
     </div>
   </div>
 
+  <!-- Smart scroll buttons -->
+  <div id="scroll-controls" class="scroll-controls">
+    <button id="btn-scroll-top" class="scroll-btn action-hide" title="Scroll to top" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+    <button id="btn-scroll-bottom" class="scroll-btn action-hide" title="Jump to latest" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <span id="scroll-bottom-badge" class="scroll-badge" style="display:none"></span>
+    </button>
+  </div>
+
   <div id="composer">
+    <div id="quick-sessions" class="quick-sessions" style="display:none"></div>
     <div id="composer-meta">
       <button id="engine-badge" class="engine-badge claude" title="Click to change engine or model" aria-expanded="false" type="button">
         <span class="engine-dot"></span>
@@ -2093,6 +2233,7 @@
 </div>
 <div id="sidebar-bg"></div>
 <aside id="sidebar">
+  <div id="sidebar-resize" title="Drag to resize"></div>
   <div class="sidebar-header">
     <div class="sidebar-title">Sessions</div>
     <button id="btn-sidebar-pin" type="button" title="Pin sidebar"></button>
@@ -2155,6 +2296,12 @@
       <input type="text" id="file-create-input" placeholder="Filename" />
       <button type="button" id="file-create-confirm" class="primary">Create</button>
       <button type="button" id="file-create-cancel">Cancel</button>
+    </div>
+    <div class="file-search-row">
+      <svg class="file-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="file-search-input" placeholder="Filter files..." />
     </div>
     <div class="file-list" id="file-list"></div>
   </div>
@@ -2222,9 +2369,8 @@
             <option value="acceptEdits">Accept edits</option>
             <option value="plan">Plan only</option>
           </select>
+          <div id="perm-warn-card"></div>
         </div>
-        <div id="perm-warn" style="display:none"></div>
-        <div id="perm-warn-card"></div>
       </div>
     </div>
 
@@ -2439,6 +2585,20 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
       Terminal
     </span>
+    <!-- MOBILE KEYBOARD UI FOR TERMINAL -->
+    <div id="terminal-mobile-keys">
+      <button class="terminal-bar-btn" data-key="esc" title="Escape">Esc</button>
+      <button class="terminal-bar-btn" data-key="tab" title="Tab">Tab</button>
+      <button class="terminal-bar-btn" data-key="ctrlc" title="Ctrl+C / Interrupt" style="font-weight: bold; color: var(--error);">^C</button>
+      <button class="terminal-bar-btn" data-key="ctrll" title="Ctrl+L / ClrScr">^L</button>
+      <button class="terminal-bar-btn" data-key="up" title="Arrow Up">↑</button>
+      <button class="terminal-bar-btn" data-key="down" title="Arrow Down">↓</button>
+      <button class="terminal-bar-btn" data-key="left" title="Arrow Left">←</button>
+      <button class="terminal-bar-btn" data-key="right" title="Arrow Right">→</button>
+      <button class="terminal-bar-btn" data-key="enter" title="Enter">Enter</button>
+      <button class="terminal-bar-btn" data-key="slash" title="Slash">/</button>
+      <button class="terminal-bar-btn" data-key="dash" title="Dash">-</button>
+    </div>
     <span id="terminal-status"></span>
     <span style="flex:1"></span>
     <button id="terminal-clear-btn" class="terminal-bar-btn" type="button" title="Clear">Clear</button>
@@ -2481,6 +2641,7 @@
     btnCloseSidebar: $('#btn-close-sidebar'),
     sidebar: $('#sidebar'),
     sidebarBg: $('#sidebar-bg'),
+    sidebarResize: $('#sidebar-resize'),
     btnGit: $('#btn-git'),
     gitPanel: $('#git-panel'),
     gitResize: $('#git-resize'),
@@ -2697,6 +2858,7 @@
         state.engine = m.defaultEngine || 'claude';
         if (Array.isArray(m.claudeModels) && m.claudeModels.length) state.claudeModels = m.claudeModels;
         state.sessions = m.sessions || [];
+        window.__sessions = state.sessions;
         els.cwdInput.value = state.cwd;
         els.permSelect.value = state.permissionMode;
         if (state.engine === 'codex') els.modelSelect.innerHTML = codexModelOptionsHtml(state.model || 'gpt-5-codex');
@@ -2735,6 +2897,7 @@
           } else {
             // No saved session for this node — show clean empty state.
             state.sessionId = null;
+            window.currentSessionId = null;
             clearMessages();
             const e = document.createElement('div');
             e.className = 'empty-state';
@@ -2777,16 +2940,20 @@
         break;
       case 'session_persisted':
         state.sessionId = m.sessionId;
+        window.currentSessionId = m.sessionId;
+        window.__sessions = state.sessions;
         updateGitHeaderTitle();
         setStoredSessionId(state.currentNodeId, m.sessionId);
         setStoredTempSessionId(state.currentNodeId, null); // Clear temp ID once persisted
         state.sessions = m.sessions || state.sessions;
+        window.__sessions = state.sessions;
         renderSessions();
         updateHeaderTitle();
         break;
       case 'session_cleared':
         clearMessages();
         state.sessionId = null;
+        window.currentSessionId = null;
         updateGitHeaderTitle();
         setStoredSessionId(state.currentNodeId, null);
         setStoredTempSessionId(state.currentNodeId, null); // Clear temp ID
@@ -3410,11 +3577,63 @@
     if (e) e.remove();
   }
 
-  function scrollToBottom() {
+
+  let userIsScrolledUp = false;
+  let hasNewUnseenMessages = false;
+  
+  function getScrollStatus() {
+    const el = els.messages;
+    return {
+      atBottom: el.scrollHeight - el.scrollTop - el.clientHeight < 120,
+      scrolledDown: el.scrollTop > 400
+    };
+  }
+
+  function updateScrollButtons() {
+    const btnUp = document.getElementById('btn-scroll-top');
+    const btnDown = document.getElementById('btn-scroll-bottom');
+    const badge = document.getElementById('scroll-bottom-badge');
+    if (!btnUp || !btnDown) return;
+    
+    const { atBottom, scrolledDown } = getScrollStatus();
+    userIsScrolledUp = !atBottom;
+    
+    if (scrolledDown) btnUp.classList.remove('action-hide');
+    else btnUp.classList.add('action-hide');
+    
+    if (userIsScrolledUp) {
+      btnDown.classList.remove('action-hide');
+      if (hasNewUnseenMessages) badge.style.display = 'block';
+      else badge.style.display = 'none';
+    } else {
+      btnDown.classList.add('action-hide');
+      hasNewUnseenMessages = false;
+      badge.style.display = 'none';
+    }
+  }
+  
+  els.messages.addEventListener('scroll', updateScrollButtons, {passive: true});
+
+  function scrollToTop() {
+    els.messages.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function scrollToBottom(force = false) {
+    if (userIsScrolledUp && !force) {
+      hasNewUnseenMessages = true;
+      updateScrollButtons();
+      return;
+    }
     requestAnimationFrame(() => {
       els.messages.scrollTop = els.messages.scrollHeight;
+      hasNewUnseenMessages = false;
+      updateScrollButtons();
     });
   }
+
+  document.getElementById('btn-scroll-top')?.addEventListener('click', scrollToTop);
+  document.getElementById('btn-scroll-bottom')?.addEventListener('click', () => scrollToBottom(true));
+
 
   // ---------- File viewer ----------
   const VIEWABLE_EXTS = new Set([
@@ -3442,6 +3661,69 @@
     const m = String(fp || '').match(/\.[^./\\]+$/);
     return m ? m[0].toLowerCase() : '';
   }
+  const CODE_EXTS = new Set([
+    '.js','.ts','.jsx','.tsx','.mjs','.cjs','.mts','.cts',
+    '.py','.rb','.go','.rs','.java','.kt','.kts',
+    '.c','.h','.cpp','.hpp','.cxx','.cs','.fs','.fsx',
+    '.php','.swift','.scala','.dart','.groovy','.lua','.r',
+    '.pl','.pm','.erl','.ex','.exs','.clj','.cljs','.edn',
+    '.hs','.lhs','.ml','.mli','.zig','.nim','.coffee',
+    '.sh','.bash','.zsh','.fish','.ps1',
+    '.yaml','.yml','.json','.xml','.toml','.ini','.cfg','.conf',
+    '.sql','.graphql','.gql','.proto',
+    '.html','.htm','.ejs','.hbs','.mustache','.vue','.svelte','.astro',
+    '.css','.scss','.sass','.less','.styl',
+    '.dockerfile','.tf','.hcl','.cmake',
+    '.env','.env.example',
+  ]);
+  const EXT_TO_HLJS = {
+    sh:'bash',bash:'bash',zsh:'bash',fish:'bash',ps1:'powershell',
+    js:'javascript',ts:'typescript',jsx:'javascript',tsx:'tsx',
+    mjs:'javascript',cjs:'javascript',mts:'typescript',cts:'typescript',
+    py:'python',rb:'ruby',rs:'rust',
+    go:'go',kt:'kotlin',kts:'kotlin',
+    cs:'csharp',fs:'fsharp',fsx:'fsharp',
+    php:'php',swift:'swift',scala:'scala',dart:'dart',
+    groovy:'groovy',lua:'lua',r:'r',
+    pl:'perl',pm:'perl',
+    erl:'erlang',ex:'elixir',exs:'elixir',
+    clj:'clojure',cljs:'clojure',edn:'clojure',
+    hs:'haskell',lhs:'haskell',
+    ml:'ocaml',mli:'ocaml',zig:'zig',nim:'nim',
+    coffee:'coffeescript',
+    c:'c',h:'c',cpp:'cpp',hpp:'cpp',cxx:'cpp',
+    java:'java',
+    yaml:'yaml',yml:'yaml',
+    json:'json',xml:'xml',toml:'ini',
+    sql:'sql',graphql:'graphql',gql:'graphql',proto:'protobuf',
+    html:'html',htm:'html',
+    css:'css',scss:'scss',sass:'scss',less:'less',
+    vue:'html',svelte:'html',astro:'html',ejs:'html',hbs:'html',mustache:'html',
+    dockerfile:'dockerfile',
+    tf:'hcl',cmake:'cmake',
+    env:'bash','env.example':'bash',
+  };
+  function isCodeFile(fp) {
+    const ext = fileExt(fp);
+    return CODE_EXTS.has(ext);
+  }
+  function highlightCode(code, ext) {
+    if (!window.hljs) return '<pre><code>' + escapeHtml(code) + '</code></pre>';
+    let lang = ext.replace(/^\./, '');
+    const hljsLang = EXT_TO_HLJS[lang] || lang;
+    try {
+      if (hljsLang && hljs.getLanguage(hljsLang)) {
+        const result = hljs.highlight(code, { language: hljsLang, ignoreIllegals: true });
+        return '<pre><code class="hljs language-' + escapeHtml(hljsLang) + '">' + result.value + '</code></pre>';
+      } else {
+        const result = hljs.highlightAuto(code);
+        return '<pre><code class="hljs">' + result.value + '</code></pre>';
+      }
+    } catch(e) {
+      console.warn('highlight.js error:', e);
+      return '<pre><code>' + escapeHtml(code) + '</code></pre>';
+    }
+  }
 
   let viewerRaw = false;
   let viewerHtmlPreview = false;
@@ -3464,7 +3746,7 @@
     els.viewerHtmlBtn.textContent = viewerHtmlPreview ? 'Source' : 'Preview';
     els.viewerHtmlBtn.classList.toggle('active', viewerHtmlPreview);
     // Raw toggle: only for md/csv (and not while editing or html preview)
-    const showRaw = (ext === '.md' || ext === '.csv') && !viewerEditMode && !viewerHtmlPreview;
+    const showRaw = (ext === '.md' || ext === '.csv' || isCodeFile(viewerFile.path)) && !viewerEditMode && !viewerHtmlPreview;
     viewerRawBtn.style.display = showRaw ? '' : 'none';
     viewerRawBtn.textContent = viewerRaw ? 'Rendered' : 'Raw';
     viewerRawBtn.classList.toggle('active', viewerRaw);
@@ -3534,7 +3816,12 @@
       els.viewerIframe.srcdoc = content || '';
       return;
     }
-    if (viewerRaw || (ext !== '.md' && ext !== '.csv' && ext !== '.html')) {
+    if (!viewerRaw && isCodeFile(fp)) {
+      viewerBody.className = 'code';
+      viewerBody.innerHTML = highlightCode(content, ext);
+      return;
+    }
+    if (viewerRaw || (ext !== '.md' && ext !== '.csv')) {
       viewerBody.className = 'raw';
       viewerBody.textContent = content;
       return;
@@ -3546,9 +3833,6 @@
     } else if (ext === '.csv') {
       viewerBody.className = 'csv';
       viewerBody.innerHTML = renderCsvTable(content);
-    } else if (ext === '.html') {
-      viewerBody.className = 'raw';
-      viewerBody.textContent = content;
     }
   }
 
@@ -3831,6 +4115,7 @@
 
   async function loadFileList(dirPath) {
     if (!dirPath) return;
+    document.getElementById('file-search-input').value = '';
     fileListPath = dirPath;
     filePathText.textContent = dirPath;
     fileListEl.innerHTML = '<div class="file-loading"><span class="spinner"></span>Loading files…</div>';
@@ -3845,17 +4130,32 @@
     }
   }
 
+  let lastFileData = null;
+  
+  // Real-time local filtering for file manager
+  document.getElementById('file-search-input').addEventListener('input', (e) => {
+    if (lastFileData) renderFileEntries(lastFileData);
+  });
+
   function renderFileEntries(data) {
+    lastFileData = data;
+    const filterQ = document.getElementById('file-search-input').value.toLowerCase().trim();
     fileListEl.innerHTML = '';
-    // Parent directory
-    if (data.parent) {
+    
+    let entries = data.entries;
+    if (filterQ) {
+      entries = entries.filter(e => e.name.toLowerCase().includes(filterQ));
+    }
+    
+    // Parent directory (hide if filtering)
+    if (data.parent && !filterQ) {
       const up = document.createElement('div');
       up.className = 'file-item';
       up.innerHTML = ICON_FOLDER_SVG + '<span class="fi-name" style="color:var(--muted)">..</span>';
       up.addEventListener('click', () => loadFileList(data.parent));
       fileListEl.appendChild(up);
     }
-    for (const e of data.entries) {
+    for (const e of entries) {
       const isDir = e.type === 'dir';
       const fullPath = (data.path.endsWith('/') ? data.path.slice(0, -1) : data.path) + '/' + e.name;
       const item = document.createElement('div');
@@ -4579,6 +4879,7 @@
   // ---------- Sessions ----------
   function loadSession(id, cwd, events, permissionMode, model, active, engine) {
     state.sessionId = id;
+    window.currentSessionId = id;
     updateGitHeaderTitle();
     setStoredSessionId(state.currentNodeId, id);
     state.cwd = cwd || state.cwd;
@@ -4619,6 +4920,12 @@
       // writtenFiles may come AFTER the assistant_text that mentions them.
       linkifyAllTextBubbles();
     }
+    
+    // Force scroll to bottom on new session load
+    userIsScrolledUp = false;
+    hasNewUnseenMessages = false;
+    scrollToBottom(true);
+    
     // Historical events have turn_start without matching turn_end (server-only).
     // Default: assume idle. But if server says the session has an active run,
     // keep inTurn=true so the composer shows the Stop button + live events update the bubble.
@@ -4672,6 +4979,7 @@
       if (res.ok) {
         const data = await res.json();
         state.sessions = data.sessions || state.sessions;
+        window.__sessions = state.sessions;
         renderSessions();
         updateHeaderTitle();
       }
@@ -4686,8 +4994,10 @@
       if (!confirm('Delete this session?')) return;
       await fetch('/api/sessions/' + s.id, { method: 'DELETE' });
       state.sessions = state.sessions.filter(x => x.id !== s.id);
+      window.__sessions = state.sessions;
       if (state.sessionId === s.id) {
         state.sessionId = null;
+        window.currentSessionId = null;
         clearMessages();
         updateHeaderTitle();
       }
@@ -4702,6 +5012,29 @@
   function renderSessions() {
     els.sessionList.innerHTML = '';
     const q = state.sessionSearch.toLowerCase().trim();
+    
+    // --- Render Quick Sessions (top 10 recent) ---
+    const qsEl = document.getElementById('quick-sessions');
+    if (qsEl) {
+      const top10 = state.sessions.slice().sort((a, b) => (b.last_used_at || 0) - (a.last_used_at || 0)).slice(0, 10);
+      if (top10.length === 0) {
+        qsEl.style.display = 'none';
+      } else {
+        qsEl.style.display = 'flex';
+        qsEl.innerHTML = '';
+        for (const s of top10) {
+          const btn = document.createElement('button');
+          btn.className = 'quick-session-btn' + (s.id === state.sessionId ? ' active' : '');
+          btn.type = 'button';
+          btn.title = s.title || (s.pwd ? s.pwd.split(/[\\/]/).pop() : 'Untitled');
+          btn.textContent = s.title || (s.pwd ? s.pwd.split(/[\\/]/).pop() : 'Untitled');
+          btn.addEventListener('click', () => { if (s.id !== state.sessionId) send({ type: 'load_session', sessionId: s.id }); });
+          qsEl.appendChild(btn);
+        }
+      }
+    }
+    // ---------------------------------------------
+
     const visible = (q
       ? state.sessions.filter(s => (s.title || 'Untitled').toLowerCase().includes(q))
       : state.sessions.slice()
@@ -4965,17 +5298,21 @@
   btnSidebarPin.title = sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar';
 
   function updateSidebarLayout() {
-    const pinned = sidebarPinned && els.sidebar.classList.contains('open');
+    const isOpen = els.sidebar.classList.contains('open');
+    const pinned = sidebarPinned && isOpen;
     const app = document.getElementById('app');
     app.classList.toggle('sidebar-pinned', pinned);
     document.body.classList.toggle('sidebar-is-pinned', pinned);
+    document.body.classList.toggle('sidebar-open', isOpen);
     // When pinned: hide the overlay so chat remains interactive
     if (pinned) {
       els.sidebarBg.classList.remove('open');
-    } else if (els.sidebar.classList.contains('open')) {
+    } else if (isOpen) {
       els.sidebarBg.classList.add('open');
     }
-    if (pinned) {
+    // Always set --sidebar-w when sidebar is open (pinned OR overlay)
+    // so offset rules using var(--sidebar-w) have the correct value
+    if (isOpen) {
       const sw = els.sidebar.offsetWidth;
       document.documentElement.style.setProperty('--sidebar-w', sw + 'px');
     } else {
@@ -5067,6 +5404,41 @@
     }
     renderGit();
   });
+  // ── Sidebar resize (mirrors git/viewer pattern; desktop only) ────
+  function setSidebarWidth(w) {
+    els.sidebar.style.width = w + 'px';
+    document.documentElement.style.setProperty('--sidebar-w', w + 'px');
+  }
+  try {
+    const savedSw = localStorage.getItem('sidebar-width');
+    if (savedSw) { const w = parseInt(savedSw); if (w >= 180 && w <= 600) setSidebarWidth(w); }
+  } catch {}
+  let sidebarResizing = false, sidebarStartX = 0, sidebarStartW = 0;
+  function sidebarResizeStart(clientX) {
+    sidebarResizing = true; sidebarStartX = clientX; sidebarStartW = els.sidebar.offsetWidth;
+    els.sidebarResize.classList.add('dragging');
+    document.body.style.userSelect = 'none'; document.body.style.cursor = 'col-resize';
+  }
+  function sidebarResizeMove(clientX) {
+    if (!sidebarResizing) return;
+    // dir = 1 when sidebar right (handle on left edge), dir = -1 when left (handle on right edge)
+    const dir = document.body.classList.contains('layout-sidebar-right') ? 1 : -1;
+    const w = Math.min(600, Math.max(180, sidebarStartW + dir * (sidebarStartX - clientX)));
+    setSidebarWidth(w);
+  }
+  function sidebarResizeEnd() {
+    if (!sidebarResizing) return;
+    sidebarResizing = false;
+    els.sidebarResize.classList.remove('dragging');
+    document.body.style.userSelect = ''; document.body.style.cursor = '';
+    try { localStorage.setItem('sidebar-width', els.sidebar.offsetWidth + 'px'); } catch {}
+  }
+  els.sidebarResize.addEventListener('mousedown', (e) => { sidebarResizeStart(e.clientX); e.preventDefault(); });
+  document.addEventListener('mousemove', (e) => sidebarResizeMove(e.clientX));
+  document.addEventListener('mouseup', sidebarResizeEnd);
+  els.sidebarResize.addEventListener('touchstart', (e) => { sidebarResizeStart(e.touches[0].clientX); e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (sidebarResizing) sidebarResizeMove(e.touches[0].clientX); }, { passive: false });
+  document.addEventListener('touchend', sidebarResizeEnd);
 
   // ── Git panel resize (mirrors #viewer; desktop only) ────
   function setGitWidth(w) {
@@ -5657,7 +6029,17 @@
 
     function connect() {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      sock = new WebSocket(proto + '//' + location.host + '/term');
+
+      // Get the current active session parameters (CWD)
+      let cwdParam = '';
+      if (window.currentSessionId && window.__sessions) {
+        const session = window.__sessions.find(s => s.id === window.currentSessionId);
+        if (session && session.cwd) {
+          cwdParam = '?cwd=' + encodeURIComponent(session.cwd);
+        }
+      }
+
+      sock = new WebSocket(proto + '//' + location.host + '/term' + cwdParam);
       setStatus('connecting…');
       sock.onopen = () => { setStatus('connected'); fitAndResize(); term && term.focus(); };
       sock.onmessage = (ev) => {
@@ -5683,6 +6065,39 @@
       if (FitCtor) { fitAddon = new FitCtor(); term.loadAddon(fitAddon); }
       term.open(host);
       term.onData((d) => { if (sock && sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify({ t: 'i', d })); });
+
+      // Setup mobile keyboard click handlers (attaches only once per terminal creation)
+      const mobileKeysDiv = document.getElementById('terminal-mobile-keys');
+      if (mobileKeysDiv && !mobileKeysDiv.dataset.eventsAttached) {
+        mobileKeysDiv.dataset.eventsAttached = 'true';
+        const buttons = mobileKeysDiv.querySelectorAll('button');
+        buttons.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!sock || sock.readyState !== WebSocket.OPEN) return;
+
+            const key = btn.getAttribute('data-key');
+            let dataToSend = '';
+            if (key === 'esc') dataToSend = '\x1b';       // ASCII Escape
+            else if (key === 'tab') dataToSend = '\x09';  // ASCII Tab
+            else if (key === 'ctrlc') dataToSend = '\x03'; // ASCII Ctrl+C (Interrupt)
+            else if (key === 'ctrll') dataToSend = '\x0c'; // ASCII Ctrl+L (Clear screen)
+            else if (key === 'up') dataToSend = '\x1b[A';  // ANSI Up Arrow
+            else if (key === 'down') dataToSend = '\x1b[B';// ANSI Down Arrow
+            else if (key === 'right') dataToSend = '\x1b[C';// ANSI Right Arrow
+            else if (key === 'left') dataToSend = '\x1b[D'; // ANSI Left Arrow
+            else if (key === 'enter') dataToSend = '\r';    // Carriage Return
+            else if (key === 'slash') dataToSend = '/';
+            else if (key === 'dash') dataToSend = '-';
+
+            if (dataToSend) {
+              sock.send(JSON.stringify({ t: 'i', d: dataToSend }));
+              term.focus();
+            }
+          });
+        });
+      }
       return true;
     }
 
