@@ -4,10 +4,54 @@ import path from 'path';
 import { SESSIONS_DIR } from '../config.js';
 import { loadIndexEnriched, loadSessionEvents, loadIndex, saveIndex } from '../services/sessionStore.js';
 import { isAuthenticated } from '../services/authService.js';
+import { activeRuns, broadcast } from '../services/engineService.js';
 
 const router = express.Router();
 
+// Generate AI summary async inside the route
+function buildSessionSummary(sessionId) {
+  const f = path.join(SESSIONS_DIR, `${sessionId}.jsonl`);
+  if (!fs.existsSync(f)) return '';
+  let raw;
+  try { raw = fs.readFileSync(f, 'utf8'); } catch { return ''; }
+  const lines = raw.split('\n').filter(Boolean);
+  const userMsgs = [];
+  for (const line of lines) {
+    if (userMsgs.length >= 5) break;
+    let evt;
+    try { evt = JSON.parse(line); } catch { continue; }
+    if (evt.kind === 'user_message' && evt.text) {
+      userMsgs.push(evt.text.trim());
+    }
+  }
+  if (!userMsgs.length) return '';
+  const combined = userMsgs.join(' | ');
+  return combined.length > 200 ? combined.slice(0, 197) + '...' : combined;
+}
+
 router.get('/api/sessions', (req, res) => res.json(loadIndexEnriched()));
+
+router.get('/api/active-runs', (req, res) => {
+  const sessions = loadIndex();
+  const runs = [];
+  for (const [key, run] of activeRuns) {
+    if (run.status !== 'running') continue;
+    const meta = sessions.find(s => s.id === run.sessionId) || {};
+        const sid = run.sessionId || key;
+    runs.push({
+      sessionId: sid,
+      title: meta.title || 'Untitled',
+      engine: meta.engine || 'claude',
+      model: run.model || meta.model || 'unknown',
+      cwd: run.cwd,
+      startedAt: meta.last_used_at || Date.now(),
+      inputTokens: run.inputTokens || 0,
+      outputTokens: run.outputTokens || 0,
+      summary: run.sessionId ? buildSessionSummary(run.sessionId) : run.promptText?.slice(0, 200) || '',
+    });
+  }
+  res.json(runs);
+});
 
 router.get('/api/sessions/:id/events', (req, res) => res.json(loadSessionEvents(req.params.id)));
 

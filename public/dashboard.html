@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1a1b26" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" type="image/svg+xml" href="/icon.svg" />
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<title>Dashboard - Self Agent Orchestrator</title>
+<script>
+  (() => {
+    let t = 'tokyo-night';
+    try { t = localStorage.getItem('theme') || 'tokyo-night'; } catch {}
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<style>
+  :root {
+    --bg:          #1a1b26;
+    --bg-2:        #1f2335;
+    --bg-3:        #292e42;
+    --border:      #2f344d;
+    --text:        #c0caf5;
+    --text-strong: #d8e0ff;
+    --text-em:     #a9b1d6;
+    --muted:       #565f89;
+    --accent:      #7aa2f7;
+    --accent-2:    #6a8fe0;
+    --on-accent:   #16161e;
+    --success:     #9ece6a;
+    --error:       #f7768e;
+    --code-bg:     #16161e;
+  }
+  :root[data-theme="gruvbox"] {
+    --bg:          #282828;
+    --bg-2:        #32302f;
+    --bg-3:        #3c3836;
+    --border:      #504945;
+    --text:        #ebdbb2;
+    --text-strong: #fbf1c7;
+    --text-em:     #d5c4a1;
+    --muted:       #928374;
+    --accent:      #fabd2f;
+    --accent-2:    #d79921;
+    --on-accent:   #282828;
+    --success:     #b8bb26;
+    --error:       #fb4934;
+    --code-bg:     #1d2021;
+  }
+  :root[data-theme="nord"] {
+    --bg:          #2e3440;
+    --bg-2:        #333b48;
+    --bg-3:        #3b4252;
+    --border:      #434c5e;
+    --text:        #d8dee9;
+    --text-strong: #eceff4;
+    --text-em:     #c0c8d4;
+    --muted:       #7b88a1;
+    --accent:      #88c0d0;
+    --accent-2:    #81a1c1;
+    --on-accent:   #2e3440;
+    --success:     #a3be8c;
+    --error:       #bf616a;
+    --code-bg:     #272c36;
+  }
+  :root[data-theme="solarized"] {
+    --bg:          #002b36;
+    --bg-2:        #063844;
+    --bg-3:        #073642;
+    --border:      #11404d;
+    --text:        #93a1a1;
+    --text-strong: #cad4d4;
+    --text-em:     #839496;
+    --muted:       #586e75;
+    --accent:      #268bd2;
+    --accent-2:    #1a6fa8;
+    --on-accent:   #fdf6e3;
+    --success:     #859900;
+    --error:       #dc322f;
+    --code-bg:     #00212b;
+  }
+  :root[data-theme="daylight"] {
+    --bg:          #ffffff;
+    --bg-2:        #f4f5f7;
+    --bg-3:        #e7e9ed;
+    --border:      #b9bdc4;
+    --text:        #141414;
+    --text-strong: #000000;
+    --text-em:     #2e2e2e;
+    --muted:       #4d4d4d;
+    --accent:      #0b5cad;
+    --accent-2:    #08447f;
+    --on-accent:   #ffffff;
+    --success:     #1a7f37;
+    --error:       #cf222e;
+    --code-bg:     #eceef1;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'IBM Plex Sans', -apple-system, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  /* ─── Header ─────────────────────────────────────────── */
+  .header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 16px;
+    padding-top: env(safe-area-inset-top);
+    height: calc(48px + env(safe-area-inset-top));
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .header-back {
+    background: none; border: none; color: var(--muted);
+    width: 32px; height: 32px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; transition: background .12s, color .12s;
+  }
+  .header-back:hover { background: var(--bg-3); color: var(--text); }
+  .header h1 {
+    font-size: 14px; font-weight: 600; color: var(--text-strong);
+    flex: 1;
+  }
+  .header-count {
+    font-size: 12px; color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ─── Content area ───────────────────────────────────── */
+  .content {
+    flex: 1; overflow-y: auto; padding: 24px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bg-3) transparent;
+  }
+
+  /* ─── Card grid ──────────────────────────────────────── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    transition: border-color .15s, box-shadow .15s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 4px 16px rgba(0,0,0,.2);
+  }
+
+  .card-header {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin-bottom: 16px;
+  }
+  .card-pulse {
+    width: 10px; height: 10px;
+    background: var(--success);
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 4px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(158,206,106,.5); }
+    50% { opacity: .7; box-shadow: 0 0 0 6px rgba(158,206,106,0); }
+  }
+  .card-title {
+    font-size: 14px; font-weight: 600; color: var(--text-strong);
+    line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    flex: 1;
+  }
+
+  /* ─── Badges ─────────────────────────────────────────── */
+  .card-badges {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600; letter-spacing: .02em;
+    padding: 3px 8px; border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+  }
+  .badge-claude { background: rgba(122,162,247,.15); color: #7aa2f7; }
+  .badge-qwen   { background: rgba(187,154,247,.15); color: #bb9af7; }
+  .badge-codex  { background: rgba(158,206,106,.15); color: #9ece6a; }
+  .badge-kilo   { background: rgba(255,158,100,.15); color: #ff9e64; }
+  .badge-model  { background: var(--bg-3); color: var(--text-em); }
+
+  /* ─── Summary ──────────────────────────────────────── */
+  .card-summary {
+    font-size: 12px; color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  }
+
+  /* ─── Stats ──────────────────────────────────────────── */
+  .card-stats {
+    display: flex; gap: 20px;
+  }
+  .stat {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .stat-label {
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .stat-value {
+    font-size: 16px; font-weight: 600; color: var(--text-strong);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ─── Empty state ────────────────────────────────────── */
+  .empty {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; gap: 12px; color: var(--muted);
+    padding-bottom: 60px;
+  }
+  .empty svg { opacity: .4; }
+  .empty-text { font-size: 14px; }
+  .empty-hint { font-size: 12px; opacity: .6; }
+
+  /* ─── Responsive ─────────────────────────────────────── */
+  @media (max-width: 420px) {
+    .content { padding: 16px; }
+    .grid { grid-template-columns: 1fr; gap: 12px; }
+    .card { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <button class="header-back" onclick="location.href='/'" title="Back to chat" aria-label="Back to chat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <h1>Active Sessions</h1>
+    <span class="header-count" id="count"></span>
+  </div>
+  <div class="content">
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" style="display:none">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>
+      </svg>
+      <div class="empty-text">No active sessions</div>
+      <div class="empty-hint">Sessions will appear here when an agent is running.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+  const countEl = document.getElementById('count');
+  const cards = new Map();
+  const timers = new Map();
+
+  const MODEL_LABELS = {
+    opus: 'Opus 4.8', sonnet: 'Sonnet 4.6', haiku: 'Haiku 4.5',
+    'claude-opus-4-8': 'Opus 4.8', 'claude-sonnet-4-6': 'Sonnet 4.6', 'claude-haiku-4-5': 'Haiku 4.5',
+  };
+
+  function formatTokens(n) {
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+    if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k';
+    return String(n);
+  }
+
+  function formatDuration(ms) {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    if (h > 0) return `${h}h ${String(m % 60).padStart(2,'0')}m`;
+    return `${m}:${String(s % 60).padStart(2,'0')}`;
+  }
+
+  function createCard(run) {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.dataset.sid = run.sessionId;
+    el.onclick = () => { location.href = '/?session=' + encodeURIComponent(run.sessionId); };
+
+    const modelLabel = MODEL_LABELS[run.model] || run.model;
+    const engineClass = 'badge-' + (run.engine || 'claude');
+
+    el.innerHTML = `
+      <div class="card-header">
+        <div class="card-pulse"></div>
+        <div class="card-title">${escapeHtml(run.title || 'Untitled')}</div>
+      </div>
+      <div class="card-badges">
+        <span class="badge ${engineClass}">${escapeHtml(run.engine || 'claude')}</span>
+        <span class="badge badge-model">${escapeHtml(modelLabel)}</span>
+      </div>
+      ${run.summary ? `<div class="card-summary">${escapeHtml(run.summary)}</div>` : ''}
+      <div class="card-stats">
+        <div class="stat">
+          <div class="stat-label">Tokens</div>
+          <div class="stat-value" data-stat="tokens">${formatTokens((run.inputTokens || 0) + (run.outputTokens || 0))}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Duration</div>
+          <div class="stat-value" data-stat="duration">${formatDuration(Date.now() - run.startedAt)}</div>
+        </div>
+      </div>
+    `;
+
+    cards.set(run.sessionId, { el, run });
+    grid.appendChild(el);
+
+    const timer = setInterval(() => {
+      const durEl = el.querySelector('[data-stat="duration"]');
+      if (durEl) durEl.textContent = formatDuration(Date.now() - run.startedAt);
+    }, 1000);
+    timers.set(run.sessionId, timer);
+  }
+
+  function removeCard(sessionId) {
+    const c = cards.get(sessionId);
+    if (c) { c.el.remove(); cards.delete(sessionId); }
+    const t = timers.get(sessionId);
+    if (t) { clearInterval(t); timers.delete(sessionId); }
+  }
+
+  function updateCount() {
+    const n = cards.size;
+    countEl.textContent = n > 0 ? `${n} running` : '';
+    empty.style.display = n === 0 ? 'flex' : 'none';
+    grid.style.display = n === 0 ? 'none' : 'grid';
+  }
+
+  function updateTokens(sessionId, input, output) {
+    const c = cards.get(sessionId);
+    if (!c) return;
+    c.run.inputTokens = (c.run.inputTokens || 0) + (input || 0);
+    c.run.outputTokens = (c.run.outputTokens || 0) + (output || 0);
+    const tokEl = c.el.querySelector('[data-stat="tokens"]');
+    if (tokEl) tokEl.textContent = formatTokens(c.run.inputTokens + c.run.outputTokens);
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  async function loadInitial() {
+    try {
+      const res = await fetch('/api/active-runs');
+      if (!res.ok) return;
+      const runs = await res.json();
+      for (const r of runs) createCard(r);
+    } catch {}
+    updateCount();
+  }
+
+  function connectWs() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${proto}://${location.host}/ws`);
+    let currentSessionId = null;
+
+    ws.addEventListener('message', (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+
+      if (msg.kind === 'turn_start' && msg.session_id) {
+        currentSessionId = msg.session_id;
+        if (!cards.has(msg.session_id)) {
+          createCard({
+            sessionId: msg.session_id,
+            title: msg.session_id,
+            engine: 'claude',
+            model: msg.model || 'unknown',
+            startedAt: Date.now(),
+            inputTokens: 0,
+            outputTokens: 0,
+          });
+          updateCount();
+        }
+      }
+
+      if (msg.kind === 'session_persisted' && msg.sessions) {
+        for (const s of msg.sessions) {
+          const c = cards.get(s.id);
+          if (c) {
+            const titleEl = c.el.querySelector('.card-title');
+            if (titleEl) titleEl.textContent = s.title || 'Untitled';
+
+            const summaryEl = c.el.querySelector('.card-summary');
+            if (summaryEl && s.aiSummary) summaryEl.textContent = s.aiSummary;
+
+            c.run.title = s.title;
+            c.run.engine = s.engine;
+          }
+        }
+      }
+
+      if (msg.kind === 'turn_complete') {
+        const sid = msg.session_id || currentSessionId;
+        if (sid) {
+          updateTokens(sid, msg.input_tokens, msg.output_tokens);
+        }
+      }
+
+      if (msg.kind === 'turn_end') {
+        const sid = currentSessionId;
+        if (sid) {
+          setTimeout(() => {
+            removeCard(sid);
+            updateCount();
+          }, 2000);
+        }
+        currentSessionId = null;
+      }
+    });
+
+    ws.addEventListener('close', () => {
+      setTimeout(connectWs, 3000);
+    });
+  }
+
+  loadInitial();
+  connectWs();
+})();
+</script>
+</body>
+</html>

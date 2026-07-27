@@ -291,14 +291,14 @@
     transition: background .12s, color .12s;
   }
   #theme-toggle:hover { background: var(--bg-3); color: var(--text); }
-  #btn-terminal, #btn-global-search {
+  #btn-terminal, #btn-global-search, #btn-dashboard {
     background: none; border: none; color: var(--muted);
     width: 32px; height: 32px; cursor: pointer; flex: 0 0 auto;
     display: flex; align-items: center; justify-content: center;
     padding: 0; border-radius: 3px;
     transition: background .12s, color .12s;
   }
-  #btn-terminal:hover, #btn-global-search:hover { background: var(--bg-3); color: var(--text); }
+  #btn-terminal:hover, #btn-global-search:hover, #btn-dashboard:hover { background: var(--bg-3); color: var(--text); }
   #btn-terminal.active { color: var(--accent); }
   #btn-git {
     background: none; border: none; color: var(--muted);
@@ -2129,6 +2129,9 @@
     <div id="node-badge"></div>
     <button id="btn-global-search" type="button" title="Search conversations (⌘K)" aria-label="Search conversations">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </button>
+    <button id="btn-dashboard" type="button" title="Active Sessions Dashboard" aria-label="Dashboard" onclick="window.open('/dashboard.html','_blank')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     </button>
     <button id="btn-terminal" type="button" title="Terminal" aria-label="Open terminal">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>

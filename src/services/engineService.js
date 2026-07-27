@@ -357,7 +357,7 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
 
   const userEvent = { kind: 'user_message', text, timestamp: Date.now(), ...(savedImages.length > 0 ? { images: savedImages.map(s => ({ filename: s.filename, name: s.name, mime: s.mime, thumbData: s.thumbData })) } : {}) };
 
-  const run = { proc, status: 'running', cwd: currentCwd, perm: currentPerm, model: currentModel, promptText: text, sessionId: currentSessionId, isNew, bufferedEvents: [userEvent], subscribers: new Set([ws]), completedAt: null };
+  const run = { proc, status: 'running', cwd: currentCwd, perm: currentPerm, model: currentModel, promptText: text, sessionId: currentSessionId, isNew, bufferedEvents: [userEvent], subscribers: new Set([ws]), completedAt: null, inputTokens: 0, outputTokens: 0 };
   activeRuns.set(initialKey, run);
 
   if (currentSessionId) { appendSessionEvent(currentSessionId, userEvent); run.bufferedEvents = []; }
@@ -392,6 +392,10 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
     const normalized = engine.normalize(evt, run);
     const key = run.sessionId || initialKey;
     for (const n of normalized) {
+      if (n.kind === 'turn_complete') {
+        run.inputTokens += n.input_tokens || 0;
+        run.outputTokens += n.output_tokens || 0;
+      }
       if (n.kind === 'turn_complete' && typeof n.cost_usd === 'number' && run.sessionId) {
         const prev = (loadIndex().find(s => s.id === run.sessionId)?.totalCostUsd) || 0;
         upsertSessionMeta(run.sessionId, { totalCostUsd: prev + n.cost_usd });
