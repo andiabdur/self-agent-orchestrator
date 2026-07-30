@@ -5,7 +5,7 @@ import {
   CLAUDE_MODELS, ALL_NODES, NODE_NAME, VALID_PERMS, VALID_MODELS, 
   VALID_ENGINES, REMOTE_NODES 
 } from '../config.js';
-import { loadIndexEnriched, loadSessionEvents, loadIndex, upsertSessionMeta } from '../services/sessionStore.js';
+import { loadIndexPage, getSessionMetaEnriched, loadSessionEvents, loadIndex, upsertSessionMeta } from '../services/sessionStore.js';
 import { saveUploadedImage, MAX_IMAGES_PER_TURN } from '../utils/helpers.js';
 import { activeRuns, sendPromptClaude, sendPromptQwen, sendPromptCodex, sendPromptKilo, broadcast } from '../services/engineService.js';
 
@@ -31,7 +31,7 @@ wss.on('connection', (ws) => {
 
   const send = (obj) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); };
 
-  function buildHello() {
+  async function buildHello() {
     return {
       kind: 'hello',
       defaultCwd: DEFAULT_CWD,
@@ -39,7 +39,7 @@ wss.on('connection', (ws) => {
       defaultModel: DEFAULT_MODEL,
       defaultEngine: DEFAULT_ENGINE,
       claudeModels: CLAUDE_MODELS,
-      sessions: loadIndexEnriched(),
+      sessionPage: await loadIndexPage(0, 10),
       nodes: ALL_NODES.map(({ id, name }) => ({ id, name })),
       nodeId: 'local',
       nodeName: NODE_NAME,
@@ -99,7 +99,7 @@ wss.on('connection', (ws) => {
       currentNodeId = 'local';
       send({ kind: 'error', message: `Disconnected from ${nodeConfig.name}` });
       send({ kind: 'node_set', nodeId: 'local', name: NODE_NAME });
-      send(buildHello());
+      buildHello().then(send).catch(err => send({ kind: 'error', message: `Failed to load sessions: ${err.message}` }));
     });
 
     pws.on('error', (err) => {
@@ -120,7 +120,7 @@ wss.on('connection', (ws) => {
     return run;
   }
 
-  send(buildHello());
+  buildHello().then(send).catch(err => send({ kind: 'error', message: `Failed to load sessions: ${err.message}` }));
 
   ws.on('message', async (raw) => {
     let m;
@@ -131,7 +131,7 @@ wss.on('connection', (ws) => {
         closeProxy();
         currentNodeId = 'local';
         send({ kind: 'node_set', nodeId: 'local', name: NODE_NAME });
-        send(buildHello());
+        buildHello().then(send).catch(err => send({ kind: 'error', message: `Failed to load sessions: ${err.message}` }));
       } else {
         connectToNode(m.nodeId);
       }
@@ -144,6 +144,11 @@ wss.on('connection', (ws) => {
       } else {
         send({ kind: 'error', message: 'Not connected to remote node' });
       }
+      return;
+    }
+
+    if (m.type === 'load_sessions_page') {
+      send({ kind: 'session_page', ...await loadIndexPage(m.offset, m.limit) });
       return;
     }
 
@@ -179,7 +184,7 @@ wss.on('connection', (ws) => {
         active = !!run && run.status === 'running';
       }
 
-      send({ kind: 'session_loaded', sessionId: currentSessionId, cwd: currentCwd, permissionMode: currentPerm, model: currentModel, engine: currentEngine, events, active });
+      send({ kind: 'session_loaded', sessionId: currentSessionId, session: getSessionMetaEnriched(currentSessionId), cwd: currentCwd, permissionMode: currentPerm, model: currentModel, engine: currentEngine, events, active });
       return;
     }
 

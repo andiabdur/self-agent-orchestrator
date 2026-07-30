@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { SESSIONS_DIR } from '../config.js';
-import { loadIndexEnriched, loadSessionEvents, loadIndex, saveIndex } from '../services/sessionStore.js';
+import { loadIndexEnriched, loadIndexPage, getSessionMetaEnriched, loadSessionEvents, loadIndex, saveIndex } from '../services/sessionStore.js';
 import { isAuthenticated } from '../services/authService.js';
 import { activeRuns, broadcast } from '../services/engineService.js';
 
@@ -29,7 +29,12 @@ function buildSessionSummary(sessionId) {
   return combined.length > 200 ? combined.slice(0, 197) + '...' : combined;
 }
 
-router.get('/api/sessions', (req, res) => res.json(loadIndexEnriched()));
+router.get('/api/sessions', async (req, res) => {
+  if ('offset' in req.query || 'limit' in req.query) {
+    return res.json(await loadIndexPage(req.query.offset, req.query.limit));
+  }
+  res.json(loadIndexEnriched());
+});
 
 router.get('/api/active-runs', (req, res) => {
   const sessions = loadIndex();
@@ -69,8 +74,12 @@ router.patch('/api/sessions/:id', (req, res) => {
   const i = list.findIndex(s => s.id === req.params.id);
   if (i < 0) return res.status(404).json({ error: 'not found' });
   list[i].title = title;
+  list[i].titleManual = true;
+  delete list[i].autoTitle;
+  delete list[i].autoTitleHash;
+  delete list[i].autoTitleUpdatedAt;
   saveIndex(list);
-  res.json({ ok: true, sessions: list });
+  res.json({ ok: true, session: getSessionMetaEnriched(req.params.id) });
 });
 
 router.get('/api/sessions/search', (req, res) => {

@@ -1,0 +1,36 @@
+# Ignore data files
+*.geojson
+*.json
+!graph.json
+!manifest.json
+*.db
+*.sqlite
+*.sql
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore environment/secret files
+.env
+.env.*
+*.bak
+*backup*
+
+# Ignore dependencies
+node_modules/
+venv/
+.venv/
+.git/
+.claude/
+graphify-out/
+
+# Ignore docs and images to make it a code-only corpus (no API key needed)
+docs/
+*.md
+public/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg

@@ -1603,6 +1603,16 @@
     font-size: 13px; font-weight: 400; color: var(--text-strong);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  .session-title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .session-badge {
+    margin-left: 5px; padding: 1px 4px; border-radius: 2px;
+    font-size: 9px; line-height: 1.2; font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted); background: var(--bg-3); border: 1px solid var(--border);
+    text-transform: uppercase; letter-spacing: .03em; flex-shrink: 0;
+  }
+  .session-badge.ai { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+  .session-badge.manual { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, var(--border)); }
+  .session-badge.stale, .session-badge.fallback { color: var(--tool); border-color: color-mix(in srgb, var(--tool) 45%, var(--border)); }
   .session-weight {
     margin-top: 3px; font-size: 10.5px;
     font-family: 'IBM Plex Mono', monospace;
@@ -1613,6 +1623,23 @@
   .session-meta {
     font-size: 11px; color: var(--muted); margin-top: 2px;
     font-family: 'IBM Plex Mono', monospace;
+  }
+  .session-preview {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .session-list-status {
+    padding: 10px 8px 12px;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    text-align: center;
   }
   .session-action {
     background: none; border: none; color: var(--muted);
@@ -2718,6 +2745,11 @@
   const state = {
     sessionId: null,
     sessions: [],
+    sessionTotal: 0,
+    sessionsNextOffset: 0,
+    sessionsHasMore: false,
+    sessionsLoading: false,
+    sessionPageSize: 10,
     sessionSearch: '',
     searchOpen: false,
     searchJumpQuery: null,
@@ -2851,6 +2883,37 @@
     }
   }
 
+  function applySessionPage(page, { reset = false } = {}) {
+    const incoming = Array.isArray(page?.sessions) ? page.sessions : [];
+    const existing = reset ? [] : state.sessions;
+    const byId = new Map(existing.map(s => [s.id, s]));
+    for (const s of incoming) byId.set(s.id, s);
+    state.sessions = Array.from(byId.values()).sort((a, b) => (b.last_used_at || 0) - (a.last_used_at || 0));
+    state.sessionTotal = Number.isFinite(page?.total) ? page.total : state.sessions.length;
+    const pageOffset = Number.isFinite(page?.offset) ? page.offset : (reset ? 0 : state.sessionsNextOffset);
+    state.sessionsNextOffset = pageOffset + incoming.length;
+    state.sessionsHasMore = !!page?.hasMore;
+    state.sessionsLoading = false;
+    window.__sessions = state.sessions;
+  }
+
+  function upsertSessionInList(session) {
+    if (!session?.id) return;
+    const i = state.sessions.findIndex(s => s.id === session.id);
+    if (i >= 0) state.sessions[i] = session;
+    else state.sessions.unshift(session);
+    state.sessions.sort((a, b) => (b.last_used_at || 0) - (a.last_used_at || 0));
+    if (state.sessionTotal < state.sessions.length) state.sessionTotal = state.sessions.length;
+    window.__sessions = state.sessions;
+  }
+
+  function requestNextSessionPage() {
+    if (state.sessionsLoading || !state.sessionsHasMore || state.sessionSearch.trim()) return;
+    state.sessionsLoading = true;
+    renderSessions();
+    send({ type: 'load_sessions_page', offset: state.sessionsNextOffset, limit: state.sessionPageSize });
+  }
+
   // ---------- Event handler ----------
   function handle(m) {
     switch (m.kind) {
@@ -2860,8 +2923,8 @@
         state.model = m.defaultModel || 'sonnet';
         state.engine = m.defaultEngine || 'claude';
         if (Array.isArray(m.claudeModels) && m.claudeModels.length) state.claudeModels = m.claudeModels;
-        state.sessions = m.sessions || [];
-        window.__sessions = state.sessions;
+        if (m.sessionPage) applySessionPage(m.sessionPage, { reset: true });
+        else applySessionPage({ sessions: m.sessions || [], total: (m.sessions || []).length, hasMore: false }, { reset: true });
         els.cwdInput.value = state.cwd;
         els.permSelect.value = state.permissionMode;
         if (state.engine === 'codex') els.modelSelect.innerHTML = codexModelOptionsHtml(state.model || 'gpt-5-codex');
@@ -2912,6 +2975,10 @@
         refreshFileList(state.cwd);
         refreshGit(state.cwd);
         break;
+      case 'session_page':
+        applySessionPage(m);
+        renderSessions();
+        break;
       case 'node_connecting':
         state.currentNodeId = m.nodeId;
         state.currentNodeName = m.name;
@@ -2937,6 +3004,7 @@
           // If a real session loaded, clear any stored tempSessionId
           setStoredTempSessionId(state.currentNodeId, null);
         }
+        if (m.session) upsertSessionInList(m.session);
         loadSession(m.sessionId, m.cwd, m.events, m.permissionMode, m.model, m.active, m.engine);
         refreshFileList(m.cwd);
         refreshGit(m.cwd);
@@ -2944,12 +3012,11 @@
       case 'session_persisted':
         state.sessionId = m.sessionId;
         window.currentSessionId = m.sessionId;
-        window.__sessions = state.sessions;
         updateGitHeaderTitle();
         setStoredSessionId(state.currentNodeId, m.sessionId);
         setStoredTempSessionId(state.currentNodeId, null); // Clear temp ID once persisted
-        state.sessions = m.sessions || state.sessions;
-        window.__sessions = state.sessions;
+        if (m.session) upsertSessionInList(m.session);
+        else if (m.sessions) applySessionPage({ sessions: m.sessions, total: m.sessions.length, hasMore: false }, { reset: true });
         renderSessions();
         updateHeaderTitle();
         break;
@@ -4955,11 +5022,29 @@
       ? '$' + s.totalCostUsd.toFixed(s.totalCostUsd < 0.1 ? 4 : 2)
       : '';
     const weight = [costLabel, tkLabel].filter(Boolean).join(' · ');
+    const preview = (s.chatPreview || '').trim();
     const isRunning = state.activeSessions.has(s.id);
     const runningDot = isRunning ? '<span class="session-running-dot" title="Running…"></span>' : '';
+    const titleSource = s.titleEdited ? 'manual' : (s.titleSource || '');
+    const titleBadge = titleSource === 'manual'
+      ? '<span class="session-badge manual" title="Judul sudah diedit manual">edit</span>'
+      : (titleSource === 'ai' || titleSource === 'stale-auto')
+        ? `<span class="session-badge ${titleSource === 'ai' ? 'ai' : 'stale'}" title="${titleSource === 'ai' ? 'Judul dibuat AI' : 'Judul AI lama, menunggu refresh'}">${titleSource === 'ai' ? 'ai' : 'stale'}</span>`
+        : '';
+    const previewSource = s.chatPreviewSource || '';
+    const previewBadge = preview
+      ? (previewSource === 'ai'
+        ? '<span class="session-badge ai" title="Preview dibuat AI">ai</span>'
+        : (previewSource === 'stale-cache'
+          ? '<span class="session-badge stale" title="Preview AI lama, menunggu refresh">stale</span>'
+          : (previewSource === 'fallback'
+            ? '<span class="session-badge fallback" title="Fallback dari transcript karena belum ada summary AI">raw</span>'
+            : '')))
+      : '';
     text.innerHTML = `
-      <div class="session-title-row">${runningDot}${escapeHtml(s.title || 'Untitled')}</div>
+      <div class="session-title-row">${runningDot}<span class="session-title-text">${escapeHtml(s.title || 'Untitled')}</span>${titleBadge}</div>
       <div class="session-meta">${timeAgo(s.last_used_at)} · ${shortCwd(s.cwd)}</div>
+      ${preview ? `<div class="session-preview">${escapeHtml(preview)} ${previewBadge}</div>` : ''}
       ${weight ? `<div class="session-weight ${heavy}">${weight}</div>` : ''}
     `;
     text.addEventListener('click', () => {
@@ -4981,8 +5066,8 @@
       });
       if (res.ok) {
         const data = await res.json();
-        state.sessions = data.sessions || state.sessions;
-        window.__sessions = state.sessions;
+        if (data.session) upsertSessionInList(data.session);
+        else if (data.sessions) applySessionPage({ sessions: data.sessions, total: data.sessions.length, hasMore: false }, { reset: true });
         renderSessions();
         updateHeaderTitle();
       }
@@ -5015,7 +5100,7 @@
   function renderSessions() {
     els.sessionList.innerHTML = '';
     const q = state.sessionSearch.toLowerCase().trim();
-    
+
     // --- Render Quick Sessions (top 10 recent) ---
     const qsEl = document.getElementById('quick-sessions');
     if (qsEl) {
@@ -5045,12 +5130,24 @@
     if (!visible.length) {
       const e = document.createElement('div');
       e.style.cssText = 'padding:20px;color:var(--muted);font-size:12px;text-align:center;';
-      e.textContent = q ? 'No sessions match' : 'No sessions yet';
+      e.textContent = q ? 'No loaded sessions match' : 'No sessions yet';
       els.sessionList.appendChild(e);
+      if (q && state.sessionsHasMore) {
+        const hint = document.createElement('div');
+        hint.className = 'session-list-status';
+        hint.textContent = 'Scroll without search to load older sessions.';
+        els.sessionList.appendChild(hint);
+      }
       return;
     }
     for (const s of visible) {
       els.sessionList.appendChild(buildSessionItem(s));
+    }
+    if (!q && (state.sessionsLoading || state.sessionsHasMore)) {
+      const more = document.createElement('div');
+      more.className = 'session-list-status';
+      more.textContent = state.sessionsLoading ? 'Loading more sessions…' : `Scroll for more (${state.sessions.length}/${state.sessionTotal || '?'})`;
+      els.sessionList.appendChild(more);
     }
   }
 
@@ -5718,6 +5815,11 @@
   els.sessionSearch.addEventListener('input', () => {
     state.sessionSearch = els.sessionSearch.value;
     renderSessions();
+  });
+
+  els.sessionList.addEventListener('scroll', () => {
+    const remaining = els.sessionList.scrollHeight - els.sessionList.scrollTop - els.sessionList.clientHeight;
+    if (remaining < 80) requestNextSessionPage();
   });
 
   // ---------- Global conversation search (body panel) ----------

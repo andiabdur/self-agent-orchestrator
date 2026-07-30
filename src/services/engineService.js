@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import { isWin, CLAUDE_BIN, QWEN_BIN, CODEX_BIN, KILO_BIN } from '../config.js';
-import { appendSessionEvent, loadIndex, upsertSessionMeta, loadIndexEnriched } from './sessionStore.js';
+import { appendSessionEvent, loadIndex, upsertSessionMeta, getSessionMetaEnriched } from './sessionStore.js';
 
 export const activeRuns = new Map();
 
@@ -386,7 +386,7 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
       run.bufferedEvents = [];
       const title = run.isNew ? run.promptText.split('\n')[0].slice(0, 60) : undefined;
       upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: engine.name, model: run.model, ...(title ? { title } : {}) });
-      broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() });
+      broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, session: getSessionMetaEnriched(run.sessionId) });
     }
 
     const normalized = engine.normalize(evt, run);
@@ -418,7 +418,7 @@ async function runEngine(engine, ws, text, savedImages, currentCwd, currentPerm,
     run.status = 'done'; run.completedAt = Date.now();
     const key = run.sessionId || initialKey;
     if (code !== 0 && code !== null) broadcast(key, { kind: 'error', message: `${engine.name} exited with code ${code}${stderrBuf ? ': ' + stderrBuf.slice(0, 500) : ''}` });
-    if (run.sessionId) { upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: engine.name, model: run.model }); broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, sessions: loadIndexEnriched() }); }
+    if (run.sessionId) { upsertSessionMeta(run.sessionId, { cwd: run.cwd, permissionMode: run.perm, engine: engine.name, model: run.model }); broadcast(run.sessionId, { kind: 'session_persisted', sessionId: run.sessionId, session: getSessionMetaEnriched(run.sessionId) }); }
     broadcast(key, { kind: 'turn_end' });
   });
 

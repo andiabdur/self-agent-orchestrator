@@ -217,6 +217,9 @@ export const REMOTE_NODES = (() => {
 })();
 export const ALL_NODES = [{ id: 'local', name: NODE_NAME }, ...REMOTE_NODES];
 
+export const SESSION_SUMMARY_BASE_URL = process.env.SESSION_SUMMARY_BASE_URL || 'http://localhost:20128/v1';
+export const SESSION_SUMMARY_API_KEY = process.env.SESSION_SUMMARY_API_KEY || '';
+export const SESSION_SUMMARY_MODEL = process.env.SESSION_SUMMARY_MODEL || 'Antigravity/gemini-3.5-flash-high';
 export const STATE_DIR = process.env.STATE_DIR || path.join(os.homedir(), '.self-agent-orchestrator');
 export const SESSIONS_DIR = path.join(STATE_DIR, 'sessions');
 export const SESSIONS_INDEX = path.join(STATE_DIR, 'sessions.json');

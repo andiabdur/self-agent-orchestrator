@@ -35,20 +35,40 @@ function defaultShell() {
   return process.env.SHELL || '/bin/zsh';
 }
 
-termWss.on('connection', (ws) => {
+termWss.on('connection', (ws, req) => {
   const pty = loadPty();
   if (!pty) {
     try { ws.send(JSON.stringify({ t: 'o', d: '\r\n\x1b[31mTerminal unavailable: node-pty failed to load.\x1b[0m\r\n' })); } catch {}
     ws.close();
     return;
   }
+
+  let requestCwd = DEFAULT_CWD;
+  try {
+    if (req && req.url) {
+      const url = new URL(req.url, 'http://localhost');
+      const queryCwd = url.searchParams.get('cwd');
+      if (queryCwd) {
+        // Resolve ~ to HOME if necessary
+        const resolvedCwd = queryCwd.startsWith('~/')
+             ? path.join(process.env.HOME || process.env.USERPROFILE || '', queryCwd.slice(2))
+             : (queryCwd === '~' ? (process.env.HOME || process.env.USERPROFILE || '') : queryCwd);
+        if (fs.existsSync(resolvedCwd) && fs.statSync(resolvedCwd).isDirectory()) {
+          requestCwd = resolvedCwd;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[term] Failed to parse cwd from request:', err.message);
+  }
+
   let term;
   try {
     term = pty.spawn(defaultShell(), [], {
       name: 'xterm-color',
       cols: 80,
       rows: 24,
-      cwd: DEFAULT_CWD,
+      cwd: requestCwd,
       env: { ...process.env, TERM: 'xterm-256color' },
     });
   } catch (err) {
