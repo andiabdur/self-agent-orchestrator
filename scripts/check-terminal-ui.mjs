@@ -4,6 +4,11 @@ const html = fs.readFileSync('public/index.html', 'utf8');
 
 const requiredSnippets = [
   'id="terminal-shell"',
+  'id="terminal-tabs"',
+  'id="terminal-select"',
+  'id="terminal-select-label"',
+  'id="terminal-menu"',
+  'id="terminal-new-btn"',
   'id="terminal-status-dot"',
   'id="terminal-cwd"',
   'id="terminal-keystrip"',
@@ -28,6 +33,19 @@ const requiredSnippets = [
   'function sendTerminalInput(data)',
   'function updateModifierButtons()',
   'function setTerminalCwdLabel()',
+  'const terminalSessions = new Map();',
+  'function createTerminalSession()',
+  'function switchTerminalSession(id)',
+  'function closeTerminalSession(id)',
+  'function renderTerminalTabs()',
+  'function updateTerminalSelectorMode()',
+  'function renderTerminalMenu(session)',
+  'function setTerminalMenuOpen(open)',
+  'terminal-use-select',
+  'terminal-menu-open',
+  '#terminal-new-btn, #terminal-pin-btn, #terminal-close-btn',
+  'flex: 0 0 34px',
+  'order: 1',
   'localStorage.setItem(\'terminal-height\'',
   'panel.classList.toggle(\'dragging\'',
 ];
@@ -47,6 +65,16 @@ if (/function closeTerminal\(\) \{[\s\S]*?term\.dispose\(\)/.test(html)) {
 
 if (!html.includes('fontSize: window.matchMedia(\'(max-width: 700px)\').matches ? 14 : 13')) {
   console.error('Terminal font size must be larger on mobile.');
+  failed = true;
+}
+
+const pinButtonMatch = html.match(/<button id="terminal-pin-btn"[\s\S]*?<\/button>/);
+if (!pinButtonMatch || !pinButtonMatch[0].includes('<svg')) {
+  console.error('Terminal pin button must use an inline SVG icon.');
+  failed = true;
+}
+if (pinButtonMatch && /📌|📍|🧷/.test(pinButtonMatch[0])) {
+  console.error('Terminal pin button must not use emoji icons.');
   failed = true;
 }
 

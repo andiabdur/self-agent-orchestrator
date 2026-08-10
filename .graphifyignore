@@ -25,10 +25,7 @@ venv/
 .claude/
 graphify-out/
 
-# Ignore docs and images to make it a code-only corpus (no API key needed)
-docs/
-*.md
-public/
+# Allow docs and frontend code, only ignore images
 *.png
 *.jpg
 *.jpeg
